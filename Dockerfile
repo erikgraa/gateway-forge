@@ -8,7 +8,7 @@ COPY . .
 RUN npm run build
 
 # Self-contained runtime: static files + nginx, no Node, no outbound calls, runs as non-root.
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.31-alpine
 ARG VERSION=dev
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="Gateway Forge" \
