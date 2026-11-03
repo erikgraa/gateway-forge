@@ -70,7 +70,7 @@ jobs:
           d=$(date -u +%Y%m%d)
           echo "tags=${IMAGE}:nightly,${IMAGE}:nightly-${d},${IMAGE}:latest,${IMAGE}:sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
           echo "version=nightly-${d}" >> "$GITHUB_OUTPUT"
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
