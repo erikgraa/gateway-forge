@@ -76,6 +76,17 @@ A static web page **cannot** open a TLS connection to read a remote server's cer
    - Endpoints: `GET /ping` and `GET /thumbprint?host=cs01.corp.local&port=443`. It returns only the certificate's public fingerprints and subject; it stores and logs nothing.
    - The app works fully without it. (Safari blocks `https` pages talking to `http://127.0.0.1`; use the paste or PowerShell route there.)
 
+## 🐳 Container
+
+A self-contained image (static files + nginx, non-root, no outbound calls, strict CSP) is built nightly at 02:30 UTC by [container.yml](.github/workflows/container.yml), after type-check, tests and a Lifecycle Matrix comparison pass, and published as multi-arch (amd64/arm64) to GitHub Container Registry:
+
+```bash
+docker run --rm -p 8080:8080 ghcr.io/erikgraa/gateway-forge:nightly
+# then open http://localhost:8080
+```r
+
+Tags: `nightly` / `latest` (newest build), `nightly-YYYYMMDD` and `sha-<commit>` (pin these for reproducibility). Build locally with `docker build -t gateway-forge .`. The optional [thumbprint helper](helper/gateway-forge-helper.mjs) still runs on your host (`node helper/gateway-forge-helper.mjs --origin http://localhost:8080`).
+
 ## 🛠️ Develop
 
 ```bash
