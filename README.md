@@ -81,11 +81,16 @@ A static web page **cannot** open a TLS connection to read a remote server's cer
 A self-contained image (static files + nginx, non-root, no outbound calls, strict CSP) is built nightly at 02:30 UTC by [container.yml](.github/workflows/container.yml), after type-check, tests and a Lifecycle Matrix comparison pass, and published as multi-arch (amd64/arm64) to GitHub Container Registry:
 
 ```bash
+# Docker
 docker run --rm -p 8080:8080 ghcr.io/erikgraa/gateway-forge:nightly
+
+# Podman (rootless works; the image runs as a non-root user)
+podman run --rm -p 8080:8080 ghcr.io/erikgraa/gateway-forge:nightly
+
 # then open http://localhost:8080
 ```r
 
-Tags: `nightly` / `latest` (newest build), `nightly-YYYYMMDD` and `sha-<commit>` (pin these for reproducibility). Build locally with `docker build -t gateway-forge .`. The optional [thumbprint helper](helper/gateway-forge-helper.mjs) still runs on your host (`node helper/gateway-forge-helper.mjs --origin http://localhost:8080`).
+Tags: `nightly` / `latest` (newest build), `nightly-YYYYMMDD` and `sha-<commit>` (pin these for reproducibility). Build locally with `docker build -t gateway-forge .` or `podman build -t gateway-forge .`. The optional [thumbprint helper](helper/gateway-forge-helper.mjs) still runs on your host (`node helper/gateway-forge-helper.mjs --origin http://localhost:8080`).
 
 ## 🛠️ Develop
 
