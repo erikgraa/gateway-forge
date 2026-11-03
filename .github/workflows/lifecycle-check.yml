@@ -13,7 +13,7 @@ jobs:
   lifecycle:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Compare supported UAG versions with the Omnissa Lifecycle Matrix
         env:
           GH_TOKEN: ${{ github.token }}
