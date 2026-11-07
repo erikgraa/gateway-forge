@@ -122,7 +122,7 @@
     <OutputPanel />
   </main>
 
-  <footer class="site-footer" role="contentinfo">
+  <footer class="site-footer">
     <strong>Gateway Forge is a community-driven, unofficial tool.</strong>
     It is <strong>not affiliated with, endorsed by, or supported by Omnissa</strong>. Omnissa, Unified Access Gateway, UAG and Horizon are trademarks of their respective owners. Always review generated configuration before deploying it, and refer to the official Omnissa documentation.
     <a href="https://github.com/erikgraa/gateway-forge" target="_blank" rel="noopener noreferrer">Source on GitHub</a> · MIT license
