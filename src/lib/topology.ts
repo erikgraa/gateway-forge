@@ -1,6 +1,7 @@
 import type { Config } from './model';
 import { FORWARD_FLAGS, cascadeRole } from './cascade';
-import { collectBlocks } from './generate';
+import { collectBlocks, platformScript } from './generate';
+import { runtimeSwitches } from './powershell';
 import type { Issue } from './validate';
 import { platformDef } from './versions';
 
@@ -74,6 +75,9 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   if (v.ip1) L.push(`- **NIC1:** ${v.ip1}`);
   if (v.dns) L.push(`- **DNS:** ${v.dns}`);
   if (v.ntpServers) L.push(`- **NTP:** ${v.ntpServers}`);
+  L.push('', '## Deployment', '');
+  L.push(`- Run: \`${platformScript(c)} -iniFile <file>.ini${runtimeSwitches(c)}\``);
+  L.push('- Root and admin passwords are read at deploy time (prompt, or `-rootPwd` / `-adminPwd`); they are not part of the INI.');
   L.push('', '## Edge services', '');
   if (cascadeRole(v) === 'outer') L.push(`- **Cascade - outer UAG (DMZ 1)** reverse proxy → ${v.cascade_innerUrl || '(not set)'}`);
   if (cascadeRole(v) === 'inner') L.push('- **Cascade - inner UAG (DMZ 2)**: Horizon external URLs must point to the outer UAG');

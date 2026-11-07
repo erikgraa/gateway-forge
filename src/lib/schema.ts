@@ -37,7 +37,8 @@ export type Target =
   | 'securid'
   | 'certauth'
   | 'proxy'
-  | 'cascade';
+  | 'cascade'
+  | 'runtime';
 
 export interface Option {
   value: string;
@@ -361,6 +362,27 @@ export const GROUPS: GroupDef[] = [
         showIf: (v) => String(v.deploymentOption).startsWith('threenic')
       }),
       text('defaultGateway', 'Default gateway', 'defaultGateway', { rule: 'ipv4', platforms: vsphereHyperv, placeholder: '192.0.2.1' })
+    ]
+  },
+  {
+    id: 'runtime',
+    title: 'Run-time options (uagdeploy.ps1)',
+    section: 'network',
+    target: 'runtime',
+    iniSection: 'Runtime',
+    help: 'Not INI settings: these are passed on the uagdeploy command line and only affect the PowerShell output. Passwords are never part of the INI or stored here: the root and admin passwords are read at deploy time, either via prompts or with -rootPwd "<root_password>" -adminPwd "<admin_password>" (minimum 8 characters; 14 for a FIPS appliance). The PowerShell tab shows both forms.',
+    fields: [
+      bool('run_noSSLVerify', 'Skip SSL/TLS certificate verification (-noSSLVerify)', 'run_noSSLVerify', false, {
+        wide: true,
+        json: false,
+        help: 'Disables SSL/TLS certificate verification in the deployment script. Use only in labs or with self-signed endpoints you trust.'
+      }),
+      bool('run_disableVerification', 'Skip OVA/OVF signature verification (-disableVerification)', 'run_disableVerification', false, {
+        wide: true,
+        json: false,
+        platforms: ['vsphere'],
+        help: 'vSphere only. Skips validating the digital signature and certificate chain embedded in the source OVA/OVF during import.'
+      })
     ]
   },
   {
