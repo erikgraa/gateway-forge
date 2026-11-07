@@ -3,6 +3,7 @@ import { defaultConfig, applyPatch } from './model';
 import { collectBlocks, generateIni, generateJson, generateJsonObject, SECRET_PLACEHOLDER } from './generate';
 import { TEMPLATES } from './templates';
 import { generatePowerShell } from './powershell';
+import { validateConfig } from './validate';
 
 const radiusMfa = () => TEMPLATES.find((t) => t.id === 'horizon-radius')!.build(defaultConfig());
 
@@ -130,6 +131,35 @@ describe('JSON generation', () => {
   it('serialises list-like settings as arrays', () => {
     const c = applyPatch(radiusMfa(), { values: { cipherSuites: 'TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384' } });
     expect((generateJsonObject(c) as any).systemSettings.cipherSuites).toEqual(['TLS_AES_128_GCM_SHA256', 'TLS_AES_256_GCM_SHA384']);
+  });
+});
+
+describe('run-time options', () => {
+  it('adds -noSSLVerify / -disableVerification to the deploy commands, not the INI', () => {
+    const c = applyPatch(radiusMfa(), { values: { run_noSSLVerify: true, run_disableVerification: true } });
+    const ps = generatePowerShell(c);
+    expect(ps).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini -noSSLVerify -disableVerification');
+    expect(ps).toMatch(/-adminPwd \(& \$plain \$adminPwd\) -noSSLVerify -disableVerification/);
+    expect(ps).toContain('-rootPwd / -adminPwd are read at deploy time');
+    expect(generateIni(c)).not.toMatch(/noSSLVerify|disableVerification|Runtime/);
+    expect(JSON.stringify(generateJsonObject(c))).not.toMatch(/SSLVerify|disableVerification/);
+  });
+  it('-disableVerification is vSphere only', () => {
+    const v = { run_noSSLVerify: true, run_disableVerification: true };
+    const hv = generatePowerShell(applyPatch(radiusMfa(), { platform: 'hyperv', values: v }));
+    expect(hv).toContain('-noSSLVerify');
+    expect(hv).not.toContain('-disableVerification');
+    const az = generatePowerShell(applyPatch(radiusMfa(), { platform: 'azure', values: v }));
+    expect(az).toContain('.\\uagdeployaz.ps1 .\\uag-dmz-01.ini -noSSLVerify');
+    expect(az).not.toContain('-disableVerification');
+  });
+  it('is off by default and linted when enabled', () => {
+    expect(generatePowerShell(radiusMfa())).not.toContain('-noSSLVerify');
+    const c = applyPatch(radiusMfa(), { values: { run_noSSLVerify: true, run_disableVerification: true } });
+    const m = validateConfig(c).map((i) => i.message).join('\n');
+    expect(m).toMatch(/-noSSLVerify is on/);
+    expect(m).toMatch(/-disableVerification is on/);
+    expect(validateConfig(applyPatch(c, { platform: 'hyperv' })).map((i) => i.message).join('\n')).not.toMatch(/-disableVerification is on/);
   });
 });
 

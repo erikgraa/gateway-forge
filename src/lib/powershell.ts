@@ -4,12 +4,21 @@ import { platformDef } from './versions';
 
 const psq = (s: string) => `'${s.replace(/'/g, "''")}'`;
 
+/** Run-time switches for the deploy script (not INI settings). */
+export function runtimeSwitches(c: Config): string {
+  let s = '';
+  if (c.values.run_noSSLVerify === true) s += ' -noSSLVerify';
+  if (c.platform === 'vsphere' && c.values.run_disableVerification === true) s += ' -disableVerification';
+  return s;
+}
+
 /** PowerShell that writes the INI and runs the deployment script. */
 export function generatePowerShell(c: Config, mode: SecretMode = 'placeholder'): string {
   const ini = generateIni(c, { secrets: mode });
   const file = iniFileName(c);
   const script = platformScript(c);
   const def = platformDef(c.platform);
+  const sw = runtimeSwitches(c);
   const out: string[] = [
     `# Gateway Forge - UAG ${c.version} on ${def.label}`,
     `# Prerequisites: extract the uagdeploy scripts from the Omnissa Customer Connect download`,
@@ -24,15 +33,15 @@ export function generatePowerShell(c: Config, mode: SecretMode = 'placeholder'):
   ];
   if (mode === 'placeholder' && ini.includes('<REDACTED>')) out.push('# Replace every <REDACTED> value in the INI before deploying.', '');
   out.push(`# 2a. Interactive deployment (prompts for the root and admin passwords)`);
-  out.push(c.platform === 'azure' ? `.\\${script} .\\${file}` : `.\\${script} -iniFile .\\${file}`, '');
-  out.push(`# 2b. Non-interactive deployment`);
+  out.push((c.platform === 'azure' ? `.\\${script} .\\${file}` : `.\\${script} -iniFile .\\${file}`) + sw, '');
+  out.push(`# 2b. Non-interactive deployment: -rootPwd / -adminPwd are read at deploy time and are never stored in the INI (min 8 characters; 14 for FIPS)`);
   out.push(`$rootPwd  = Read-Host 'UAG root password'  -AsSecureString`);
   out.push(`$adminPwd = Read-Host 'UAG admin password' -AsSecureString`);
   out.push(`$plain = { param($s) [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s)) }`);
   if (def.nonInteractive === 'positional') {
-    out.push(`.\\${script} .\\${file} (& $plain $rootPwd) (& $plain $adminPwd) no   # <ceip-yes-no> is the last argument`);
+    out.push(`.\\${script} .\\${file} (& $plain $rootPwd) (& $plain $adminPwd) no${sw}   # <ceip-yes-no> follows the passwords`);
   } else {
-    out.push(`.\\${script} -iniFile .\\${file} -rootPwd (& $plain $rootPwd) -adminPwd (& $plain $adminPwd)`);
+    out.push(`.\\${script} -iniFile .\\${file} -rootPwd (& $plain $rootPwd) -adminPwd (& $plain $adminPwd)${sw}`);
   }
   out.push('');
   return out.join('\n');

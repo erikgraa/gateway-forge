@@ -66,7 +66,7 @@ export function collectBlocks(c: Config, opts: GenerateOptions = { secrets: 'pla
   };
 
   for (const g of GROUPS) {
-    if (g.target === 'cascade') continue;
+    if (g.target === 'cascade' || g.target === 'runtime') continue;
     if (!groupEnabled(g, c)) continue;
     if (g.target === 'horizon' && c.values.horizon_enabled !== true) continue;
     const entries: Entry[] = [];
