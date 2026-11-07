@@ -46,6 +46,13 @@
     }
   }
 
+  function resetAll() {
+    if (confirm('Reset all settings to a blank configuration? This cannot be undone.')) {
+      app.clearDraft();
+      app.say('Configuration reset');
+    }
+  }
+
   function exportAs(tab: 'ini' | 'json' | 'ps' | 'docs') {
     exportOpen = false;
     download(render(app.config, tab, app.secretMode));
@@ -76,6 +83,7 @@
       </select>
     </label>
     <button onclick={() => app.toggleTheme()} aria-label="Toggle light/dark theme" title="Toggle theme">{app.theme === 'dark' ? '☀ Light' : '🌙 Dark'}</button>
+    <button class="reset" onclick={resetAll} title="Clear the whole configuration and start over">↺ Reset</button>
     <button onclick={() => (app.showImport = true)}>Import</button>
     <div class="menu">
       <button class="primary" aria-haspopup="menu" aria-expanded={exportOpen} onclick={(e) => { e.stopPropagation(); exportOpen = !exportOpen; }}>Export ▾</button>
@@ -103,7 +111,6 @@
       {/each}
       <p class="footer">
         <strong>Private by design.</strong> Everything runs in your browser. No telemetry. Secrets are never saved and are masked in exports unless you opt in.
-        <br /><button class="small danger" onclick={() => confirm('Reset all settings?') && app.clearDraft()}>Reset</button>
       </p>
     </nav>
 
