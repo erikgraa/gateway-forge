@@ -1,4 +1,4 @@
-import type { Platform } from './versions';
+import { TLS_LEGACY_UNTIL, type Platform } from './versions';
 
 export type Primitive = string | number | boolean;
 export type Values = Record<string, Primitive>;
@@ -201,6 +201,12 @@ export const GROUPS: GroupDef[] = [
         json: false,
         placeholder: 'sha256=ad:5c:f1:…',
         help: 'Needed when the inner UAG certificate is not from a trusted CA. Use the thumbprint helper under Horizon settings.'
+      }),
+      text('cascade_innerTrustedCert', 'Inner UAG trusted CA certificate (PEM path)', 'cascade_innerTrustedCert', {
+        wide: true,
+        showIf: (v) => v.cascade_role === 'outer',
+        json: false,
+        help: 'Alternative to the thumbprint: trust the CA that issued the inner UAG certificate.'
       }),
       bool('cascade_opswat', 'Allow OPSWAT on-demand agent download (/gateway/resources)', 'cascade_opswat', false, {
         showIf: (v) => v.cascade_role === 'outer',
@@ -413,8 +419,15 @@ export const GROUPS: GroupDef[] = [
         rule: 'thumbprints',
         wide: true,
         placeholder: 'sha256=ad:5c:f1:…',
-        help: 'Only needed when the CS certificate is not issued by a trusted CA. Format [alg=]xx:xx… (sha1/sha256/sha384/sha512), comma-separated.'
+        help: 'Only needed when the CS certificate is not issued by a trusted CA - or add that CA under Trusted CA certificate below instead. Format [alg=]xx:xx… (sha1/sha256/sha384/sha512), comma-separated.'
       }),
+      text('trustedCert1', 'Trusted CA certificate (PEM path)', 'trustedCert1', {
+        wide: true,
+        json: false,
+        placeholder: 'C:\\certs\\corp-root-ca.pem',
+        help: 'Alternative to a thumbprint: add the CA that issued the Connection Server certificate to the trust store (Admin UI: Horizon settings > More > Trusted Certificates). File path read by uagdeploy at deployment time.'
+      }),
+      text('trustedCert2', 'Additional trusted CA certificate (PEM path)', 'trustedCert2', { wide: true, json: false, inferred: true, help: 'Key name follows the trustedCert1 numbering pattern; verify against an exported INI.' }),
       sel('minSHAHashSize', 'Minimum SHA hash size', 'minSHAHashSize', ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512'], {
         since: '2312',
         default: 'SHA-256',
@@ -638,8 +651,8 @@ export const GROUPS: GroupDef[] = [
     fields: [
       bool('tls12Enabled', 'TLS 1.2', 'tls12Enabled', true),
       bool('tls13Enabled', 'TLS 1.3', 'tls13Enabled', true, { since: '2412' }),
-      bool('tls11Enabled', 'TLS 1.1 (insecure)', 'tls11Enabled', false),
-      bool('tls10Enabled', 'TLS 1.0 (insecure)', 'tls10Enabled', false),
+      bool('tls11Enabled', 'TLS 1.1 (insecure)', 'tls11Enabled', false, { until: TLS_LEGACY_UNTIL }),
+      bool('tls10Enabled', 'TLS 1.0 (insecure)', 'tls10Enabled', false, { until: TLS_LEGACY_UNTIL }),
       sel('sslProvider', 'SSL provider', 'sslProvider', ['OPENSSL', 'JDK'], {
         default: 'OPENSSL',
         omitDefault: true,

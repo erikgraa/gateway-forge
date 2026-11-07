@@ -208,6 +208,38 @@ describe('cascading (double DMZ)', () => {
   });
 });
 
+describe('trusted CA certificates and legacy TLS', () => {
+  it('emits trustedCert1 in [Horizon] and silences the thumbprint hint', () => {
+    const c = TEMPLATES.find((t) => t.id === 'horizon-radius')!.build(defaultConfig());
+    c.values.trustedCert1 = 'C:\\certs\\corp-root-ca.pem';
+    const ini = generateIni(c);
+    expect(ini).toMatch(/\[Horizon\][\s\S]*trustedCert1=C:\\certs\\corp-root-ca\.pem/);
+    expect(JSON.stringify(generateJsonObject(c))).not.toContain('corp-root-ca');
+    expect(importIni(ini).config.values.trustedCert1).toBe('C:\\certs\\corp-root-ca.pem');
+    const msgs = (cfg: Config) => validateConfig(cfg).map((i) => i.message).join('\n');
+    expect(msgs(c)).not.toMatch(/No Connection Server thumbprint/);
+    c.values.trustedCert1 = '';
+    expect(msgs(c)).toMatch(/thumbprint or trusted CA certificate/);
+  });
+  it('cascade outer UAG can trust the inner UAG CA instead of a thumbprint', () => {
+    const c = applyPatch(TEMPLATES.find((t) => t.id === 'cascade-outer')!.build(defaultConfig()), { values: { cascade_innerTrustedCert: 'C:\\ca.pem' } });
+    const ini = generateIni(c);
+    expect(ini).toContain('[WebReverseProxy1]');
+    expect(ini).toContain('trustedCert1=C:\\ca.pem');
+    expect(importIni(ini).config.values.cascade_innerTrustedCert).toBe('C:\\ca.pem');
+  });
+  it('hides TLS 1.0/1.1 from the form output on newer releases', () => {
+    const v = { tls10Enabled: true, tls11Enabled: true };
+    const old = applyPatch(defaultConfig(), { version: '2406', values: v });
+    expect(generateIni(old)).toContain('tls11Enabled=true');
+    expect(validateConfig(old).map((i) => i.message).join('\n')).toMatch(/TLS 1.0\/1.1 are enabled/);
+    const cur = applyPatch(defaultConfig(), { version: '2412', values: v });
+    expect(generateIni(cur)).not.toContain('tls10Enabled');
+    expect(generateIni(cur)).not.toContain('tls11Enabled');
+    expect(validateConfig(cur).map((i) => i.message).join('\n')).not.toMatch(/TLS 1.0\/1.1/);
+  });
+});
+
 describe('patching', () => {
   it('writes OIDC, SecurID, certificate auth and outbound proxy sections (INI only)', () => {
     const c = applyPatch(defaultConfig(), {

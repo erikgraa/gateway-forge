@@ -51,6 +51,7 @@ describe('config validation', () => {
 
   it('lints best practices', () => {
     const c = applyPatch(defaultConfig(), {
+      version: '2406',
       values: { tls11Enabled: true, sshEnabled: true, sshPasswordAccessEnabled: true, authMethods: 'passthrough', gatewayLocation: 'external', proxyDestinationUrl: 'https://cs', blastEnabled: true, blastExternalUrl: '' }
     });
     const m = messages(c).join('\n');

@@ -1,7 +1,7 @@
 import { GROUPS, LISTS, type Field, type Rule, type SectionId, type Values } from './schema';
 import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
-import { VERSIONS } from './versions';
+import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion } from './versions';
 
 export type Level = 'error' | 'warn' | 'info';
 
@@ -168,7 +168,7 @@ function lint(c: Config, push: Push): void {
   if (role === 'outer') {
     push({ level: 'info', section: 'horizon', fieldId: 'cascade_role', message: 'Outer UAG: Horizon edge service is replaced by a "Horizon-WRP" reverse proxy to the inner UAG. Set Blast/tunnel external URLs on the INNER UAG to this UAG\'s public FQDN.' });
     if (String(v.deploymentOption).startsWith('onenic')) push({ level: 'info', section: 'network', fieldId: 'deploymentOption', message: 'Cascade: use separate NICs/DMZ networks so the outer UAG can reach DMZ 2 only through the inter-DMZ firewall.' });
-    if (!nonEmpty('cascade_innerThumbprints') && nonEmpty('cascade_innerUrl')) push({ level: 'info', section: 'horizon', fieldId: 'cascade_innerThumbprints', message: 'No inner UAG thumbprint: required if the inner UAG uses a self-signed or private-CA certificate.' });
+    if (!nonEmpty('cascade_innerThumbprints') && !nonEmpty('cascade_innerTrustedCert') && nonEmpty('cascade_innerUrl')) push({ level: 'info', section: 'horizon', fieldId: 'cascade_innerThumbprints', message: 'No inner UAG thumbprint or trusted CA certificate: required if the inner UAG uses a self-signed or private-CA certificate.' });
     if (v.cascade_fwdPcoipTcp === true !== (v.cascade_fwdPcoipUdp === true)) push({ level: 'warn', section: 'horizon', fieldId: 'cascade_fwdPcoipTcp', message: 'PCoIP needs both TCP and UDP 4172 forwarded.' });
   }
   if (role === 'inner') {
@@ -179,7 +179,7 @@ function lint(c: Config, push: Push): void {
   if (c.syslog.length === 0) push({ level: 'warn', section: 'monitoring', message: 'No syslog server configured - events stay on the appliance.' });
   if (!nonEmpty('ntpServers')) push({ level: 'warn', section: 'network', fieldId: 'ntpServers', message: 'No NTP server configured - clock drift breaks TLS, RADIUS and SAML.' });
 
-  if (v.tls10Enabled === true || v.tls11Enabled === true) push({ level: 'warn', section: 'tls', fieldId: 'tls11Enabled', message: 'TLS 1.0/1.1 are enabled - disable them.' });
+  if (cmpVersion(c.version, TLS_LEGACY_UNTIL) < 0 && (v.tls10Enabled === true || v.tls11Enabled === true)) push({ level: 'warn', section: 'tls', fieldId: 'tls11Enabled', message: 'TLS 1.0/1.1 are enabled - disable them.' });
   if (v.tls12Enabled !== true && (v.tls13Enabled !== true || c.version < '2412')) push({ level: 'error', section: 'tls', fieldId: 'tls12Enabled', message: 'No modern TLS version enabled (TLS 1.2 or 1.3 required).' });
   if (!nonEmpty('cert_pemCerts') && !nonEmpty('cert_pfxCerts')) push({ level: 'info', section: 'tls', message: 'No server certificate configured - the appliance keeps its self-signed certificate. Use a CA-signed cert in production.' });
 
@@ -205,7 +205,7 @@ function lint(c: Config, push: Push): void {
 
   if (horizon) {
     const url = String(v.proxyDestinationUrl ?? '');
-    if (url && validUrl(url, true) && !nonEmpty('proxyDestinationUrlThumbprints')) push({ level: 'info', section: 'horizon', fieldId: 'proxyDestinationUrlThumbprints', message: 'No Connection Server thumbprint: required if its certificate is self-signed or from a private CA.' });
+    if (url && validUrl(url, true) && !nonEmpty('proxyDestinationUrlThumbprints') && !nonEmpty('trustedCert1')) push({ level: 'info', section: 'horizon', fieldId: 'trustedCert1', message: 'No Connection Server thumbprint or trusted CA certificate: one of them is required if its certificate is self-signed or from a private CA.' });
     const tp = String(v.proxyDestinationUrlThumbprints ?? '');
     if (tp && tp.split(',').some((e) => parseThumbprint(e)?.alg === 'sha1')) push({ level: 'warn', section: 'horizon', fieldId: 'proxyDestinationUrlThumbprints', message: 'SHA-1 thumbprint in use - prefer SHA-256 or stronger.' });
     if (v.minSHAHashSize === 'SHA-1' && c.version >= '2312') push({ level: 'warn', section: 'horizon', fieldId: 'minSHAHashSize', message: 'Minimum SHA hash size is SHA-1, which is not recommended.' });

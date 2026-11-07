@@ -34,6 +34,9 @@ export const VERSIONS: UagVersion[] = [
 
 export const DEFAULT_VERSION = '2609';
 
+/** First UAG release whose admin UI no longer offers the TLS 1.0/1.1 toggles (TLS 1.2/1.3 only). */
+export const TLS_LEGACY_UNTIL = '2412';
+
 export interface PlatformDef {
   id: Platform;
   label: string;

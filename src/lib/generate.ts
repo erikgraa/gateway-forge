@@ -98,6 +98,7 @@ export function collectBlocks(c: Config, opts: GenerateOptions = { secrets: 'pla
       [ 'instanceId', CASCADE_INSTANCE_ID ],
       [ 'proxyDestinationUrl', String(v.cascade_innerUrl ?? '') ],
       [ 'proxyDestinationUrlThumbprints', String(v.cascade_innerThumbprints ?? '') ],
+      [ 'trustedCert1', String(v.cascade_innerTrustedCert ?? '') ],
       [ 'proxyPattern', v.cascade_opswat === true ? CASCADE_PATTERN_OPSWAT : CASCADE_PATTERN ]
     ]
       .filter(([, val]) => val !== '')
