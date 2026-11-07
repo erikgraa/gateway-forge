@@ -83,6 +83,16 @@ button.primary {
 button.ghost {
   background: transparent;
 }
+button.reset {
+  border-color: var(--bad);
+  color: var(--bad);
+  font-weight: 600;
+}
+button.reset:hover {
+  background: var(--bad);
+  border-color: var(--bad);
+  color: #fff;
+}
 button.small {
   padding: 3px 9px;
   font-size: 12px;
