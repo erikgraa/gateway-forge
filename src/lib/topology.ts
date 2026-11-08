@@ -1,4 +1,5 @@
 import type { Config } from './model';
+import { deploymentNicCount } from './schema';
 import { FORWARD_FLAGS, cascadeRole } from './cascade';
 import { collectBlocks, platformScript } from './generate';
 import { runtimeSwitches } from './powershell';
@@ -144,6 +145,26 @@ export function buildTopology(c: Config): Topology {
     });
     edges.push({ from: 'uag', to: 'idp', label: 'SAML · HTTPS metadata / assertions', kind: 'identity' });
   }
+  if (v.airwatch_enabled === true) {
+    nodes.push({
+      id: 'tunnel-client',
+      label: 'Tunnel clients',
+      sub: String(v.airwatch_airwatchServerHostname || 'public hostname'),
+      detail: 'Workspace ONE per-app VPN',
+      kind: 'client',
+      zone: 'untrusted'
+    });
+    nodes.push({
+      id: 'uem',
+      label: 'Workspace ONE UEM',
+      sub: host(v.airwatch_apiServerUrl),
+      detail: 'Tunnel configuration / device allowlist',
+      kind: 'identity',
+      zone: 'internal'
+    });
+    edges.push({ from: 'tunnel-client', to: 'uag', label: 'Per-app VPN · TCP/UDP 8443', kind: 'access' });
+    edges.push({ from: 'uag', to: 'uem', label: 'API / AWCM configuration', kind: 'service' });
+  }
   c.syslog.forEach((item, i) => {
     nodes.push({
       id: `sys${i}`,
@@ -193,8 +214,13 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   const L: string[] = [];
   L.push(`# ${v.uagName || 'UAG'} - configuration summary`, '');
   L.push(`- **UAG version:** ${c.version}`, `- **Platform:** ${def.label} (\`${def.script}\`)`, `- **Deployment:** ${v.deploymentOption}`);
-  if (v.ip0) L.push(`- **NIC0:** ${v.ip0}${v.netmask0 ? ' / ' + v.netmask0 : ''}`);
-  if (v.ip1) L.push(`- **NIC1:** ${v.ip1}`);
+  if (c.platform === 'vsphere' || c.platform === 'hyperv') {
+    L.push(`- **NIC0 / Internet:** ${v.netInternet || '(not set)'} - ${v.ip0 || '(no IP)'}${v.netmask0 ? ' / ' + v.netmask0 : ''}`);
+    if (deploymentNicCount(v) >= 2) L.push(`- **NIC1 / ${deploymentNicCount(v) === 2 ? 'Backend + Management' : 'Management'}:** ${v.netManagementNetwork || '(not set)'} - ${v.ip1 || '(no IP)'}${v.netmask1 ? ' / ' + v.netmask1 : ''}`);
+    if (deploymentNicCount(v) === 3) L.push(`- **NIC2 / Backend:** ${v.netBackendNetwork || '(not set)'} - ${v.ip2 || '(no IP)'}${v.netmask2 ? ' / ' + v.netmask2 : ''}`);
+    L.push(`- **Default gateway (NIC0):** ${v.defaultGateway || '(not set)'}`);
+    if (deploymentNicCount(v) === 2) L.push('- **Two-NIC mapping:** Internet (NIC0) + combined Backend and Management (NIC1); no dedicated third Backend NIC.');
+  }
   if (v.dns) L.push(`- **DNS:** ${v.dns}`);
   if (v.ntpServers) L.push(`- **NTP:** ${v.ntpServers}`);
   L.push('', '## Deployment', '');
@@ -212,8 +238,9 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     if (v.tunnelEnabled === true) L.push(`  - Tunnel: ${v.tunnelExternalUrl || 'default'}`);
     if (v.pcoipEnabled === true) L.push(`  - PCoIP: ${v.pcoipExternalUrl || 'default'}`);
   }
+  if (v.airwatch_enabled === true) L.push(`- **Workspace ONE Tunnel** → ${v.airwatch_airwatchServerHostname || '(not set)'}; UEM API ${v.airwatch_apiServerUrl || '(not set)'}`);
   for (const w of c.wrp) L.push(`- **Web reverse proxy \`${w.instanceId}\`** → ${w.proxyDestinationUrl} (auth: ${w.authMethods})`);
-  if (v.horizon_enabled !== true && cascadeRole(v) !== 'outer' && c.wrp.length === 0) L.push('- none');
+  if (v.horizon_enabled !== true && v.airwatch_enabled !== true && cascadeRole(v) !== 'outer' && c.wrp.length === 0) L.push('- none');
   L.push('', '## Authentication', '');
   L.push(v.radius_enabled === true ? `- RADIUS: ${v.radius_hostName}:${v.radius_authPort} (${v.radius_authType})${v.radius_enabledAux === true ? ` + secondary ${v.radius_hostName_2}` : ''}` : '- RADIUS: off');
   L.push(v.saml_enabled === true ? `- SAML IdP: ${v.saml_entityID}` : '- SAML: off');
@@ -222,6 +249,7 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   if (v.horizon_enabled === true && v.blastEnabled === true) ports.add('TCP+UDP 8443 (Blast)');
   if (cascadeRole(v) === 'outer') for (const f of FORWARD_FLAGS) if (v[f.id] === true) ports.add(`${f.proto.toUpperCase()} ${f.port} (forwarded to inner UAG)`);
   if (v.horizon_enabled === true && v.pcoipEnabled === true) ports.add('TCP+UDP 4172 (PCoIP)');
+  if (v.airwatch_enabled === true) ports.add('TCP+UDP 8443 (Workspace ONE Tunnel per-app VPN)');
   L.push(...[...ports].map((p) => `- ${p}`), '- TCP 9443 (admin UI/API - management network only)');
   L.push('', '## Monitoring', '');
   L.push(c.syslog.length ? c.syslog.map((s) => `- Syslog ${s.sysLogType}: ${s.syslogUrl || s.hostname}`).join('\n') : '- Syslog: none');

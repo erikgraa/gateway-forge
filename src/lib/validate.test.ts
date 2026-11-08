@@ -19,12 +19,32 @@ describe('field validation', () => {
     expect(checkRule('hostOrIp', 'bad host')).not.toBeNull();
     expect(checkRule('httpsUrl', 'https://cs01.corp.local')).toBeNull();
     expect(checkRule('httpsUrl', 'http://cs01.corp.local')).not.toBeNull();
+    expect(checkRule('httpsOrigin', 'https://as1234.awmdm.com')).toBeNull();
+    expect(checkRule('httpsOrigin', 'https://as1234.awmdm.com/')).toBeNull();
+    expect(checkRule('httpsOrigin', 'https://as1234.awmdm.com:443')).toBeNull();
+    expect(checkRule('httpsOrigin', 'https://as1234.awmdm.com/api')).not.toBeNull();
+    expect(checkRule('httpsOrigin', 'https://as1234.awmdm.com?tenant=1')).not.toBeNull();
+    expect(checkRule('httpsOrigin', 'https://as1234.awmdm.com#api')).not.toBeNull();
     expect(checkRule('port', '70000')).not.toBeNull();
     expect(checkRule('ipv4Port', '10.1.2.3:4172')).toBeNull();
     expect(checkRule('ipv4Port', 'uag.corp.local:4172')).not.toBeNull();
     expect(checkRule('uagName', 'uag-dmz-01')).toBeNull();
     expect(checkRule('uagName', 'this-name-is-way-too-long-for-uag')).not.toBeNull();
     expect(checkRule('ipList', '10.0.0.1 10.0.0.2')).toBeNull();
+    expect(checkRule('ipv6', '2402:740:2:209::253')).toBeNull();
+    expect(checkRule('ipv6', 'not:an:ipv6')).not.toBeNull();
+    expect(checkRule('osLoginUsername', 'uag_admin-1')).toBeNull();
+    expect(checkRule('osLoginUsername', 'Upper Case')).not.toBeNull();
+    expect(checkRule('ascii', 'Banner\\nline two')).toBeNull();
+    expect(checkRule('ascii', 'bannér')).not.toBeNull();
+  });
+
+  it('validates static routes and per-NIC custom configuration syntax', () => {
+    expect(checkRule('staticRoutes', '10.108.172.32/32 10.108.172.253,192.168.20.0/24 192.168.10.1')).toBeNull();
+    expect(checkRule('staticRoutes', '10.0.0.0/33 10.0.0.1')).toMatch(/CIDR/);
+    expect(checkRule('staticRoutes', '10.0.0.0/8')).toMatch(/network.*gateway/i);
+    expect(checkRule('customConfig', 'DHCP^UseDNS=false;Network^DNS=192.168.1.153#dns.example.com')).toBeNull();
+    expect(checkRule('customConfig', 'UseDNS=false')).not.toBeNull();
   });
 
   it('validates thumbprint formats and lengths', () => {
@@ -46,7 +66,19 @@ describe('config validation', () => {
 
   it('accepts the RADIUS template without errors', () => {
     const c = applyPatch(TEMPLATES[0].build(defaultConfig()), {
-      values: { source: 'C:\\a.ova', target: 'vi://a@vc/DC/host/C', ds: 'ds1', netInternet: 'a', netManagementNetwork: 'b', radius_sharedSecret: 'x' }
+      values: {
+        source: 'C:\\a.ova',
+        target: 'vi://a@vc/DC/host/C',
+        ds: 'ds1',
+        netInternet: 'a',
+        netManagementNetwork: 'b',
+        ip0: '192.0.2.21',
+        netmask0: '255.255.255.0',
+        ip1: '192.0.3.21',
+        netmask1: '255.255.255.0',
+        defaultGateway: '192.0.2.1',
+        radius_sharedSecret: 'x'
+      }
     });
     expect(validateConfig(c).filter((i) => i.level === 'error')).toEqual([]);
   });
@@ -78,15 +110,33 @@ describe('config validation', () => {
     expect(m).toMatch(/gateway is not in the NIC0 subnet/);
   });
 
+  it('rejects routes, custom NIC config and SSH interfaces for NICs that do not exist', () => {
+    const one = applyPatch(defaultConfig(), {
+      values: { deploymentOption: 'onenic', routes1: '10.0.0.0/8 192.0.2.1', eth2CustomConfig: 'DHCP^UseDNS=false', sshEnabled: true, sshInterface: 'eth1' }
+    });
+    const m = messages(one).join('\n');
+    expect(m).toMatch(/routes1.*only NIC0/);
+    expect(m).toMatch(/eth2CustomConfig.*only NIC0/);
+    expect(m).toMatch(/eth1 is not present/);
+    const two = applyPatch(defaultConfig(), { values: { deploymentOption: 'twonic', routes2: '10.0.0.0/8 192.0.2.1' } });
+    expect(messages(two).join('\n')).toMatch(/two-NIC deployment has no NIC2/);
+  });
+
+  it('warns when a static IPv6 address conflicts with ipmode0', () => {
+    const c = applyPatch(defaultConfig(), { values: { v6ip0: '2402:740:2:209::5', ipmode0: 'STATICV4' } });
+    expect(messages(c).join('\n')).toMatch(/does not include STATICV6/);
+  });
+
   it('flags duplicate web reverse proxy instance IDs', () => {
     const c = applyPatch(defaultConfig(), { wrp: [{ instanceId: 'a', proxyDestinationUrl: 'https://a' }, { instanceId: 'a', proxyDestinationUrl: 'https://b' }] });
     expect(messages(c).join('\n')).toMatch(/Duplicate web reverse proxy/);
   });
 
-  it('validates DNS and NTP values independently per row', () => {
+  it('validates DNS, search domain and NTP values independently per row', () => {
     const c = applyPatch(defaultConfig(), {
       values: {
         dns: '10.0.0.1 999.0.0.1',
+        dnsSearch: 'corp.local -invalid.example bad_domain.example',
         ntpServers: 'ntp1.corp.local bad!host',
         fallBackNtpServers: 'pool.ntp.org invalid!host'
       }
@@ -94,8 +144,13 @@ describe('config validation', () => {
     const rows = validateConfig(c).filter((issue) => issue.rowIndex !== undefined);
     expect(rows).toEqual(expect.arrayContaining([
       expect.objectContaining({ fieldId: 'dns', rowIndex: 1 }),
+      expect.objectContaining({ fieldId: 'dnsSearch', rowIndex: 1 }),
+      expect.objectContaining({ fieldId: 'dnsSearch', rowIndex: 2 }),
       expect.objectContaining({ fieldId: 'ntpServers', rowIndex: 1 }),
       expect.objectContaining({ fieldId: 'fallBackNtpServers', rowIndex: 1 })
+    ]));
+    expect(rows).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ fieldId: 'dnsSearch', rowIndex: 0 })
     ]));
   });
 
@@ -105,9 +160,115 @@ describe('config validation', () => {
     expect(messages(c).join('\n')).toMatch(/Subscription ID is required/);
   });
 
+  it('requires the network fields for every one-, two- and three-NIC size option', () => {
+    const options = [
+      ['onenic', 1], ['twonic', 2], ['threenic', 3],
+      ['onenic-large', 1], ['twonic-large', 2], ['threenic-large', 3],
+      ['onenic-XL', 1], ['twonic-XL', 2], ['threenic-XL', 3]
+    ] as const;
+    const topologyIds = ['netInternet', 'netManagementNetwork', 'netBackendNetwork', 'ip0', 'netmask0', 'ip1', 'netmask1', 'ip2', 'netmask2', 'defaultGateway'];
+    const networkValues = {
+      netInternet: 'DMZ-Internet',
+      netManagementNetwork: 'DMZ-Management',
+      netBackendNetwork: 'Internal-Backend',
+      ip0: '192.0.2.21',
+      netmask0: '255.255.255.0',
+      ip1: '192.0.3.21',
+      netmask1: '255.255.255.0',
+      ip2: '192.0.4.21',
+      netmask2: '255.255.255.0',
+      defaultGateway: '192.0.2.1'
+    };
+
+    for (const [deploymentOption, nicCount] of options) {
+      const blank = applyPatch(defaultConfig(), {
+        values: { ...Object.fromEntries(topologyIds.map((id) => [id, ''])), deploymentOption }
+      });
+      const missing = validateConfig(blank)
+        .filter((i) => i.level === 'error' && i.fieldId && topologyIds.includes(i.fieldId))
+        .map((i) => i.fieldId);
+      expect(missing).toContain('netInternet');
+      expect(missing).toContain('ip0');
+      expect(missing).toContain('netmask0');
+      expect(missing).toContain('defaultGateway');
+      expect(missing.includes('netManagementNetwork')).toBe(nicCount >= 2);
+      expect(missing.includes('ip1')).toBe(nicCount >= 2);
+      expect(missing.includes('netmask1')).toBe(nicCount >= 2);
+      expect(missing.includes('netBackendNetwork')).toBe(nicCount === 3);
+      expect(missing.includes('ip2')).toBe(nicCount === 3);
+      expect(missing.includes('netmask2')).toBe(nicCount === 3);
+
+      const complete = applyPatch(blank, { values: networkValues });
+      const errors = validateConfig(complete).filter((i) => i.level === 'error' && i.fieldId && topologyIds.includes(i.fieldId));
+      expect(errors).toEqual([]);
+    }
+  });
+
+  it('ignores network values for NICs hidden by the deployment option', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        deploymentOption: 'onenic',
+        netInternet: 'DMZ',
+        ip0: '192.0.2.21',
+        netmask0: '255.255.255.0',
+        defaultGateway: '192.0.2.1',
+        ip1: 'not-an-ip',
+        netmask1: 'invalid',
+        netManagementNetwork: '',
+        ip2: '192.0.2.21'
+      }
+    });
+    const issues = validateConfig(c);
+    expect(issues.some((i) => i.fieldId === 'ip1' || i.fieldId === 'ip2')).toBe(false);
+    expect(issues.some((i) => /applicable NICs share/.test(i.message))).toBe(false);
+  });
+
   it('summarises counts per section', () => {
     const counts = countBySection(validateConfig(defaultConfig()));
     expect(counts.horizon.error).toBeGreaterThan(0);
+  });
+
+  it('validates required Workspace ONE Tunnel settings and proxy inputs', () => {
+    const c = applyPatch(defaultConfig(), { values: { airwatch_enabled: true, airwatch_tunnelGatewayEnabled: false, airwatch_outboundProxyHost: 'proxy.corp.local' } });
+    const m = messages(c).join('\n');
+    expect(m).toMatch(/Workspace ONE UEM API server URL is required/);
+    expect(m).toMatch(/Workspace ONE UEM API user is required/);
+    expect(m).toMatch(/Workspace ONE UEM API password is required/);
+    expect(m).toMatch(/Tunnel server hostname is required/);
+    expect(m).toMatch(/Tunnel gateway must be enabled/);
+    expect(m).toMatch(/Outbound proxy port is required/);
+  });
+
+  it('rejects paths after the Workspace ONE UEM API origin', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        airwatch_enabled: true,
+        airwatch_apiServerUrl: 'https://as1234.awmdm.com/api',
+        airwatch_apiServerUsername: 'api-user',
+        airwatch_apiServerPassword: 'secret',
+        airwatch_airwatchServerHostname: 'tunnel.example.com'
+      }
+    });
+    expect(messages(c).join('\n')).toMatch(/Workspace ONE UEM API server URL: Must be an https:\/\/ origin with no path, query or fragment/);
+  });
+
+  it('gates Workspace ONE Tunnel to vSphere and Hyper-V', () => {
+    const c = applyPatch(defaultConfig(), { platform: 'azure', values: { airwatch_enabled: true } });
+    expect(messages(c).join('\n')).toMatch(/not Azure/);
+  });
+
+  it('validates host entries and surfaces ambiguous PAC source configuration', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        airwatch_enabled: true,
+        airwatch_hostEntry1: 'not-an-ip api.corp.local',
+        airwatch_pacFilePath: 'C:\\pac\\tunnel.pac',
+        airwatch_pacFileURL: 'https://config.example.com/tunnel.pac'
+      }
+    });
+    const m = messages(c).join('\n');
+    expect(m).toMatch(/Host entries: Must contain comma-separated/);
+    expect(m).toMatch(/Both PAC file path and URL/);
   });
 
   it('requires a valid SSH public key only while key access is enabled', () => {

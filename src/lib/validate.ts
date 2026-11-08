@@ -1,4 +1,4 @@
-import { GROUPS, LISTS, type Field, type Rule, type SectionId, type Values } from './schema';
+import { GROUPS, LISTS, deploymentNicCount, type Field, type Rule, type SectionId, type Values } from './schema';
 import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
 import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion } from './versions';
@@ -21,8 +21,32 @@ export interface Issue {
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 const HOST = /^(?=.{1,253}$)([A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(\.[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*$/;
+const DNS_DOMAIN = /^(?=.{1,253}\.?$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(?:\.(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*\.?$/;
 
 export const isIpv4 = (s: string) => IPV4.test(s);
+
+function isIpv6(s: string): boolean {
+  if (!s.includes(':')) return false;
+  try {
+    return new URL(`http://[${s}]`).hostname.startsWith('[');
+  } catch {
+    return false;
+  }
+}
+
+function validStaticRoutes(s: string): string | null {
+  for (const route of s.split(',').map((x) => x.trim()).filter(Boolean)) {
+    const m = /^(\S+)\s+(\S+)$/.exec(route);
+    if (!m) return `Route "${route}" must be "IPv4-network/prefix gateway-IPv4"`;
+    const network = m[1].split('/');
+    const prefix = Number(network[1]);
+    if (network.length !== 2 || !IPV4.test(network[0]) || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+      return `"${m[1]}" is not an IPv4 CIDR network`;
+    }
+    if (!IPV4.test(m[2])) return `"${m[2]}" is not an IPv4 gateway`;
+  }
+  return null;
+}
 
 function hostPort(s: string): boolean {
   const m = /^(.+?)(?::(\d{1,5}))?$/.exec(s);
@@ -39,6 +63,28 @@ function validUrl(s: string, httpsOnly: boolean): boolean {
   } catch {
     return false;
   }
+}
+
+function validHttpsOrigin(s: string): boolean {
+  try {
+    const u = new URL(s);
+    return u.protocol === 'https:'
+      && !!u.hostname
+      && !u.username
+      && !u.password
+      && u.pathname === '/'
+      && !u.search
+      && !u.hash;
+  } catch {
+    return false;
+  }
+}
+
+function validHostEntries(s: string): boolean {
+  return s.split(',').map((entry) => entry.trim()).filter(Boolean).every((entry) => {
+    const parts = entry.split(/\s+/);
+    return parts.length >= 2 && parts.length <= 3 && IPV4.test(parts[0]) && parts.slice(1).every((part) => HOST.test(part));
+  });
 }
 
 const HASH_LEN: Record<string, number> = { sha1: 40, sha256: 64, sha384: 96, sha512: 128 };
@@ -74,6 +120,8 @@ export function checkRule(rule: Rule, raw: string): string | null {
   switch (rule) {
     case 'ipv4':
       return IPV4.test(s) ? null : 'Not a valid IPv4 address';
+    case 'dnsDomain':
+      return DNS_DOMAIN.test(s) && !IPV4.test(s.replace(/\.$/, '')) ? null : 'Not a valid DNS search domain';
     case 'hostOrIp':
       return hostPort(s) ? null : 'Not a valid host name, IP address or host:port';
     case 'hostList':
@@ -84,6 +132,8 @@ export function checkRule(rule: Rule, raw: string): string | null {
       return validUrl(s, false) ? null : 'Not a valid http(s) URL';
     case 'httpsUrl':
       return validUrl(s, true) ? null : 'Must be a valid https:// URL';
+    case 'httpsOrigin':
+      return validHttpsOrigin(s) ? null : 'Must be an https:// origin with no path, query or fragment';
     case 'urlList':
       return s.split(',').map((x) => x.trim()).filter(Boolean).every((x) => validUrl(x, true)) ? null : 'Contains an invalid https:// URL';
     case 'port':
@@ -94,10 +144,24 @@ export function checkRule(rule: Rule, raw: string): string | null {
       return sshPublicKeyValidationError(s);
     case 'uagName':
       return /^[A-Za-z0-9.-]{1,24}$/.test(s) ? null : 'Up to 24 characters: A-Z, 0-9, "-" and "."; no spaces';
+    case 'osLoginUsername':
+      return /^[a-z0-9_-]{1,32}$/.test(s) ? null : 'Up to 32 lowercase characters: a-z, 0-9, "_" and "-"';
+    case 'ascii':
+      return /^[\x20-\x7e]*$/.test(s) ? null : 'ASCII characters only; use literal \\n for line breaks';
     case 'ipv4Port': {
       const [ip, port] = s.split(':');
       return IPV4.test(ip) && (port === undefined || (Number(port) >= 1 && Number(port) <= 65535)) ? null : 'Must be an IPv4 address with optional :port';
     }
+    case 'ipv6':
+      return isIpv6(s) ? null : 'Not a valid IPv6 address';
+    case 'staticRoutes':
+      return validStaticRoutes(s);
+    case 'customConfig':
+      return s.split(';').map((x) => x.trim()).filter(Boolean).every((x) => /^[A-Za-z0-9_.-]+\^[A-Za-z0-9_.-]+=.*$/.test(x))
+        ? null
+        : 'Use semicolon-separated Section^Parameter=Value entries';
+    case 'hostEntryList':
+      return validHostEntries(s) ? null : 'Must contain comma-separated "IP hostname [alias]" entries';
     case 'path':
       return s.startsWith('/') ? null : 'Must start with "/"';
     case 'pemPath': {
@@ -207,6 +271,15 @@ function lint(c: Config, push: Push): void {
     if (v.horizon_enabled !== true) push({ level: 'error', section: 'horizon', fieldId: 'horizon_enabled', message: 'The inner UAG of a cascade must have the Horizon edge service enabled.' });
   }
 
+  if (v.airwatch_enabled === true) {
+    if (c.platform === 'azure') push({ level: 'error', section: 'tunnel', message: 'Workspace ONE Tunnel on UAG is documented for vSphere and Hyper-V PowerShell deployments, not Azure.' });
+    if (v.airwatch_tunnelGatewayEnabled !== true) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_tunnelGatewayEnabled', message: 'Tunnel gateway must be enabled for the [Airwatch] section to configure an active Tunnel service.' });
+    if (v.airwatch_outboundProxyHost && isEmpty(v.airwatch_outboundProxyPort)) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_outboundProxyPort', message: 'Outbound proxy port is required when an outbound proxy host is set.' });
+    if (!!v.airwatch_outboundProxyUsername !== !!v.airwatch_outboundProxyPassword) push({ level: 'warn', section: 'tunnel', fieldId: 'airwatch_outboundProxyPassword', message: 'Outbound proxy user and password should be configured together.' });
+    if (v.airwatch_tunnelProxyEnabled === true || v.airwatch_airwatchOutboundProxy === true) push({ level: 'info', section: 'tunnel', message: 'Legacy 2212 proxy switches are present only for historical imports; current UAG releases do not document them.' });
+    if (v.airwatch_pacFilePath && v.airwatch_pacFileURL) push({ level: 'warn', section: 'tunnel', fieldId: 'airwatch_pacFileURL', message: 'Both PAC file path and URL are set; the 2609 reference does not document how they interact.' });
+  }
+
   if (c.syslog.length === 0) push({ level: 'warn', section: 'monitoring', message: 'No syslog server configured - events stay on the appliance.' });
   if (!nonEmpty('ntpServers')) push({ level: 'warn', section: 'network', fieldId: 'ntpServers', message: 'No NTP server configured - clock drift breaks TLS, RADIUS and SAML.' });
 
@@ -222,15 +295,37 @@ function lint(c: Config, push: Push): void {
   if (c.platform === 'vsphere' && v.run_disableVerification === true) push({ level: 'warn', section: 'network', fieldId: 'run_disableVerification', message: '-disableVerification is on: the OVA/OVF signature and certificate chain are not validated. Only use with an image you downloaded from Omnissa and verified yourself.' });
   if (v.ceipEnabled === true) push({ level: 'info', section: 'general', fieldId: 'ceipEnabled', message: 'CEIP is enabled - the appliance sends telemetry to Omnissa.' });
 
+  const sshInterface = String(v.sshInterface ?? '');
+  const nicCount = deploymentNicCount(v);
+  if (v.sshEnabled === true && sshInterface && Number(sshInterface.slice(3)) >= nicCount) {
+    push({ level: 'error', section: 'general', fieldId: 'sshInterface', message: `${sshInterface} is not present in the selected ${nicCount}-NIC deployment.` });
+  }
+  const staticIpv6 = String(v.v6ip0 ?? '');
+  if (staticIpv6 && !String(v.ipmode0 ?? '').includes('STATICV6')) {
+    push({ level: 'warn', section: 'network', fieldId: 'ipmode0', message: 'NIC0 has a static IPv6 address but ipmode0 does not include STATICV6.' });
+  }
+  if (nicCount === 1) {
+    for (const key of ['routes1', 'routes2', 'eth1CustomConfig', 'eth2CustomConfig']) {
+      if (nonEmpty(key)) push({ level: 'error', section: 'network', fieldId: key, message: `${key} is configured but the selected deployment has only NIC0.` });
+    }
+  } else if (nicCount === 2 && (nonEmpty('routes2') || nonEmpty('eth2CustomConfig'))) {
+    for (const key of ['routes2', 'eth2CustomConfig']) {
+      if (nonEmpty(key)) push({ level: 'error', section: 'network', fieldId: key, message: `${key} is configured but the selected two-NIC deployment has no NIC2.` });
+    }
+  }
+
   const latest = VERSIONS.find((x) => x.latest);
   if (latest && c.version !== latest.id) push({ level: 'info', section: 'general', message: `UAG ${latest.id} is available; you are targeting ${c.version}. Stay current for security fixes.` });
 
   if (String(v.deploymentOption).startsWith('onenic') && v.gatewayLocation === 'external' && horizon) push({ level: 'info', section: 'network', fieldId: 'deploymentOption', message: 'Single-NIC deployment: for DMZ use consider twonic/threenic to separate Internet, management and backend traffic.' });
 
   const ip0 = String(v.ip0 ?? '');
-  const ips = ['ip0', 'ip1', 'ip2'].map((k) => String(v[k] ?? '')).filter(Boolean);
-  if (new Set(ips).size !== ips.length) push({ level: 'error', section: 'network', message: 'Two NICs share the same IP address.' });
-  if (ip0 && nonEmpty('netmask0') && nonEmpty('defaultGateway')) {
+  const activeIpIds = ['ip0', 'ip1', 'ip2'].slice(0, deploymentNicCount(v));
+  const ips = activeIpIds.map((k) => String(v[k] ?? '')).filter(Boolean);
+  if ((c.platform === 'vsphere' || c.platform === 'hyperv') && new Set(ips).size !== ips.length) {
+    push({ level: 'error', section: 'network', message: 'Two applicable NICs share the same IP address.' });
+  }
+  if ((c.platform === 'vsphere' || c.platform === 'hyperv') && ip0 && nonEmpty('netmask0') && nonEmpty('defaultGateway')) {
     const a = netOf(ip0, String(v.netmask0));
     const b = netOf(String(v.defaultGateway), String(v.netmask0));
     if (a !== null && b !== null && a !== b) push({ level: 'warn', section: 'network', fieldId: 'defaultGateway', message: 'Default gateway is not in the NIC0 subnet.' });
@@ -277,7 +372,7 @@ function lint(c: Config, push: Push): void {
 
 export function countBySection(issues: Issue[]): Record<SectionId, { error: number; warn: number; info: number }> {
   const out = {} as Record<SectionId, { error: number; warn: number; info: number }>;
-  for (const s of ['general', 'network', 'horizon', 'wrp', 'auth', 'tls', 'monitoring', 'templates'] as SectionId[]) out[s] = { error: 0, warn: 0, info: 0 };
+  for (const s of ['general', 'network', 'horizon', 'tunnel', 'wrp', 'auth', 'tls', 'monitoring', 'templates'] as SectionId[]) out[s] = { error: 0, warn: 0, info: 0 };
   for (const i of issues) out[i.section][i.level]++;
   return out;
 }

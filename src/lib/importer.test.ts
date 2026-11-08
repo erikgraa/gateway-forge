@@ -11,6 +11,11 @@ const SAMPLE = `
 name=UAG1
 source=C:\\ova\\euc-unified-access-gateway-25.06.0.0-15261880358_OVF10.ova
 deploymentOption=threenic
+routes0=10.108.172.32/32 10.108.172.253,192.168.20.0/24 192.168.10.1
+routes1=172.16.0.0/16 10.1.0.1
+routes2=10.2.0.0/16 10.3.0.1
+ipmode0=STATICV4
+eth2CustomConfig=Network^Domains=~.
 uagName=UAG1
 dns=192.0.2.1 192.0.2.2
 ntpServers=pool.ntp.org
@@ -71,6 +76,11 @@ describe('INI import', () => {
     expect(r.config.values).toMatchObject({
       uagName: 'UAG1',
       deploymentOption: 'threenic',
+      routes0: '10.108.172.32/32 10.108.172.253,192.168.20.0/24 192.168.10.1',
+      routes1: '172.16.0.0/16 10.1.0.1',
+      routes2: '10.2.0.0/16 10.3.0.1',
+      ipmode0: 'STATICV4',
+      eth2CustomConfig: 'Network^Domains=~.',
       dns: '192.0.2.1 192.0.2.2',
       horizon_enabled: true,
       proxyDestinationUrl: 'https://cs.corp.local',
@@ -94,6 +104,57 @@ describe('INI import', () => {
   it('disables Horizon when no [Horizon] section exists', () => {
     expect(importIni('[General]\nuagName=x').config.values.horizon_enabled).toBe(false);
   });
+  it('enables and maps every 2609 Airwatch sample key', () => {
+    const input = `[Airwatch]
+tunnelGatewayEnabled=true
+disableAutoConfigUpdate=true
+pacFilePath=C:\\pac\\tunnel.pac
+pacFileURL=https://config.example.com/tunnel.pac
+credentialFilePath=C:\\secrets\\tunnel.txt
+apiServerUsername=domain\\api
+apiServerPassword=*****
+proxyDestinationUrl=https://backend.corp.local
+ntlmAuthentication=true
+healthCheckUrl=/health
+organizationGroupCode=CORP
+apiServerUrl=https://as1234.awmdm.com
+outboundProxyHost=proxy.corp.local
+outboundProxyPort=3128
+outboundProxyUsername=proxy-user
+outboundProxyPassword=*****
+reinitializeGatewayProcess=false
+airwatchServerHostname=tunnel.example.com
+trustedCert1=C:\\certs\\uem.pem
+hostEntry1=10.0.0.20 api.corp.local
+tunnelConfigurationId=tunnel-production`;
+    const r = importIni(input);
+    expect(r.unmapped).toEqual([]);
+    expect(r.config.values).toMatchObject({
+      airwatch_enabled: true,
+      airwatch_tunnelGatewayEnabled: true,
+      airwatch_disableAutoConfigUpdate: true,
+      airwatch_pacFilePath: 'C:\\pac\\tunnel.pac',
+      airwatch_apiServerUsername: 'domain\\api',
+      airwatch_proxyDestinationUrl: 'https://backend.corp.local',
+      airwatch_ntlmAuthentication: true,
+      airwatch_organizationGroupCode: 'CORP',
+      airwatch_apiServerUrl: 'https://as1234.awmdm.com',
+      airwatch_outboundProxyHost: 'proxy.corp.local',
+      airwatch_outboundProxyPort: 3128,
+      airwatch_airwatchServerHostname: 'tunnel.example.com',
+      airwatch_tunnelConfigurationId: 'tunnel-production'
+    });
+    expect(r.config.values.airwatch_apiServerPassword).toBe('');
+    expect(r.config.values.airwatch_outboundProxyPassword).toBe('');
+  });
+  it('does not enable Airwatch when the section is absent', () => {
+    expect(importIni('[General]\nuagName=x').config.values.airwatch_enabled).toBe(false);
+  });
+  it('imports historical 2212 Tunnel proxy switches with version warnings', () => {
+    const r = importIni('[General]\nsource=euc-unified-access-gateway-22.12.0.0-1.ova\n[Airwatch]\ntunnelProxyEnabled=true\nairwatchOutboundProxy=true');
+    expect(r.config.values).toMatchObject({ airwatch_enabled: true, airwatch_tunnelProxyEnabled: true, airwatch_airwatchOutboundProxy: true });
+    expect(generateIni(r.config)).toContain('tunnelProxyEnabled=true');
+  });
   it('warns about keys newer than the detected version', () => {
     const w = importIni('[General]\nsource=euc-unified-access-gateway-22.12.0.0-1.ova\nheadersToBeLogged=host').warnings;
     expect(w.join('\n')).toMatch(/headersToBeLogged.*2312/);
@@ -101,6 +162,21 @@ describe('INI import', () => {
   it('detects Azure from the [Azure] section', () => {
     expect(importIni('[General]\nuagName=x\n[Azure]\nsubscriptionID=1\nlocation=uksouth').config.platform).toBe('azure');
   });
+  it('imports the documented lowercase admin password policy keys', () => {
+    const r = importIni(`[General]
+adminpasswordPolicyMinLen=12
+adminpasswordPolicyFailedLockoutCount=4
+adminpasswordPolicyUnlockTime=7
+adminpasswordExpirationDays=60
+`);
+    expect(r.config.values).toMatchObject({
+      adminPasswordPolicyMinLen: 12,
+      adminPasswordPolicyFailedLockoutCount: 4,
+      adminPasswordPolicyUnlockTime: 7,
+      adminPasswordExpirationDays: 60
+    });
+  });
+
   it('imports numbered SSH public-key file paths', () => {
     const r = importIni('[General]\nsshEnabled=true\nsshKeyAccessEnabled=true\nsshPublicKey1=C:\\keys\\admin.pub\nsshPublicKey2=keys\\backup.pub');
     expect(r.config.values.sshPublicKeys).toBe('C:\\keys\\admin.pub\nkeys\\backup.pub');
@@ -116,8 +192,9 @@ describe('INI import', () => {
   });
 
   it('normalizes imported DNS and NTP values for row editors', () => {
-    const c = importIni('[General]\ndns=192.0.2.1   192.0.2.2\nntpServers=ntp1.corp.local  ntp2.corp.local\nfallBackNtpServers=pool.ntp.org').config;
+    const c = importIni('[General]\ndns=192.0.2.1   192.0.2.2\ndnsSearch=corp.local  example.local\nntpServers=ntp1.corp.local  ntp2.corp.local\nfallBackNtpServers=pool.ntp.org').config;
     expect(c.values.dns).toBe('192.0.2.1 192.0.2.2');
+    expect(c.values.dnsSearch).toBe('corp.local example.local');
     expect(c.values.ntpServers).toBe('ntp1.corp.local ntp2.corp.local');
     expect(c.values.fallBackNtpServers).toBe('pool.ntp.org');
   });
