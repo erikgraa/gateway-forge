@@ -32,7 +32,18 @@ export function generatePowerShell(c: Config, mode: SecretMode = 'placeholder'):
     ''
   ];
   if (mode === 'placeholder' && ini.includes('<REDACTED>')) out.push('# Replace every <REDACTED> value in the INI before deploying.', '');
-  out.push(`# 2a. Interactive deployment (prompts for the root and admin passwords)`);
+  out.push(`# 2. Password handling and deployment`);
+  out.push(`# Gateway Forge never requests or stores the UAG root or Admin UI passwords.`);
+  out.push(`# Omnissa's headless parameter reference marks -rootPwd and -adminPwd as mandatory.`);
+  out.push(`# Its deployment workflow also documents an intentional immutable option: if no post-deployment changes are needed,`);
+  out.push(`# the Admin UI password can be left unset. The Admin UI and API are then unavailable, no user can be added later,`);
+  out.push(`# and the appliance must be redeployed to regain administrative access. This does not remove the root account.`);
+  out.push(`# References: https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters`);
+  out.push(`#             https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy`);
+  out.push(`# For replace-on-failure workflows, test this tradeoff and the complete INI as a recovery baseline, and retain the`);
+  out.push(`# deployment artifacts in an approved secrets-managed location outside Gateway Forge and the exported script.`);
+  out.push('');
+  out.push(`# 2a. Interactive deployment (the deployment script prompts for credentials)`);
   out.push((c.platform === 'azure' ? `.\\${script} .\\${file}` : `.\\${script} -iniFile .\\${file}`) + sw, '');
   out.push(`# 2b. Non-interactive deployment: -rootPwd / -adminPwd are read at deploy time and are never stored in the INI (min 8 characters; 14 for FIPS)`);
   out.push(`$rootPwd  = Read-Host 'UAG root password'  -AsSecureString`);

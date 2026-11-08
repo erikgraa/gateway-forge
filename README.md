@@ -49,7 +49,7 @@ Per-version field availability (`since` in the schema) was derived by diffing th
 1. Pick the **UAG version** and **platform** (vSphere, Hyper-V, Azure) in the header - or start from a **template**, or **Import** an existing INI/JSON.
 2. Fill in the sections. Required fields and lint findings are flagged inline and in the *Validation & lint* panel.
 3. Take the result from the right-hand panel: **INI**, **JSON**, **PowerShell** or **Docs**; *Copy* or *Download* (also in **Export**).
-4. Deploy: `.\uagdeploy.ps1 -iniFile .\uag-dmz-01.ini` (you are prompted for the root and admin passwords; the PowerShell tab also shows the non-interactive form `-rootPwd … -adminPwd …`).
+4. Deploy: `.\uagdeploy.ps1 -iniFile .\uag-dmz-01.ini` (the script handles the credentials; the PowerShell tab also shows the documented headless `-rootPwd … -adminPwd …` form).
 
 ### 📚 Where do the key names come from?
 
@@ -62,7 +62,9 @@ Omnissa documents the JSON as an *export/import format* of the admin UI but does
 ## 🔒 Security & privacy
 
 - Everything runs in your browser. **No telemetry, no network calls** (the only optional one is to a helper on `127.0.0.1` that *you* start).
-- Secrets (RADIUS shared secrets, SNMP community/passwords) are **masked in the form**, **never saved** in the browser draft, and exported as `<REDACTED>` placeholders by default. Choose *Omit entirely* or *Include (plain text)* under the output panel. UAG root/admin passwords are never asked for - `uagdeploy` prompts for them.
+- Secrets (RADIUS shared secrets, SNMP community/passwords) are **masked in the form**, **never saved** in the browser draft, and exported as `<REDACTED>` placeholders by default. Choose *Omit entirely* or *Include (plain text)* under the output panel. UAG root/Admin UI passwords are never asked for or stored by Gateway Forge - credentials are handled by `uagdeploy` at deployment time.
+- Omnissa marks `rootPwd` and `adminPwd` as mandatory in its [non-interactive parameter reference](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters). Its [deployment workflow](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy) separately documents an intentional immutable option without an Admin UI password: the appliance is production-ready from the INI, but the Admin UI and API are unavailable, no user can later be added, and recovery requires redeployment. **This is not a passwordless appliance.**
+- For immutable or replace-on-failure operations, treat the complete, validated INI as the recovery baseline and test that a clean redeployment restores service. Keep deployment artifacts in an approved secrets-managed location and assess console access, break-glass recovery, monitoring, password rotation, change control, backup, and compliance before deliberately omitting the Admin UI password.
 - The form state (minus secrets) is kept in `localStorage` so a refresh does not lose work; use **Reset** to clear it.
 - Certificates are referenced by *file path* (read by `uagdeploy` at deploy time); certificate or key content is never stored.
 

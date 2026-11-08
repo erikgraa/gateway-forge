@@ -3,6 +3,7 @@ import { defaultConfig, applyPatch } from './model';
 import { collectBlocks, generateIni, generateJson, generateJsonObject, SECRET_PLACEHOLDER } from './generate';
 import { TEMPLATES } from './templates';
 import { generatePowerShell } from './powershell';
+import { generateDocs } from './topology';
 import { validateConfig } from './validate';
 
 const radiusMfa = () => TEMPLATES.find((t) => t.id === 'horizon-radius')!.build(defaultConfig());
@@ -187,6 +188,22 @@ describe('PowerShell output', () => {
     expect(ps).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini');
     expect(ps).toContain('-rootPwd');
     expect(ps).toContain('<REDACTED>');
+  });
+  it('documents immutable deployment without suggesting passwordless UAG', () => {
+    const ps = generatePowerShell(radiusMfa());
+    expect(ps).toContain('headless parameter reference marks -rootPwd and -adminPwd as mandatory');
+    expect(ps).toContain('The Admin UI and API are then unavailable, no user can be added later');
+    expect(ps).toContain('This does not remove the root account');
+    expect(ps).toContain('Gateway Forge never requests or stores');
+    expect(ps).toContain('https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy');
+  });
+  it('includes immutable recovery and compliance guidance in the runbook', () => {
+    const docs = generateDocs(radiusMfa(), []);
+    expect(docs).toContain('Immutable / replace-on-failure option');
+    expect(docs).toContain('must be redeployed to restore administrative access');
+    expect(docs).toContain('This does not remove or disable the root account');
+    expect(docs).toContain('compliance requirements');
+    expect(docs).toContain('https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy');
   });
   it('uses the Hyper-V and Azure scripts', () => {
     expect(generatePowerShell(applyPatch(radiusMfa(), { platform: 'hyperv' }))).toContain('uagdeployhv.ps1 -iniFile');

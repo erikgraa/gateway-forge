@@ -77,7 +77,10 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   if (v.ntpServers) L.push(`- **NTP:** ${v.ntpServers}`);
   L.push('', '## Deployment', '');
   L.push(`- Run: \`${platformScript(c)} -iniFile <file>.ini${runtimeSwitches(c)}\``);
-  L.push('- Root and admin passwords are read at deploy time (prompt, or `-rootPwd` / `-adminPwd`); they are not part of the INI.');
+  L.push('- Gateway Forge never asks for or stores the UAG root or Admin UI passwords. Omnissa marks `-rootPwd` and `-adminPwd` as mandatory for headless deployment; the generated PowerShell reads them only at deploy time when supplied.');
+  L.push('- **Immutable / replace-on-failure option:** Omnissa documents that an appliance may be deployed without an Admin UI password when no post-deployment changes are needed. The Admin UI and API are then unavailable, no user can be added later, and the appliance must be redeployed to restore administrative access. This does not remove or disable the root account.');
+  L.push('- Before choosing this workflow, complete and test the INI as the recovery baseline; retain deployment artifacts in an approved secrets-managed system; and assess console access, break-glass recovery, monitoring, password rotation, change control, backup, and compliance requirements. Redeploy rather than attempting in-place administration.');
+  L.push('- Reference: [Omnissa non-interactive deployment parameters](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters) and [Run PowerShell script to deploy](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy).');
   L.push('', '## Edge services', '');
   if (cascadeRole(v) === 'outer') L.push(`- **Cascade - outer UAG (DMZ 1)** reverse proxy → ${v.cascade_innerUrl || '(not set)'}`);
   if (cascadeRole(v) === 'inner') L.push('- **Cascade - inner UAG (DMZ 2)**: Horizon external URLs must point to the outer UAG');
