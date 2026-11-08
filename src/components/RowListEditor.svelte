@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import type { Field, Values } from '../lib/schema';
   import type { Issue } from '../lib/validate';
   import { parseListValue, serializeListValue } from '../lib/listValue';
@@ -11,8 +12,9 @@
   let { field, values = $bindable(), issues }: Props = $props();
 
   const definition = $derived(field.rows!);
-  let rows = $state<string[]>([]);
-  let emitted = $state('');
+  const initial = untrack(() => String(values[field.id] ?? ''));
+  let emitted = $state(initial);
+  let rows = $state<string[]>(parseListValue(initial));
 
   $effect(() => {
     const external = String(values[field.id] ?? '');
