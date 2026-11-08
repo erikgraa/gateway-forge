@@ -21,7 +21,7 @@ This roadmap highlights current priorities and longer-running work. It is direct
 
 ## Future goals
 
-- **Future goal — integrate secrets and PKI providers.** Define an opt-in, provider-neutral integration for secret stores and certificate authorities that preserves browser-only privacy by default and documents credential boundaries, auditability, and offline fallback. ([#58](https://github.com/erikgraa/gateway-forge/issues/58))
+- **Future goal — integrate secrets and PKI providers.** Follow the [provider integration design](docs/secret-pki-provider-design.md) and milestone gates before enabling a reviewed adapter; the default workflow remains browser-only and offline-capable. ([#58](https://github.com/erikgraa/gateway-forge/issues/58))
 
 ## Ongoing
 

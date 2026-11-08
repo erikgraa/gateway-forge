@@ -7,6 +7,7 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 ### Added
 
 - Added a prominent security-baseline warning when an older UAG version is selected, with UAG 2609 identified as the recommended release and a one-click upgrade action.
+- Added a security design and staged roadmap for future opt-in secret-management and PKI providers, plus dormant provider-neutral contracts.
 
 ### Changed
 
