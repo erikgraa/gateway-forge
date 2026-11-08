@@ -211,6 +211,12 @@ adminpasswordExpirationDays=60
     expect(generateIni(r.config)).toContain('sshPublicKey1=C:\\keys\\admin.pub');
     expect(generateIni(r.config)).toContain('sshPublicKey2=keys\\backup.pub');
   });
+  it('preserves legacy runtime-only values without emitting them', () => {
+    const r = importIni('[Runtime]\nrun_noSSLVerify=true\nrun_disableVerification=true');
+    expect(r.config.values).toMatchObject({ run_noSSLVerify: true, run_disableVerification: true });
+    expect(r.unmapped).toEqual([]);
+    expect(generateIni(r.config)).not.toMatch(/Runtime|run_noSSLVerify|run_disableVerification/);
+  });
 
   it('normalizes imported DNS and NTP values for row editors', () => {
     const c = importIni('[General]\ndns=192.0.2.1   192.0.2.2\ndnsSearch=corp.local  example.local\nntpServers=ntp1.corp.local  ntp2.corp.local\nfallBackNtpServers=pool.ntp.org').config;

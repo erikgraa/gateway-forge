@@ -1,5 +1,5 @@
 import { generateIni, generateJson, iniFileName, jsonFileName, type SecretMode } from './generate';
-import { generatePowerShell, generateRestPowerShell } from './powershell';
+import { generatePowerShell, type DeploymentMode } from './powershell';
 import { generateDocs } from './topology';
 import { validateConfig } from './validate';
 import type { Config } from './model';
@@ -11,7 +11,12 @@ export interface Rendered {
   mime: string;
 }
 
-export function render(c: Config, tab: OutputTab, mode: SecretMode): Rendered {
+export function render(
+  c: Config,
+  tab: OutputTab,
+  mode: SecretMode,
+  deploymentMode: DeploymentMode = 'interactive'
+): Rendered {
   switch (tab) {
     case 'ini':
       return { text: generateIni(c, { secrets: mode }), filename: iniFileName(c), mime: 'text/plain' };
@@ -19,7 +24,7 @@ export function render(c: Config, tab: OutputTab, mode: SecretMode): Rendered {
       return { text: generateJson(c, { secrets: mode }), filename: jsonFileName(c), mime: 'application/json' };
     case 'ps': {
       const base = iniFileName(c).replace(/\.ini$/, '');
-      const text = generatePowerShell(c, mode) + '\n' + generateRestPowerShell(c);
+      const text = generatePowerShell(c, mode, deploymentMode);
       return { text, filename: `deploy-${base}.ps1`, mime: 'text/plain' };
     }
     case 'docs':

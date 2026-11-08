@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app } from '../lib/store.svelte';
-  import { GROUPS, LISTS, SECTIONS, type SectionId } from '../lib/schema';
+  import { GROUPS, LISTS, RUNTIME_FIELDS, SECTIONS, type SectionId } from '../lib/schema';
   import { VERSIONS, PLATFORMS } from '../lib/versions';
   import { render, download, copy } from '../lib/render';
   import { fieldAvailable } from '../lib/model';
@@ -22,13 +22,13 @@
     out.push(
       { kind: 'Action', label: 'Toggle light/dark theme', run: () => app.toggleTheme() },
       { kind: 'Action', label: 'Import INI / JSON…', run: () => (app.showImport = true) },
-      { kind: 'Action', label: 'Download INI', run: () => download(render(app.config, 'ini', app.secretMode)) },
-      { kind: 'Action', label: 'Download settings JSON', run: () => download(render(app.config, 'json', app.secretMode)) },
-      { kind: 'Action', label: 'Download PowerShell', run: () => download(render(app.config, 'ps', app.secretMode)) },
+      { kind: 'Action', label: 'Download INI', run: () => download(render(app.config, 'ini', app.secretMode, app.deploymentMode)) },
+      { kind: 'Action', label: 'Download settings JSON', run: () => download(render(app.config, 'json', app.secretMode, app.deploymentMode)) },
+      { kind: 'Action', label: 'Download PowerShell', run: () => download(render(app.config, 'ps', app.secretMode, app.deploymentMode)) },
       {
         kind: 'Action',
         label: 'Copy current output',
-        run: async () => app.say((await copy(render(app.config, app.tab, app.secretMode).text)) ? 'Copied' : 'Copy failed')
+        run: async () => app.say((await copy(render(app.config, app.tab, app.secretMode, app.deploymentMode).text)) ? 'Copied' : 'Copy failed')
       },
       { kind: 'Action', label: 'Reset to blank configuration', run: () => app.clearDraft() }
     );
@@ -39,6 +39,9 @@
       for (const f of g.fields)
         if (fieldAvailable({ ...f, showIf: undefined }, app.config.version, app.config.platform, app.config.values) && (!g.platforms || g.platforms.includes(app.config.platform)))
           out.push({ kind: 'Setting', label: f.label, detail: `${g.title} · ${f.key}`, run: () => app.goTo(g.section as SectionId, f.id) });
+    for (const f of RUNTIME_FIELDS)
+      if (fieldAvailable(f, app.config.version, app.config.platform, app.config.values))
+        out.push({ kind: 'Setting', label: f.label, detail: 'PowerShell run-time options', run: () => app.goTo('network', f.id) });
     for (const l of LISTS) out.push({ kind: 'Go to', label: l.title, run: () => app.goTo(l.section) });
     return out;
   });

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { defaultConfig, applyPatch } from './model';
+import { defaultConfig, applyPatch, stripSecrets } from './model';
 import { collectBlocks, generateIni, generateJson, generateJsonObject, SECRET_PLACEHOLDER } from './generate';
 import { TEMPLATES } from './templates';
 import { generatePowerShell } from './powershell';
 import { generateDocs } from './topology';
 import { validateConfig } from './validate';
+import { GROUPS } from './schema';
+import { render } from './render';
 
 const radiusMfa = () => TEMPLATES.find((t) => t.id === 'horizon-radius')!.build(defaultConfig());
 const tunnel = () => TEMPLATES.find((t) => t.id === 'workspace-one-tunnel')!.build(defaultConfig());
@@ -430,23 +432,39 @@ describe('JSON generation', () => {
 });
 
 describe('run-time options', () => {
-  it('adds -noSSLVerify / -disableVerification to the deploy commands, not the INI', () => {
+  it('adds -noSSLVerify / -disableVerification to both deployment modes, not the INI or JSON', () => {
     const c = applyPatch(radiusMfa(), { values: { run_noSSLVerify: true, run_disableVerification: true } });
-    const ps = generatePowerShell(c);
-    expect(ps).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini -noSSLVerify -disableVerification');
-    expect(ps).toMatch(/-adminPwd \(& \$plain \$adminPwd\) -noSSLVerify -disableVerification/);
-    expect(ps).toContain('-rootPwd / -adminPwd are read at deploy time');
+    const interactive = generatePowerShell(c, 'placeholder', 'interactive');
+    const headless = generatePowerShell(c, 'placeholder', 'headless');
+    expect(interactive).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini -noSSLVerify -disableVerification');
+    expect(headless).toContain('-adminPwd $env:UAG_ADMIN_PASSWORD -noSSLVerify -disableVerification');
     expect(generateIni(c)).not.toMatch(/noSSLVerify|disableVerification|Runtime/);
     expect(JSON.stringify(generateJsonObject(c))).not.toMatch(/SSLVerify|disableVerification/);
   });
   it('-disableVerification is vSphere only', () => {
     const v = { run_noSSLVerify: true, run_disableVerification: true };
-    const hv = generatePowerShell(applyPatch(radiusMfa(), { platform: 'hyperv', values: v }));
+    const hv = generatePowerShell(applyPatch(radiusMfa(), { platform: 'hyperv', values: v }), 'placeholder', 'interactive');
     expect(hv).toContain('-noSSLVerify');
     expect(hv).not.toContain('-disableVerification');
-    const az = generatePowerShell(applyPatch(radiusMfa(), { platform: 'azure', values: v }));
-    expect(az).toContain('.\\uagdeployaz.ps1 .\\uag-dmz-01.ini -noSSLVerify');
+    const az = generatePowerShell(applyPatch(radiusMfa(), { platform: 'azure', values: v }), 'placeholder', 'headless');
+    expect(az).toContain('.\\uagdeployaz.ps1 .\\uag-dmz-01.ini $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no -noSSLVerify');
     expect(az).not.toContain('-disableVerification');
+  });
+  it('removes runtime controls from the form schema while retaining false defaults', () => {
+    expect(GROUPS.some((group) => group.id === 'runtime')).toBe(false);
+    expect(defaultConfig().values).toMatchObject({ run_noSSLVerify: false, run_disableVerification: false });
+  });
+  it('removes any legacy root or admin password keys before draft persistence', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        rootPwd: 'root-secret',
+        adminPwd: 'admin-secret',
+        UAG_ROOT_PASSWORD: 'environment-copy',
+        UAG_ADMIN_PASSWORD: 'environment-copy'
+      }
+    });
+    const draft = JSON.stringify(stripSecrets(c));
+    expect(draft).not.toMatch(/root-secret|admin-secret|environment-copy|UAG_ROOT_PASSWORD|UAG_ADMIN_PASSWORD/);
   });
 
   it('materialises pasted SSH keys as companion files for deployment', () => {
@@ -468,23 +486,37 @@ describe('run-time options', () => {
 });
 
 describe('PowerShell output', () => {
-  it('writes the INI and calls uagdeploy.ps1 -iniFile', () => {
+  it('writes the INI and contains only the interactive prompt-driven command by default', () => {
     const c = radiusMfa();
     c.values.radius_sharedSecret = 's3cret';
     const ps = generatePowerShell(c);
     expect(ps).not.toContain('s3cret');
     expect(ps).toContain('$ini = @\'');
     expect(ps).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini');
-    expect(ps).toContain('-rootPwd');
+    expect(ps).toContain('prompts for the root and Admin UI passwords');
+    expect(ps).not.toMatch(/-rootPwd|-adminPwd|UAG_ROOT_PASSWORD|UAG_ADMIN_PASSWORD/);
     expect(ps).toContain('<REDACTED>');
+    expect(ps.match(/^\s*\.\\uagdeploy(?:hv|az)?\.ps1 /gm)).toHaveLength(1);
   });
-  it('documents immutable deployment without suggesting passwordless UAG', () => {
-    const ps = generatePowerShell(radiusMfa());
-    expect(ps).toContain('headless parameter reference marks -rootPwd and -adminPwd as mandatory');
-    expect(ps).toContain('The Admin UI and API are then unavailable, no user can be added later');
-    expect(ps).toContain('This does not remove the root account');
-    expect(ps).toContain('Gateway Forge never requests or stores');
-    expect(ps).toContain('https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy');
+  it('generates a headless command that reads and validates runtime environment passwords', () => {
+    const c = radiusMfa();
+    c.values.rootPassword = 'embedded-root-secret';
+    c.values.adminPassword = 'embedded-admin-secret';
+    const ps = generatePowerShell(c, 'placeholder', 'headless');
+    expect(ps).toContain(`throw 'Set UAG_ROOT_PASSWORD before running headless deployment.'`);
+    expect(ps).toContain(`throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.'`);
+    expect(ps).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD');
+    expect(ps).not.toContain('Read-Host');
+    expect(ps).not.toContain('embedded-root-secret');
+    expect(ps).not.toContain('embedded-admin-secret');
+    expect(ps.match(/^\s*\.\\uagdeploy(?:hv|az)?\.ps1 /gm)).toHaveLength(1);
+  });
+  it('updates rendered PowerShell immediately for deployment mode and switches', () => {
+    const c = radiusMfa();
+    expect(render(c, 'ps', 'placeholder', 'interactive').text).not.toContain('UAG_ROOT_PASSWORD');
+    c.values.run_noSSLVerify = true;
+    expect(render(c, 'ps', 'placeholder', 'interactive').text).toContain(' -noSSLVerify');
+    expect(render(c, 'ps', 'placeholder', 'headless').text).toContain('UAG_ROOT_PASSWORD');
   });
   it('includes immutable recovery and compliance guidance in the runbook', () => {
     const docs = generateDocs(radiusMfa(), []);
@@ -496,7 +528,7 @@ describe('PowerShell output', () => {
   });
   it('uses the Hyper-V and Azure scripts', () => {
     expect(generatePowerShell(applyPatch(radiusMfa(), { platform: 'hyperv' }))).toContain('uagdeployhv.ps1 -iniFile');
-    const az = generatePowerShell(applyPatch(radiusMfa(), { platform: 'azure' }));
-    expect(az).toContain('uagdeployaz.ps1 .\\uag-dmz-01.ini');
+    const az = generatePowerShell(applyPatch(radiusMfa(), { platform: 'azure' }), 'placeholder', 'headless');
+    expect(az).toContain('uagdeployaz.ps1 .\\uag-dmz-01.ini $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no');
   });
 });
