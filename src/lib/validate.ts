@@ -24,6 +24,29 @@ const HOST = /^(?=.{1,253}$)([A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(\.[
 
 export const isIpv4 = (s: string) => IPV4.test(s);
 
+function isIpv6(s: string): boolean {
+  if (!s.includes(':')) return false;
+  try {
+    return new URL(`http://[${s}]`).hostname.startsWith('[');
+  } catch {
+    return false;
+  }
+}
+
+function validStaticRoutes(s: string): string | null {
+  for (const route of s.split(',').map((x) => x.trim()).filter(Boolean)) {
+    const m = /^(\S+)\s+(\S+)$/.exec(route);
+    if (!m) return `Route "${route}" must be "IPv4-network/prefix gateway-IPv4"`;
+    const network = m[1].split('/');
+    const prefix = Number(network[1]);
+    if (network.length !== 2 || !IPV4.test(network[0]) || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+      return `"${m[1]}" is not an IPv4 CIDR network`;
+    }
+    if (!IPV4.test(m[2])) return `"${m[2]}" is not an IPv4 gateway`;
+  }
+  return null;
+}
+
 function hostPort(s: string): boolean {
   const m = /^(.+?)(?::(\d{1,5}))?$/.exec(s);
   if (!m) return false;
@@ -101,10 +124,22 @@ export function checkRule(rule: Rule, raw: string): string | null {
       return sshPublicKeyValidationError(s);
     case 'uagName':
       return /^[A-Za-z0-9.-]{1,24}$/.test(s) ? null : 'Up to 24 characters: A-Z, 0-9, "-" and "."; no spaces';
+    case 'osLoginUsername':
+      return /^[a-z0-9_-]{1,32}$/.test(s) ? null : 'Up to 32 lowercase characters: a-z, 0-9, "_" and "-"';
+    case 'ascii':
+      return /^[\x20-\x7e]*$/.test(s) ? null : 'ASCII characters only; use literal \\n for line breaks';
     case 'ipv4Port': {
       const [ip, port] = s.split(':');
       return IPV4.test(ip) && (port === undefined || (Number(port) >= 1 && Number(port) <= 65535)) ? null : 'Must be an IPv4 address with optional :port';
     }
+    case 'ipv6':
+      return isIpv6(s) ? null : 'Not a valid IPv6 address';
+    case 'staticRoutes':
+      return validStaticRoutes(s);
+    case 'customConfig':
+      return s.split(';').map((x) => x.trim()).filter(Boolean).every((x) => /^[A-Za-z0-9_.-]+\^[A-Za-z0-9_.-]+=.*$/.test(x))
+        ? null
+        : 'Use semicolon-separated Section^Parameter=Value entries';
     case 'hostEntryList':
       return validHostEntries(s) ? null : 'Must contain comma-separated "IP hostname [alias]" entries';
     case 'path':
@@ -239,6 +274,25 @@ function lint(c: Config, push: Push): void {
   if (v.run_noSSLVerify === true) push({ level: 'warn', section: 'network', fieldId: 'run_noSSLVerify', message: '-noSSLVerify is on: the deployment script will not verify SSL/TLS certificates. Avoid in production.' });
   if (c.platform === 'vsphere' && v.run_disableVerification === true) push({ level: 'warn', section: 'network', fieldId: 'run_disableVerification', message: '-disableVerification is on: the OVA/OVF signature and certificate chain are not validated. Only use with an image you downloaded from Omnissa and verified yourself.' });
   if (v.ceipEnabled === true) push({ level: 'info', section: 'general', fieldId: 'ceipEnabled', message: 'CEIP is enabled - the appliance sends telemetry to Omnissa.' });
+
+  const sshInterface = String(v.sshInterface ?? '');
+  const nicCount = deploymentNicCount(v);
+  if (v.sshEnabled === true && sshInterface && Number(sshInterface.slice(3)) >= nicCount) {
+    push({ level: 'error', section: 'general', fieldId: 'sshInterface', message: `${sshInterface} is not present in the selected ${nicCount}-NIC deployment.` });
+  }
+  const staticIpv6 = String(v.v6ip0 ?? '');
+  if (staticIpv6 && !String(v.ipmode0 ?? '').includes('STATICV6')) {
+    push({ level: 'warn', section: 'network', fieldId: 'ipmode0', message: 'NIC0 has a static IPv6 address but ipmode0 does not include STATICV6.' });
+  }
+  if (nicCount === 1) {
+    for (const key of ['routes1', 'routes2', 'eth1CustomConfig', 'eth2CustomConfig']) {
+      if (nonEmpty(key)) push({ level: 'error', section: 'network', fieldId: key, message: `${key} is configured but the selected deployment has only NIC0.` });
+    }
+  } else if (nicCount === 2 && (nonEmpty('routes2') || nonEmpty('eth2CustomConfig'))) {
+    for (const key of ['routes2', 'eth2CustomConfig']) {
+      if (nonEmpty(key)) push({ level: 'error', section: 'network', fieldId: key, message: `${key} is configured but the selected two-NIC deployment has no NIC2.` });
+    }
+  }
 
   const latest = VERSIONS.find((x) => x.latest);
   if (latest && c.version !== latest.id) push({ level: 'info', section: 'general', message: `UAG ${latest.id} is available; you are targeting ${c.version}. Stay current for security fixes.` });

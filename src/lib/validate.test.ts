@@ -25,6 +25,20 @@ describe('field validation', () => {
     expect(checkRule('uagName', 'uag-dmz-01')).toBeNull();
     expect(checkRule('uagName', 'this-name-is-way-too-long-for-uag')).not.toBeNull();
     expect(checkRule('ipList', '10.0.0.1 10.0.0.2')).toBeNull();
+    expect(checkRule('ipv6', '2402:740:2:209::253')).toBeNull();
+    expect(checkRule('ipv6', 'not:an:ipv6')).not.toBeNull();
+    expect(checkRule('osLoginUsername', 'uag_admin-1')).toBeNull();
+    expect(checkRule('osLoginUsername', 'Upper Case')).not.toBeNull();
+    expect(checkRule('ascii', 'Banner\\nline two')).toBeNull();
+    expect(checkRule('ascii', 'bannér')).not.toBeNull();
+  });
+
+  it('validates static routes and per-NIC custom configuration syntax', () => {
+    expect(checkRule('staticRoutes', '10.108.172.32/32 10.108.172.253,192.168.20.0/24 192.168.10.1')).toBeNull();
+    expect(checkRule('staticRoutes', '10.0.0.0/33 10.0.0.1')).toMatch(/CIDR/);
+    expect(checkRule('staticRoutes', '10.0.0.0/8')).toMatch(/network.*gateway/i);
+    expect(checkRule('customConfig', 'DHCP^UseDNS=false;Network^DNS=192.168.1.153#dns.example.com')).toBeNull();
+    expect(checkRule('customConfig', 'UseDNS=false')).not.toBeNull();
   });
 
   it('validates thumbprint formats and lengths', () => {
@@ -88,6 +102,23 @@ describe('config validation', () => {
     const m = messages(c).join('\n');
     expect(m).toMatch(/share the same IP/);
     expect(m).toMatch(/gateway is not in the NIC0 subnet/);
+  });
+
+  it('rejects routes, custom NIC config and SSH interfaces for NICs that do not exist', () => {
+    const one = applyPatch(defaultConfig(), {
+      values: { deploymentOption: 'onenic', routes1: '10.0.0.0/8 192.0.2.1', eth2CustomConfig: 'DHCP^UseDNS=false', sshEnabled: true, sshInterface: 'eth1' }
+    });
+    const m = messages(one).join('\n');
+    expect(m).toMatch(/routes1.*only NIC0/);
+    expect(m).toMatch(/eth2CustomConfig.*only NIC0/);
+    expect(m).toMatch(/eth1 is not present/);
+    const two = applyPatch(defaultConfig(), { values: { deploymentOption: 'twonic', routes2: '10.0.0.0/8 192.0.2.1' } });
+    expect(messages(two).join('\n')).toMatch(/two-NIC deployment has no NIC2/);
+  });
+
+  it('warns when a static IPv6 address conflicts with ipmode0', () => {
+    const c = applyPatch(defaultConfig(), { values: { v6ip0: '2402:740:2:209::5', ipmode0: 'STATICV4' } });
+    expect(messages(c).join('\n')).toMatch(/does not include STATICV6/);
   });
 
   it('flags duplicate web reverse proxy instance IDs', () => {

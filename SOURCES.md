@@ -46,6 +46,13 @@ material, including pages titled:
 - vSphere, Hyper-V, and Azure deployment configuration
 - *Non-Interactive mode deployment parameters*
 
+The 2026-11-08 audit of the UAG 2609
+[*PowerShell deployment parameters*](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/PowerShelldeploymentparameters)
+is recorded in [`docs/uag-2609-deployment-gap-matrix.md`](docs/uag-2609-deployment-gap-matrix.md).
+That matrix distinguishes documented mappings, release-history evidence,
+NIC applicability, intentional exclusions, and uncertain compatibility-only
+keys.
+
 The page hierarchy and URLs have changed over time, so use the official search
 result or product table of contents for the target release rather than reusing
 a URL from a newer or older release. These pages are the **verified

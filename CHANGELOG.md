@@ -7,11 +7,13 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 ### Added
 
 - Added a prominent security-baseline warning when an older UAG version is selected, with UAG 2609 identified as the recommended release and a one-click upgrade action.
+- Added UAG 2609 General/deployment coverage for per-NIC static routes, IPv6, IP mode, custom NIC configuration, SSH interface selection, OS/admin policy controls, and exact documented key spellings.
 - Added a security design and staged roadmap for future opt-in secret-management and PKI providers, plus dormant provider-neutral contracts.
 
 ### Changed
 
 - Redesigned the UAG configuration workspace into a responsive layout with section navigation, live readiness and validation context, and persistent INI, JSON, PowerShell, and Docs previews.
+- Added a source-backed UAG 2609 deployment gap matrix covering implemented settings, NIC applicability, exclusions, and uncertain keys.
 
 ## Changelog conventions
 
