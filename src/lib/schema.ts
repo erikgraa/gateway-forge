@@ -15,6 +15,8 @@ export type Rule =
   | 'urlList'
   | 'port'
   | 'thumbprints'
+  | 'pemPath'
+  | 'sshPublicKeys'
   | 'uagName'
   | 'osLoginUsername'
   | 'ascii'
@@ -73,9 +75,18 @@ export interface Field {
   platforms?: Platform[];
   /** Key name is inferred from a documented pattern rather than copied from the docs. */
   inferred?: boolean;
+  /** 1-based position in an ordered trustedCert1-trustedCert9 field family. */
+  trustedCertIndex?: number;
   wide?: boolean;
   /** Emit to INI only when the user sets it (not when equal to the documented default). */
   omitDefault?: boolean;
+  /** This field needs format-specific output rather than a direct INI entry. */
+  customOutput?: boolean;
+  /** Edit a string-backed, space-separated value as individually validated rows. */
+  rows?: {
+    itemLabel: string;
+    rule: 'ipv4' | 'hostOrIp';
+  };
 }
 
 export interface GroupDef {
@@ -160,6 +171,22 @@ const secret = (id: string, label: string, key: string, extra: Partial<Field> = 
   ...extra
 });
 
+const trustedCertFields = (
+  idFor: (index: number) => string,
+  extra: Partial<Field> = {}
+): Field[] =>
+  Array.from({ length: 9 }, (_, offset) => {
+    const index = offset + 1;
+    return text(idFor(index), index === 1 ? 'Trusted CA certificate (PEM path)' : 'Additional trusted CA certificate (PEM path)', `trustedCert${index}`, {
+      wide: true,
+      json: false,
+      rule: 'pemPath',
+      trustedCertIndex: index,
+      placeholder: index === 1 ? 'C:\\certs\\corp-root-ca.pem' : 'C:\\certs\\intermediate-ca.pem',
+      ...extra
+    });
+  });
+
 export const AUTH_METHODS: Option[] = [
   { value: 'passthrough', label: 'Passthrough (username/password)' },
   { value: 'radius-auth', label: 'RADIUS' },
@@ -208,11 +235,11 @@ export const GROUPS: GroupDef[] = [
         placeholder: 'sha256=ad:5c:f1:…',
         help: 'Needed when the inner UAG certificate is not from a trusted CA. Use the thumbprint helper under Horizon settings.'
       }),
-      text('cascade_innerTrustedCert', 'Inner UAG trusted CA certificate (PEM path)', 'cascade_innerTrustedCert', {
+      ...trustedCertFields((n) => n === 1 ? 'cascade_innerTrustedCert' : `cascade_innerTrustedCert${n}`, {
         wide: true,
         showIf: (v) => v.cascade_role === 'outer',
         json: false,
-        help: 'Alternative to the thumbprint: trust the CA that issued the inner UAG certificate.'
+        help: 'Alternative to the thumbprint: trust the CA that issued the inner UAG certificate. Up to nine ordered PEM paths are supported.'
       }),
       bool('cascade_opswat', 'Allow OPSWAT on-demand agent download (/gateway/resources)', 'cascade_opswat', false, {
         showIf: (v) => v.cascade_role === 'outer',
@@ -263,6 +290,17 @@ export const GROUPS: GroupDef[] = [
       }),
       bool('sshPasswordAccessEnabled', 'SSH password access', 'sshPasswordAccessEnabled', false, { showIf: (v) => v.sshEnabled === true }),
       bool('sshKeyAccessEnabled', 'SSH key access', 'sshKeyAccessEnabled', true, { showIf: (v) => v.sshEnabled === true }),
+      text('sshPublicKeys', 'SSH public keys', 'sshPublicKey1', {
+        type: 'textarea',
+        wide: true,
+        rule: 'sshPublicKeys',
+        json: 'sshPublicKeys',
+        customOutput: true,
+        required: (v) => v.sshEnabled === true && v.sshKeyAccessEnabled === true,
+        showIf: (v) => v.sshEnabled === true && v.sshKeyAccessEnabled === true,
+        placeholder: 'ssh-rsa AAAAB3NzaC1yc2E... administrator@workstation',
+        help: 'Paste one OpenSSH RSA public key or existing .pub file path per line. INI uses numbered sshPublicKeyN file paths; PowerShell writes pasted keys as companion files.'
+      }),
       text('sshLoginBannerText', 'Login banner text', 'sshLoginBannerText', {
         wide: true,
         rule: 'ascii',
@@ -488,7 +526,7 @@ export const GROUPS: GroupDef[] = [
     section: 'network',
     target: 'runtime',
     iniSection: 'Runtime',
-    help: 'Not INI settings: these are passed on the uagdeploy command line and only affect the PowerShell output. Passwords are never part of the INI or stored here: the root and admin passwords are read at deploy time, either via prompts or with -rootPwd "<root_password>" -adminPwd "<admin_password>" (minimum 8 characters; 14 for a FIPS appliance). The PowerShell tab shows both forms.',
+    help: 'Not INI settings: these are passed on the uagdeploy command line and only affect the PowerShell output. Gateway Forge never asks for or stores the UAG root or Admin UI passwords. Omnissa marks -rootPwd and -adminPwd as mandatory for headless deployment. It separately documents an immutable option without an Admin UI password: the appliance can be production-ready, but the Admin UI and API are unavailable, no user can be added later, and administrative recovery requires redeployment. This is not a passwordless appliance; assess console access, break-glass recovery, logging, rotation, and compliance before choosing that model.',
     fields: [
       bool('run_noSSLVerify', 'Skip SSL/TLS certificate verification (-noSSLVerify)', 'run_noSSLVerify', false, {
         wide: true,
@@ -510,10 +548,25 @@ export const GROUPS: GroupDef[] = [
     target: 'system',
     iniSection: 'General',
     fields: [
-      text('dns', 'DNS servers', 'dns', {       rule: 'ipList', placeholder: '10.0.0.10 10.0.0.11', required: true, json: false, help: 'Space-separated IPv4 addresses.' }),
-            text('dnsSearch', 'DNS search domains', 'dnsSearch', { placeholder: 'corp.local', json: false }),
-      text('ntpServers', 'NTP servers', 'ntpServers', { rule: 'hostList', placeholder: 'pool.ntp.org', help: 'Space-separated hostnames/IPs.' }),
-      text('fallBackNtpServers', 'Fallback NTP servers', 'fallBackNtpServers', { rule: 'hostList' })
+      text('dns', 'DNS servers', 'dns', {
+        rule: 'ipList',
+        rows: { itemLabel: 'DNS server', rule: 'ipv4' },
+        placeholder: '10.0.0.10',
+        required: true,
+        json: false,
+        help: 'Add each IPv4 address on its own row.'
+      }),
+      text('dnsSearch', 'DNS search domains', 'dnsSearch', { placeholder: 'corp.local', json: false }),
+      text('ntpServers', 'NTP servers', 'ntpServers', {
+        rule: 'hostList',
+        rows: { itemLabel: 'NTP server', rule: 'hostOrIp' },
+        placeholder: 'pool.ntp.org',
+        help: 'Add each hostname or IP address on its own row.'
+      }),
+      text('fallBackNtpServers', 'Fallback NTP servers', 'fallBackNtpServers', {
+        rule: 'hostList',
+        rows: { itemLabel: 'Fallback NTP server', rule: 'hostOrIp' }
+      })
     ]
   },
   {
@@ -561,13 +614,9 @@ export const GROUPS: GroupDef[] = [
         placeholder: 'sha256=ad:5c:f1:…',
         help: 'Only needed when the CS certificate is not issued by a trusted CA - or add that CA under Trusted CA certificate below instead. Format [alg=]xx:xx… (sha1/sha256/sha384/sha512), comma-separated.'
       }),
-      text('trustedCert1', 'Trusted CA certificate (PEM path)', 'trustedCert1', {
-        wide: true,
-        json: false,
-        placeholder: 'C:\\certs\\corp-root-ca.pem',
+      ...trustedCertFields((n) => `trustedCert${n}`, {
         help: 'Alternative to a thumbprint: add the CA that issued the Connection Server certificate to the trust store (Admin UI: Horizon settings > More > Trusted Certificates). File path read by uagdeploy at deployment time.'
       }),
-      text('trustedCert2', 'Additional trusted CA certificate (PEM path)', 'trustedCert2', { wide: true, json: false, inferred: true, help: 'Key name follows the trustedCert1 numbering pattern; verify against an exported INI.' }),
       sel('minSHAHashSize', 'Minimum SHA hash size', 'minSHAHashSize', ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512'], {
         since: '2312',
         default: 'SHA-256',
@@ -779,7 +828,9 @@ export const GROUPS: GroupDef[] = [
       text('obp_proxyUrl', 'Proxy URL', 'proxyUrl', { rule: 'url', required: true, wide: true, placeholder: 'http://proxy.corp.local:3128', json: false }),
       sel('obp_proxyType', 'Proxy type', 'proxyType', ['HTTP', 'HTTPS'], { default: 'HTTP', json: false }),
       text('obp_includedHosts1', 'Included hosts', 'includedHosts1', { wide: true, placeholder: 'api.example.com', json: false }),
-      text('obp_trustedCert1', 'Trusted CA cert (PEM path)', 'trustedCert1', { wide: true, json: false })
+      ...trustedCertFields((n) => `obp_trustedCert${n}`, {
+        help: 'CA certificates trusted for the outbound HTTPS proxy. File paths are deployment-time values.'
+      })
     ]
   },
   {
@@ -874,7 +925,9 @@ export const LISTS: ListDef[] = [
       text('landingPagePath', 'Landing page path', 'landingPagePath', { rule: 'path', default: '/' }),
       text('userNameHeader', 'User name header', 'userNameHeader', { placeholder: 'AccessPoint-User-ID' }),
       text('hostEntry1', 'Host entry (/etc/hosts)', 'hostEntry1', { placeholder: '10.0.0.5 intranet.corp.local', wide: true }),
-      text('trustedCert1', 'Trusted CA cert (PEM path)', 'trustedCert1', { wide: true, json: false })
+      ...trustedCertFields((n) => `trustedCert${n}`, {
+        help: 'CA certificates trusted when connecting to this proxy destination. File paths are deployment-time values.'
+      })
     ]
   },
   {

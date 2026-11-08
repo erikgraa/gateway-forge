@@ -3,6 +3,8 @@ import { defaultConfig, newListItem, type Config } from './model';
 import { SECRET_PLACEHOLDER } from './generate';
 import { inVersion, isSupportedVersion } from './versions';
 import { CASCADE_INSTANCE_ID, parseForwardRules } from './cascade';
+import { compactConfigTrustedCerts, writeTrustedCertPaths } from './trusted-certs';
+import { serializeListValue } from './listValue';
 
 export interface Unmapped {
   where: string;
@@ -46,6 +48,7 @@ function isRedacted(v: string): boolean {
 }
 
 function coerce(f: Field, raw: unknown): Primitive {
+  if (f.rows) return serializeListValue(Array.isArray(raw) ? raw : [raw]);
   if (Array.isArray(raw)) raw = raw.join(',');
   if (f.type === 'bool') return typeof raw === 'boolean' ? raw : /^(true|1|yes)$/i.test(String(raw));
   if (f.type === 'number') {
@@ -74,7 +77,9 @@ export function versionFromSource(source: string): string | undefined {
 
 type IniIndex = Map<string, { group: GroupDef; field: Field }>;
 const iniIndex: IniIndex = new Map();
-for (const g of GROUPS) for (const f of g.fields) iniIndex.set(`${g.iniSection}|${f.key}`.toLowerCase(), { group: g, field: f });
+for (const g of GROUPS) for (const f of g.fields) {
+  if (!f.customOutput) iniIndex.set(`${g.iniSection}|${f.key}`.toLowerCase(), { group: g, field: f });
+}
 
 const listRe = (l: ListDef) => new RegExp(`^${l.iniSection(0).replace(/0$/, '')}(\\d+)$`, 'i');
 
@@ -87,7 +92,8 @@ function detectCascade(c: Config): void {
   c.values.cascade_role = 'outer';
   c.values.cascade_innerUrl = String(w.proxyDestinationUrl ?? '');
   c.values.cascade_innerThumbprints = String(w.proxyDestinationUrlThumbprints ?? '');
-  c.values.cascade_innerTrustedCert = String(w.trustedCert1 ?? '');
+  const cascadeCertFields = GROUPS.find((g) => g.id === 'cascade')!.fields;
+  writeTrustedCertPaths(c.values, cascadeCertFields, Array.from({ length: 9 }, (_, n) => String(w[`trustedCert${n + 1}`] ?? '')).filter(Boolean));
   c.values.cascade_opswat = String(w.proxyPattern ?? '').includes('/gateway/resources');
 }
 
@@ -115,6 +121,7 @@ export function importIni(text: string, base?: Config): ImportResult {
   else if (source && /\.vhdx?$/i.test(source)) c.platform = 'hyperv';
 
   const listItems: Record<string, Map<number, Values>> = { wrp: new Map(), syslog: new Map() };
+  const importedSshPublicKeys: { index: number; value: string }[] = [];
 
   for (const sec of doc) {
     const lower = sec.section.toLowerCase();
@@ -152,6 +159,12 @@ export function importIni(text: string, base?: Config): ImportResult {
         setField(c, c.values, f, e.value, result, `[${sec.section}]`);
         continue;
       }
+      const sshKey = /^sshPublicKey(\d+)$/i.exec(e.key);
+      if (lower === 'general' && sshKey) {
+        importedSshPublicKeys.push({ index: Number(sshKey[1]), value: e.value });
+        result.mapped++;
+        continue;
+      }
       const hit = iniIndex.get(`${sec.section}|${e.key}`.toLowerCase());
       if (!hit) result.unmapped.push({ where: `[${sec.section}]`, key: e.key, value: e.value });
       else setField(c, c.values, hit.field, e.value, result, `[${sec.section}]`);
@@ -160,7 +173,15 @@ export function importIni(text: string, base?: Config): ImportResult {
 
   c.wrp = [...listItems.wrp.entries()].sort((a, b) => a[0] - b[0]).map((x) => x[1]);
   c.syslog = [...listItems.syslog.entries()].sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+  if (importedSshPublicKeys.length) {
+    c.values.sshPublicKeys = importedSshPublicKeys
+      .sort((a, b) => a.index - b.index)
+      .map((key) => key.value)
+      .join('\n');
+    result.warnings.push('SSH public-key file paths were imported. Pasted key material is not available in a deployment INI; replace paths with key contents when exporting settings JSON.');
+  }
   detectCascade(c);
+  compactConfigTrustedCerts(c);
   if (!c.values.name && c.values.uagName) c.values.name = c.values.uagName;
   return result;
 }
@@ -240,7 +261,23 @@ export function importJson(text: string, base?: Config): ImportResult {
       case 'systemSettings': {
         const o = asObj(val) ?? {};
         if (o.snmpEnabled === true) c.values.snmp_enabled = true;
-        applyJsonObject(c, o, buildJsonIndex(['system']), c.values, 'systemSettings', result, ['snmpEnabled']);
+        const publicKeys = o.sshPublicKeys;
+        if (Array.isArray(publicKeys)) {
+          const imported = publicKeys
+            .filter((key): key is Record<string, unknown> => !!key && typeof key === 'object' && !Array.isArray(key))
+            .filter((key) => typeof key.data === 'string' && key.data.trim().length > 0);
+          if (imported.length !== publicKeys.length) {
+            result.unmapped.push({ where: 'systemSettings.sshPublicKeys', key: 'invalid entry' });
+          }
+          c.values.sshPublicKeys = imported.map((key) => String(key.data).trim()).join('\n');
+          c.values.sshPublicKeyNames = imported
+            .map((key) => typeof key.name === 'string' ? key.name.trim() : '')
+            .join('\n');
+          result.mapped += imported.length;
+        } else if (publicKeys !== undefined) {
+          result.unmapped.push({ where: 'systemSettings', key: 'sshPublicKeys' });
+        }
+        applyJsonObject(c, o, buildJsonIndex(['system']), c.values, 'systemSettings', result, ['snmpEnabled', 'sshPublicKeys']);
         break;
       }
       case 'edgeServiceSettingsList': {
@@ -291,6 +328,7 @@ export function importJson(text: string, base?: Config): ImportResult {
     }
   }
   detectCascade(c);
+  compactConfigTrustedCerts(c);
   if (!c.values.name && c.values.uagName) c.values.name = c.values.uagName;
   return result;
 }

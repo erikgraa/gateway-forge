@@ -5,6 +5,8 @@ import { TEMPLATES } from './templates';
 import { checkRule, countBySection, parseThumbprint, validThumbprints, validateConfig } from './validate';
 import { certToDer, powershellThumbprintCommand, thumbprints, uagThumbprint } from './thumbprint';
 import { TEST_CERT_PEM } from './testcert';
+import { fieldAvailable } from './model';
+import { GROUPS } from './schema';
 
 const messages = (c: ReturnType<typeof defaultConfig>) => validateConfig(c).map((i) => `${i.level}:${i.message}`);
 
@@ -112,6 +114,22 @@ describe('config validation', () => {
     expect(messages(c).join('\n')).toMatch(/Duplicate web reverse proxy/);
   });
 
+  it('validates DNS and NTP values independently per row', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        dns: '10.0.0.1 999.0.0.1',
+        ntpServers: 'ntp1.corp.local bad!host',
+        fallBackNtpServers: 'pool.ntp.org invalid!host'
+      }
+    });
+    const rows = validateConfig(c).filter((issue) => issue.rowIndex !== undefined);
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fieldId: 'dns', rowIndex: 1 }),
+      expect.objectContaining({ fieldId: 'ntpServers', rowIndex: 1 }),
+      expect.objectContaining({ fieldId: 'fallBackNtpServers', rowIndex: 1 })
+    ]));
+  });
+
   it('does not require fields hidden for the platform', () => {
     const c = applyPatch(defaultConfig(), { platform: 'azure' });
     expect(messages(c).join('\n')).not.toMatch(/vCenter target/);
@@ -121,6 +139,24 @@ describe('config validation', () => {
   it('summarises counts per section', () => {
     const counts = countBySection(validateConfig(defaultConfig()));
     expect(counts.horizon.error).toBeGreaterThan(0);
+  });
+
+  it('requires a valid SSH public key only while key access is enabled', () => {
+    const appliance = GROUPS.find((g) => g.id === 'appliance')!;
+    const keyField = appliance.fields.find((f) => f.id === 'sshPublicKeys')!;
+    const blank = applyPatch(defaultConfig(), { values: { sshEnabled: true, sshKeyAccessEnabled: true } });
+    expect(fieldAvailable(keyField, blank.version, blank.platform, blank.values)).toBe(true);
+    expect(messages(blank).join('\n')).toMatch(/SSH public keys is required/);
+
+    const valid = applyPatch(blank, { values: { sshPublicKeys: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7 admin@host' } });
+    expect(messages(valid).join('\n')).not.toMatch(/SSH public keys/);
+
+    const malformed = applyPatch(blank, { values: { sshPublicKeys: 'not an SSH key' } });
+    expect(messages(malformed).join('\n')).toMatch(/OpenSSH RSA public key/);
+
+    const disabled = applyPatch(defaultConfig(), { values: { sshEnabled: false, sshKeyAccessEnabled: true, sshPublicKeys: '' } });
+    expect(fieldAvailable(keyField, disabled.version, disabled.platform, disabled.values)).toBe(false);
+    expect(messages(disabled).join('\n')).not.toMatch(/SSH public keys is required/);
   });
 });
 
