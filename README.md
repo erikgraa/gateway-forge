@@ -74,6 +74,7 @@ Omnissa documents the JSON as an *export/import format* of the admin UI but does
 - SSH public keys are public, so they are not treated as secrets. Paste one OpenSSH RSA key per line, or provide `.pub` file paths for INI deployment. The PowerShell artifact writes pasted keys to numbered companion files; settings JSON uses UAG's `sshPublicKeys` `{name, data}` array.
 - The form state (minus secrets) is kept in `localStorage` so a refresh does not lose work; use **Reset** to clear it.
 - Certificates are referenced by *file path* (read by `uagdeploy` at deploy time); certificate or key content is never stored.
+- Future external secret-management and PKI integrations are design-only and explicitly opt-in; see the [provider security design and implementation roadmap](docs/secret-pki-provider-design.md).
 
 ## 🔑 Thumbprint helper
 
