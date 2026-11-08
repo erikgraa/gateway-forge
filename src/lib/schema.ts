@@ -71,6 +71,11 @@ export interface Field {
   wide?: boolean;
   /** Emit to INI only when the user sets it (not when equal to the documented default). */
   omitDefault?: boolean;
+  /** Edit a string-backed, space-separated value as individually validated rows. */
+  rows?: {
+    itemLabel: string;
+    rule: 'ipv4' | 'hostOrIp';
+  };
 }
 
 export interface GroupDef {
@@ -392,10 +397,25 @@ export const GROUPS: GroupDef[] = [
     target: 'system',
     iniSection: 'General',
     fields: [
-      text('dns', 'DNS servers', 'dns', {       rule: 'ipList', placeholder: '10.0.0.10 10.0.0.11', required: true, json: false, help: 'Space-separated IPv4 addresses.' }),
-            text('dnsSearch', 'DNS search domains', 'dnsSearch', { placeholder: 'corp.local', json: false }),
-      text('ntpServers', 'NTP servers', 'ntpServers', { rule: 'hostList', placeholder: 'pool.ntp.org', help: 'Space-separated hostnames/IPs.' }),
-      text('fallBackNtpServers', 'Fallback NTP servers', 'fallBackNtpServers', { rule: 'hostList' })
+      text('dns', 'DNS servers', 'dns', {
+        rule: 'ipList',
+        rows: { itemLabel: 'DNS server', rule: 'ipv4' },
+        placeholder: '10.0.0.10',
+        required: true,
+        json: false,
+        help: 'Add each IPv4 address on its own row.'
+      }),
+      text('dnsSearch', 'DNS search domains', 'dnsSearch', { placeholder: 'corp.local', json: false }),
+      text('ntpServers', 'NTP servers', 'ntpServers', {
+        rule: 'hostList',
+        rows: { itemLabel: 'NTP server', rule: 'hostOrIp' },
+        placeholder: 'pool.ntp.org',
+        help: 'Add each hostname or IP address on its own row.'
+      }),
+      text('fallBackNtpServers', 'Fallback NTP servers', 'fallBackNtpServers', {
+        rule: 'hostList',
+        rows: { itemLabel: 'Fallback NTP server', rule: 'hostOrIp' }
+      })
     ]
   },
   {
