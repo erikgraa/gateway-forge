@@ -109,6 +109,20 @@ describe('INI generation', () => {
     expect(ini).toContain('[SnmpSettings]');
     expect(ini).toContain('communityName=comm');
   });
+
+  it('serializes DNS and NTP rows to space-separated INI values', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        dns: '10.0.0.1   10.0.0.2',
+        ntpServers: 'ntp1.corp.local\nntp2.corp.local',
+        fallBackNtpServers: ' pool.ntp.org '
+      }
+    });
+    const ini = generateIni(c);
+    expect(ini).toContain('dns=10.0.0.1 10.0.0.2');
+    expect(ini).toContain('ntpServers=ntp1.corp.local ntp2.corp.local');
+    expect(ini).toContain('fallBackNtpServers=pool.ntp.org');
+  });
 });
 
 describe('JSON generation', () => {

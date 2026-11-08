@@ -284,6 +284,14 @@ h1 { margin: 0; font-size: clamp(24px, 2.3vw, 32px); font-weight: 680; letter-sp
 .field .req { color: var(--bad); }
 .field .err { color: var(--bad); font-size: 10px; font-weight: 550; }
 .field .hint, .help { color: var(--mut); font-size: 11px; line-height: 1.55; }
+.row-list-field { margin: 0; padding: 0; border: 0; }
+.row-list-field legend { width: 100%; padding: 0 0 6px; }
+.row-list-field legend button { margin-left: auto; }
+.row-list { display: flex; flex-direction: column; gap: 7px; }
+.row-list-item { display: flex; align-items: flex-start; gap: 7px; }
+.row-list-input { display: flex; flex: 1; flex-direction: column; gap: 4px; }
+.row-list-item > button { margin-top: 2px; }
+.row-list-field > .err, .row-list-field > .hint { margin-top: 1px; }
 .field.bool { flex-direction: row; align-items: flex-start; gap: 9px; padding-top: 3px; color: var(--tx); font-size: 12px; }
 .field.bool input { flex: 0 0 15px; width: 15px; height: 15px; margin: 2px 0 0; accent-color: var(--acc); }
 .field.bool .hint { font-size: 10px; }

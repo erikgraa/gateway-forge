@@ -2,6 +2,7 @@ import { GROUPS, LISTS, type Field, type Rule, type SectionId, type Values } fro
 import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
 import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion } from './versions';
+import { parseListValue } from './listValue';
 
 export type Level = 'error' | 'warn' | 'info';
 
@@ -13,6 +14,8 @@ export interface Issue {
   fieldId?: string;
   /** For list items: list id and 0-based index. */
   list?: { id: 'wrp' | 'syslog'; index: number };
+  /** For a row within a string-backed multi-value field. */
+  rowIndex?: number;
 }
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
@@ -139,6 +142,25 @@ export function validateConfig(c: Config): Issue[] {
     if (!groupEnabled(g, c)) continue;
     for (const f of g.fields) {
       if (!fieldAvailable(f, c.version, c.platform, v)) continue;
+      if (f.rows) {
+        const rows = parseListValue(v[f.id]);
+        if (rows.length === 0) {
+          const required = typeof f.required === 'function' ? f.required(v) : f.required;
+          if (required) push({ level: 'error', section: g.section, fieldId: f.id, message: `${f.label} is required` });
+          continue;
+        }
+        rows.forEach((row, index) => {
+          const error = checkRule(f.rows!.rule, row);
+          if (error) push({
+            level: 'error',
+            section: g.section,
+            fieldId: f.id,
+            rowIndex: index,
+            message: `${f.rows!.itemLabel} ${index + 1}: ${error}`
+          });
+        });
+        continue;
+      }
       const msg = checkField(f, v);
       if (msg) push({ level: 'error', section: g.section, fieldId: f.id, message: msg });
     }
