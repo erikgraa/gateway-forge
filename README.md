@@ -11,6 +11,8 @@
 
 A live demo is available at **[gateway-forge.graa.dev](https://gateway-forge.graa.dev)** - everything runs in your browser, nothing is uploaded.
 
+See the **[project roadmap](ROADMAP.md)** for planned work and ongoing priorities.
+
 ## ✨ Features
 
 - 📄 **INI for `uagdeploy.ps1`** (the primary deploy path - the script takes an INI via `-iniFile`, not JSON) **and settings JSON** for the admin UI *Import settings* / `PUT /rest/v1/config/settings`.
