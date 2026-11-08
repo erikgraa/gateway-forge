@@ -16,10 +16,10 @@ describe('TrustedCertEditor', () => {
     });
 
     expect(body).toContain('aria-label="Add trusted CA certificate path"');
-    expect(body).toContain('for="horizon-1"');
-    expect(body).toContain('for="horizon-2"');
+    expect(body).toContain('for="f-trustedCert1"');
+    expect(body).toContain('for="f-trustedCert2"');
     expect(body).toContain('aria-label="Remove trusted CA certificate path 1"');
-    expect(body).toContain('aria-describedby="horizon-1-help"');
+    expect(body).toContain('aria-describedby="f-trustedCert1-help"');
   });
 
   it('disables adding at the nine-path limit', () => {
