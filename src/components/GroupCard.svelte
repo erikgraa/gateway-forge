@@ -42,9 +42,9 @@
       <div class="grid">
         {#each regularFields as f (f.id)}
           {#if f.rows}
-            <RowListEditor field={f} bind:values={app.config.values as Values} {issues} />
+            <RowListEditor field={f} platform={c.platform} bind:values={app.config.values as Values} {issues} />
           {:else}
-            <FieldInput field={f} bind:values={app.config.values as Values} error={err(f.id)} />
+            <FieldInput field={f} platform={c.platform} bind:values={app.config.values as Values} error={err(f.id)} />
           {/if}
         {/each}
         {#if trustedFields.length}

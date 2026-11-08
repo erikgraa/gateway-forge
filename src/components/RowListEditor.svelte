@@ -1,17 +1,20 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import type { Field, Values } from '../lib/schema';
+  import { fieldHelp, type Field, type Values } from '../lib/schema';
+  import type { Platform } from '../lib/versions';
   import type { Issue } from '../lib/validate';
   import { parseListValue, serializeListValue } from '../lib/listValue';
 
   interface Props {
     field: Field;
     values: Values;
+    platform: Platform;
     issues: Issue[];
   }
-  let { field, values = $bindable(), issues }: Props = $props();
+  let { field, values = $bindable(), platform, issues }: Props = $props();
 
   const definition = $derived(field.rows!);
+  const help = $derived(fieldHelp(field, platform));
   const initial = untrack(() => String(values[field.id] ?? ''));
   let emitted = $state(initial);
   let rows = $state<string[]>(parseListValue(initial));
@@ -103,5 +106,5 @@
       <p class="help">No {definition.itemLabel.toLowerCase()}s configured.</p>
     {/each}
   </div>
-  {#if fieldError}<span class="err">{fieldError}</span>{:else if field.help}<span class="hint">{field.help}</span>{/if}
+  {#if fieldError}<span class="err">{fieldError}</span>{:else if help}<span class="hint">{help}</span>{/if}
 </fieldset>
