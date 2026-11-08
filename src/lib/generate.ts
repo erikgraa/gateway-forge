@@ -9,6 +9,7 @@ import {
 import { fieldAvailable, groupEnabled, isDefault, isEmpty, type Config } from './model';
 import { CASCADE_INSTANCE_ID, CASCADE_PATTERN, CASCADE_PATTERN_OPSWAT, cascadeRole, forwardRules } from './cascade';
 import { platformDef } from './versions';
+import { trustedCertFields, trustedCertPaths } from './trusted-certs';
 import { sshPublicKeys } from './ssh';
 import { serializeListValue } from './listValue';
 
@@ -74,11 +75,16 @@ export function collectBlocks(c: Config, opts: GenerateOptions = { secrets: 'pla
     if (!groupEnabled(g, c)) continue;
     if (g.target === 'horizon' && c.values.horizon_enabled !== true) continue;
     const entries: Entry[] = [];
-    for (const f of g.fields) {
+    for (const f of g.fields.filter((field) => field.trustedCertIndex === undefined)) {
       if (!fieldAvailable(f, c.version, c.platform, c.values)) continue;
       const e = entryFor(f, c.values, opts.secrets);
       if (e) entries.push(g.target === 'deploy' ? { ...e, jsonKey: false } : e);
     }
+    const certPaths = trustedCertPaths(c.values, g.fields);
+    trustedCertFields(g.fields).slice(0, certPaths.length).forEach((field, index) => {
+      const e = entryFor({ ...field, key: `trustedCert${index + 1}` }, { [field.id]: certPaths[index] }, opts.secrets);
+      if (e) entries.push(e);
+    });
     if (g.id === 'appliance' && c.values.sshEnabled === true && c.values.sshKeyAccessEnabled === true) {
       const field = g.fields.find((f) => f.id === 'sshPublicKeys');
       if (field) {
@@ -114,11 +120,18 @@ export function collectBlocks(c: Config, opts: GenerateOptions = { secrets: 'pla
       [ 'instanceId', CASCADE_INSTANCE_ID ],
       [ 'proxyDestinationUrl', String(v.cascade_innerUrl ?? '') ],
       [ 'proxyDestinationUrlThumbprints', String(v.cascade_innerThumbprints ?? '') ],
-      [ 'trustedCert1', String(v.cascade_innerTrustedCert ?? '') ],
       [ 'proxyPattern', v.cascade_opswat === true ? CASCADE_PATTERN_OPSWAT : CASCADE_PATTERN ]
     ]
       .filter(([, val]) => val !== '')
       .map(([key, val]) => ({ key, jsonKey: key, value: val, field: f(key), secret: false }));
+    const cascadeGroup = GROUPS.find((g) => g.id === 'cascade')!;
+    trustedCertPaths(v, cascadeGroup.fields).forEach((path, index) => wrp.push({
+      key: `trustedCert${index + 1}`,
+      jsonKey: `trustedCert${index + 1}`,
+      value: path,
+      field: f(`trustedCert${index + 1}`),
+      secret: false
+    }));
     if (wrp.length) get('WebReverseProxy1', 'wrp', 1).entries.push(...wrp);
     const rules = forwardRules(v);
     if (rules) get('General', 'system').entries.push({ key: 'forwardrules', jsonKey: false, value: rules, field: f('forwardrules'), secret: false });
@@ -129,11 +142,16 @@ export function collectBlocks(c: Config, opts: GenerateOptions = { secrets: 'pla
     const offset = outer && l.id === 'wrp' ? 1 : 0;
     items.forEach((item, i) => {
       const entries: Entry[] = [];
-      for (const f of l.fields) {
+      for (const f of l.fields.filter((field) => field.trustedCertIndex === undefined)) {
         if (!fieldAvailable(f, c.version, c.platform, item)) continue;
         const e = entryFor(f, item, opts.secrets);
         if (e) entries.push(e);
       }
+      const certPaths = trustedCertPaths(item, l.fields);
+      trustedCertFields(l.fields).slice(0, certPaths.length).forEach((field, index) => {
+        const e = entryFor({ ...field, key: `trustedCert${index + 1}` }, { [field.id]: certPaths[index] }, opts.secrets);
+        if (e) entries.push(e);
+      });
       if (entries.length) get(l.iniSection(i + 1 + offset), l.target, i + 1 + offset).entries.push(...entries);
     });
   }

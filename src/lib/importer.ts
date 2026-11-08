@@ -3,6 +3,7 @@ import { defaultConfig, newListItem, type Config } from './model';
 import { SECRET_PLACEHOLDER } from './generate';
 import { inVersion, isSupportedVersion } from './versions';
 import { CASCADE_INSTANCE_ID, parseForwardRules } from './cascade';
+import { compactConfigTrustedCerts, writeTrustedCertPaths } from './trusted-certs';
 import { serializeListValue } from './listValue';
 
 export interface Unmapped {
@@ -91,7 +92,8 @@ function detectCascade(c: Config): void {
   c.values.cascade_role = 'outer';
   c.values.cascade_innerUrl = String(w.proxyDestinationUrl ?? '');
   c.values.cascade_innerThumbprints = String(w.proxyDestinationUrlThumbprints ?? '');
-  c.values.cascade_innerTrustedCert = String(w.trustedCert1 ?? '');
+  const cascadeCertFields = GROUPS.find((g) => g.id === 'cascade')!.fields;
+  writeTrustedCertPaths(c.values, cascadeCertFields, Array.from({ length: 9 }, (_, n) => String(w[`trustedCert${n + 1}`] ?? '')).filter(Boolean));
   c.values.cascade_opswat = String(w.proxyPattern ?? '').includes('/gateway/resources');
 }
 
@@ -179,6 +181,7 @@ export function importIni(text: string, base?: Config): ImportResult {
     result.warnings.push('SSH public-key file paths were imported. Pasted key material is not available in a deployment INI; replace paths with key contents when exporting settings JSON.');
   }
   detectCascade(c);
+  compactConfigTrustedCerts(c);
   if (!c.values.name && c.values.uagName) c.values.name = c.values.uagName;
   return result;
 }
@@ -325,6 +328,7 @@ export function importJson(text: string, base?: Config): ImportResult {
     }
   }
   detectCascade(c);
+  compactConfigTrustedCerts(c);
   if (!c.values.name && c.values.uagName) c.values.name = c.values.uagName;
   return result;
 }
