@@ -39,6 +39,8 @@
   const totalErrors = $derived(issues.filter((i) => i.level === 'error').length);
   const totalWarnings = $derived(issues.filter((i) => i.level === 'warn').length);
   const ready = $derived(totalErrors === 0);
+  const latestVersion = VERSIONS.find((v) => v.latest)!;
+  const usingLatestVersion = $derived(app.config.version === latestVersion.id);
 
   let exportOpen = $state(false);
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -75,6 +77,11 @@
   function exportAs(tab: 'ini' | 'json' | 'ps' | 'docs') {
     exportOpen = false;
     download(render(app.config, tab, app.secretMode));
+  }
+
+  function useLatestVersion() {
+    app.config.version = latestVersion.id;
+    app.say(`Switched to the recommended UAG ${latestVersion.id} baseline`);
   }
 
   const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
@@ -154,7 +161,9 @@
           <span class="environment-label">Release</span>
           <label class="sr-only" for="uag-version">Target UAG release</label>
           <select id="uag-version" bind:value={app.config.version} title={`Supported releases per the Omnissa Lifecycle Matrix (${LIFECYCLE_SNAPSHOT})`}>
-            {#each [...VERSIONS].reverse() as v (v.id)}<option value={v.id}>UAG {v.id}{v.latest ? ' · latest' : ''}</option>{/each}
+            {#each [...VERSIONS].reverse() as v (v.id)}
+              <option value={v.id}>UAG {v.id}{v.latest ? ' · recommended security baseline' : ' · older supported release'}</option>
+            {/each}
           </select>
         </div>
         <div class="environment-divider"></div>
@@ -168,6 +177,25 @@
         <div class="environment-summary">
           <span>Artifact</span><strong>{app.config.values.uagName || 'Unnamed appliance'}</strong>
         </div>
+      </section>
+
+      <section class:older-version={!usingLatestVersion} class="version-policy" aria-live="polite">
+        <span class="version-shield" aria-hidden="true">{usingLatestVersion ? '✓' : '!'}</span>
+        <div>
+          <strong>{usingLatestVersion ? `UAG ${latestVersion.id} is the recommended security baseline` : `UAG ${app.config.version} is older than the recommended release`}</strong>
+          <p>
+            {#if usingLatestVersion}
+              New configurations target the current release and include fixes available in this build line.
+            {:else}
+              Older supported releases remain available for migration and maintenance, but may not include important security fixes present in UAG {latestVersion.id}. Review Omnissa security advisories before deployment.
+            {/if}
+          </p>
+        </div>
+        {#if usingLatestVersion}
+          <span class="version-pill">CURRENT</span>
+        {:else}
+          <button class="small" onclick={useLatestVersion}>Use UAG {latestVersion.id}</button>
+        {/if}
       </section>
 
       {#if app.section === 'horizon'}<Topology />{/if}

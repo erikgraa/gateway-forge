@@ -208,6 +208,51 @@ h1 { margin: 0; font-size: clamp(24px, 2.3vw, 32px); font-weight: 680; letter-sp
 .environment-summary { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; }
 .environment-summary span { color: var(--mut); font-size: 10px; }
 .environment-summary strong { font-size: 11px; }
+.version-policy {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin: -13px 0 25px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--ok) 35%, var(--line));
+  border-left: 3px solid var(--ok);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--ok) 7%, var(--panel));
+}
+.version-policy.older-version {
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--line));
+  border-left-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 9%, var(--panel));
+}
+.version-shield {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 29px;
+  border: 1px solid color-mix(in srgb, var(--ok) 50%, var(--line));
+  border-radius: 7px 7px 9px 9px;
+  color: var(--ok);
+  font-size: 12px;
+  font-weight: 800;
+}
+.older-version .version-shield {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
+  color: var(--warn);
+}
+.version-policy strong { display: block; font-size: 11px; }
+.version-policy p { margin: 2px 0 0; color: var(--mut); font-size: 10px; line-height: 1.45; }
+.version-pill {
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--ok) 40%, var(--line));
+  border-radius: 20px;
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+.older-version button { border-color: var(--warn); color: var(--warn); background: transparent; }
 .section-context { display: flex; justify-content: space-between; gap: 12px; margin: 1px 0 8px; color: var(--mut); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
 .section-context strong { color: var(--mut); font-size: inherit; font-weight: 600; }
 
@@ -258,6 +303,20 @@ aside.out { min-width: 0; min-height: 0; display: flex; flex-direction: column; 
 .output-file > span:last-child { min-width: 0; display: flex; flex-direction: column; }
 .output-file strong { overflow: hidden; text-overflow: ellipsis; color: var(--tx); font: 11px/1.4 'Cascadia Code', Consolas, monospace; white-space: nowrap; }
 .output-file small { overflow: hidden; text-overflow: ellipsis; color: var(--mut); font-size: 9px; white-space: nowrap; }
+.artifact-version-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 9px 10px 0;
+  padding: 8px 9px;
+  border: 1px solid color-mix(in srgb, var(--warn) 42%, var(--line));
+  border-left: 3px solid var(--warn);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+  color: var(--warn);
+  font-size: 10px;
+}
+.artifact-version-warning span { color: var(--mut); line-height: 1.4; }
 .file-type { display: grid; place-items: center; width: 30px; height: 33px; border: 1px solid var(--line-strong); border-radius: 4px; color: var(--acc); font-size: 8px; font-weight: 800; background: var(--panel); }
 pre.code { flex: 1; margin: 0; padding: 14px 17px 28px; overflow: auto; color: var(--code-tx); font-size: 11px; line-height: 1.65; white-space: pre; }
 .out-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 13px; border-top: 1px solid var(--line); background: var(--panel); color: var(--mut); font-size: 10px; }
@@ -338,6 +397,8 @@ pre.code { flex: 1; margin: 0; padding: 14px 17px 28px; overflow: auto; color: v
   .environment-bar { align-items: flex-start; flex-wrap: wrap; }
   .environment-divider { display: none; }
   .environment-summary { width: 100%; align-items: flex-start; margin: 0; padding-top: 8px; border-top: 1px solid var(--line); }
+  .version-policy { grid-template-columns: 30px 1fr; margin-top: -13px; }
+  .version-policy > button, .version-policy > .version-pill { grid-column: 2; justify-self: start; }
   .grid { grid-template-columns: 1fr; }
   .field.wide { grid-column: auto; }
   aside.out { min-height: 520px; }

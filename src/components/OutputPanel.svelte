@@ -1,6 +1,7 @@
 <script lang="ts">
   import { app, type OutputTab } from '../lib/store.svelte';
   import { render, download, copy, highlight } from '../lib/render';
+  import { VERSIONS } from '../lib/versions';
 
   const tabs: { id: OutputTab; label: string }[] = [
     { id: 'ini', label: 'INI' },
@@ -18,6 +19,8 @@
   const rendered = $derived(render(app.config, app.tab, app.secretMode));
   const html = $derived(highlight(rendered.text, app.tab));
   const hasSecrets = $derived(app.secretMode === 'include');
+  const latestVersion = VERSIONS.find((v) => v.latest)!;
+  const olderVersion = $derived(app.config.version !== latestVersion.id);
 
   async function doCopy() {
     app.say((await copy(rendered.text)) ? 'Copied to clipboard' : 'Copy failed - select the text manually');
@@ -44,6 +47,12 @@
     <span class="file-type">{app.tab === 'ps' ? 'PS1' : app.tab.toUpperCase()}</span>
     <span><strong>{rendered.filename}</strong><small>{hints[app.tab]}</small></span>
   </div>
+  {#if olderVersion}
+    <div class="artifact-version-warning">
+      <strong>Older release selected: UAG {app.config.version}</strong>
+      <span>This artifact may not include fixes available in the recommended UAG {latestVersion.id} baseline.</span>
+    </div>
+  {/if}
   {#if hasSecrets}<div class="warnbox">Secrets are included in plain text. Do not commit or share this output.</div>{/if}
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <pre class="code" tabindex="0">{@html html}</pre>
