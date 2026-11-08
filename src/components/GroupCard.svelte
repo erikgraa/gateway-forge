@@ -4,6 +4,7 @@
   import type { GroupDef, Values } from '../lib/schema';
   import type { Issue } from '../lib/validate';
   import FieldInput from './FieldInput.svelte';
+  import RowListEditor from './RowListEditor.svelte';
 
   interface Props {
     group: GroupDef;
@@ -37,7 +38,11 @@
     {#if enabled}
       <div class="grid">
         {#each visible as f (f.id)}
-          <FieldInput field={f} bind:values={app.config.values as Values} error={err(f.id)} />
+          {#if f.rows}
+            <RowListEditor field={f} bind:values={app.config.values as Values} {issues} />
+          {:else}
+            <FieldInput field={f} bind:values={app.config.values as Values} error={err(f.id)} />
+          {/if}
         {/each}
       </div>
       {#if hiddenByVersion > 0}

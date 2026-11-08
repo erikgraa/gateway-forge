@@ -3,6 +3,7 @@ import { defaultConfig, newListItem, type Config } from './model';
 import { SECRET_PLACEHOLDER } from './generate';
 import { inVersion, isSupportedVersion } from './versions';
 import { CASCADE_INSTANCE_ID, parseForwardRules } from './cascade';
+import { serializeListValue } from './listValue';
 
 export interface Unmapped {
   where: string;
@@ -46,6 +47,7 @@ function isRedacted(v: string): boolean {
 }
 
 function coerce(f: Field, raw: unknown): Primitive {
+  if (f.rows) return serializeListValue(Array.isArray(raw) ? raw : [raw]);
   if (Array.isArray(raw)) raw = raw.join(',');
   if (f.type === 'bool') return typeof raw === 'boolean' ? raw : /^(true|1|yes)$/i.test(String(raw));
   if (f.type === 'number') {

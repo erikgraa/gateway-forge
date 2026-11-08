@@ -83,6 +83,22 @@ describe('config validation', () => {
     expect(messages(c).join('\n')).toMatch(/Duplicate web reverse proxy/);
   });
 
+  it('validates DNS and NTP values independently per row', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        dns: '10.0.0.1 999.0.0.1',
+        ntpServers: 'ntp1.corp.local bad!host',
+        fallBackNtpServers: 'pool.ntp.org invalid!host'
+      }
+    });
+    const rows = validateConfig(c).filter((issue) => issue.rowIndex !== undefined);
+    expect(rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ fieldId: 'dns', rowIndex: 1 }),
+      expect.objectContaining({ fieldId: 'ntpServers', rowIndex: 1 }),
+      expect.objectContaining({ fieldId: 'fallBackNtpServers', rowIndex: 1 })
+    ]));
+  });
+
   it('does not require fields hidden for the platform', () => {
     const c = applyPatch(defaultConfig(), { platform: 'azure' });
     expect(messages(c).join('\n')).not.toMatch(/vCenter target/);

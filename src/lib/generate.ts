@@ -10,6 +10,7 @@ import { fieldAvailable, groupEnabled, isDefault, isEmpty, type Config } from '.
 import { CASCADE_INSTANCE_ID, CASCADE_PATTERN, CASCADE_PATTERN_OPSWAT, cascadeRole, forwardRules } from './cascade';
 import { platformDef } from './versions';
 import { sshPublicKeys } from './ssh';
+import { serializeListValue } from './listValue';
 
 export type SecretMode = 'placeholder' | 'omit' | 'include';
 export const SECRET_PLACEHOLDER = '<REDACTED>';
@@ -45,9 +46,10 @@ function sectionRank(name: string): number {
 function entryFor(f: Field, values: Values, mode: SecretMode): Entry | null {
   if (f.customOutput) return null;
   const raw = values[f.id];
-  if (isEmpty(raw)) return null;
-  if (f.omitDefault && isDefault(f, raw)) return null;
-  let value = raw as Primitive;
+  const normalized = f.rows ? serializeListValue([raw]) : raw;
+  if (isEmpty(normalized)) return null;
+  if (f.omitDefault && isDefault(f, normalized)) return null;
+  let value = normalized as Primitive;
   if (f.secret) {
     if (mode === 'omit') return null;
     if (mode === 'placeholder') value = SECRET_PLACEHOLDER;
