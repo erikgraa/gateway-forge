@@ -509,7 +509,7 @@ describe('run-time options', () => {
     const c = applyPatch(radiusMfa(), { values: { run_noSSLVerify: true, run_disableVerification: true } });
     const interactive = generatePowerShell(c, 'placeholder', 'interactive');
     const headless = generatePowerShell(c, 'placeholder', 'headless');
-    expect(interactive).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini -noSSLVerify -disableVerification');
+    expect(interactive).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd (ConvertTo-PlainTextAtInvocation $rootPwdSecure) -adminPwd (ConvertTo-PlainTextAtInvocation $adminPwdSecure) -noSSLVerify -disableVerification');
     expect(headless).toContain('-adminPwd $env:UAG_ADMIN_PASSWORD -noSSLVerify -disableVerification');
     expect(generateIni(c)).not.toMatch(/noSSLVerify|disableVerification|Runtime/);
     expect(JSON.stringify(generateJsonObject(c))).not.toMatch(/SSLVerify|disableVerification/);
@@ -559,17 +559,35 @@ describe('run-time options', () => {
 });
 
 describe('PowerShell output', () => {
-  it('writes the INI and contains only the interactive prompt-driven command by default', () => {
+  it('explicitly prompts for both Interactive UAG passwords and converts them only at named invocation time', () => {
     const c = radiusMfa();
     c.values.radius_sharedSecret = 's3cret';
     const ps = generatePowerShell(c);
     expect(ps).not.toContain('s3cret');
     expect(ps).toContain('$ini = @\'');
-    expect(ps).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini');
-    expect(ps).toContain('prompts for the root and Admin UI passwords');
-    expect(ps).not.toMatch(/-rootPwd|-adminPwd|UAG_ROOT_PASSWORD|UAG_ADMIN_PASSWORD/);
+    expect(ps).toContain(`$rootPwdSecure = Read-Host 'UAG root password' -AsSecureString`);
+    expect(ps).toContain(`$adminPwdSecure = Read-Host 'UAG Admin UI password' -AsSecureString`);
+    expect(ps).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd (ConvertTo-PlainTextAtInvocation $rootPwdSecure) -adminPwd (ConvertTo-PlainTextAtInvocation $adminPwdSecure)');
+    expect(ps.match(/ConvertTo-PlainTextAtInvocation/g)).toHaveLength(3);
+    expect(ps).not.toMatch(/\\$plain|UAG_ROOT_PASSWORD|UAG_ADMIN_PASSWORD/);
+    expect(ps).toContain('finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }');
     expect(ps).toContain('<REDACTED>');
     expect(ps.match(/^\s*\.\\uagdeploy(?:hv|az)?\.ps1 /gm)).toHaveLength(1);
+  });
+  it('uses exact named and positional Interactive password syntax on every platform', () => {
+    const hyperv = generatePowerShell(applyPatch(radiusMfa(), { platform: 'hyperv' }));
+    expect(hyperv).toContain('.\\uagdeployhv.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd (ConvertTo-PlainTextAtInvocation $rootPwdSecure) -adminPwd (ConvertTo-PlainTextAtInvocation $adminPwdSecure)');
+
+    const azure = generatePowerShell(applyPatch(radiusMfa(), { platform: 'azure' }));
+    expect(azure).toContain('.\\uagdeployaz.ps1 .\\uag-dmz-01.ini (ConvertTo-PlainTextAtInvocation $rootPwdSecure) (ConvertTo-PlainTextAtInvocation $adminPwdSecure) no');
+    expect(azure).not.toContain('.\\uagdeployaz.ps1 .\\uag-dmz-01.ini -rootPwd');
+
+    const nutanix = generatePowerShell(applyPatch(radiusMfa(), { platform: 'nutanix' }));
+    expect(nutanix).toContain('.\\uagdeployntnx.ps1 .\\uag-dmz-01.ini -rootPwd (ConvertTo-PlainTextAtInvocation $rootPwdSecure) -adminPwd (ConvertTo-PlainTextAtInvocation $adminPwdSecure)');
+    expect(nutanix).toContain('The official script prompts for the Prism Central password.');
+
+    const openshift = generatePowerShell(TEMPLATES.find((t) => t.id === 'openshift-virtualization')!.build(defaultConfig()));
+    expect(openshift).toContain('.\\uagdeployopenshift.ps1 -iniFile .\\uag-openshift-01.ini -rootPwd (ConvertTo-PlainTextAtInvocation $rootPwdSecure) -adminPwd (ConvertTo-PlainTextAtInvocation $adminPwdSecure) no');
   });
   it('generates a headless command that reads and validates runtime environment passwords', () => {
     const c = radiusMfa();
@@ -583,6 +601,27 @@ describe('PowerShell output', () => {
     expect(ps).not.toContain('embedded-root-secret');
     expect(ps).not.toContain('embedded-admin-secret');
     expect(ps.match(/^\s*\.\\uagdeploy(?:hv|az)?\.ps1 /gm)).toHaveLength(1);
+  });
+  it('keeps Headless environment-variable behavior unchanged on each supported platform', () => {
+    const c = radiusMfa();
+    expect(generatePowerShell(c, 'placeholder', 'headless')).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD');
+    expect(generatePowerShell(applyPatch(c, { platform: 'hyperv' }), 'placeholder', 'headless')).toContain('.\\uagdeployhv.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD');
+    expect(generatePowerShell(applyPatch(c, { platform: 'azure' }), 'placeholder', 'headless')).toContain('.\\uagdeployaz.ps1 .\\uag-dmz-01.ini $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no');
+    const openshift = generatePowerShell(applyPatch(c, { platform: 'openshift' }), 'omit', 'headless');
+    expect(openshift).toContain('.\\uagdeployopenshift.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no -openshiftPassword $env:OPENSHIFT_PASSWORD');
+    expect(openshift).not.toContain('Read-Host');
+  });
+  it('warns exactly when deployment password parameters are absent and never embeds runtime passwords', () => {
+    const c = radiusMfa();
+    c.values.rootPassword = 'embedded-root-secret';
+    c.values.adminPassword = 'embedded-admin-secret';
+    for (const mode of ['interactive', 'headless'] as const) {
+      const ps = generatePowerShell(c, 'include', mode);
+      expect(ps).toContain('If root and Admin UI password parameters are not provided during deployment, the UAG is not accessible through the console or Admin UI/API.');
+      expect(ps).not.toContain('embedded-root-secret');
+      expect(ps).not.toContain('embedded-admin-secret');
+    }
+    expect(generateDocs(c, [])).toContain('If root and Admin UI password parameters are not provided during deployment, the UAG is not accessible through the console or Admin UI/API.');
   });
   it('updates rendered PowerShell immediately for deployment mode and switches', () => {
     const c = radiusMfa();
@@ -613,7 +652,7 @@ describe('PowerShell output', () => {
     expect(ini).toContain('subnet0=uag-external');
     expect(ini).toContain('subnet1=uag-management');
     expect(ini).not.toMatch(/\[Azure\]|^(?:source|target|netInternet|netManagementNetwork|ds)=/m);
-    expect(generatePowerShell(c)).toContain('.\\uagdeployntnx.ps1 .\\uag-nutanix-01.ini');
+    expect(generatePowerShell(c)).toContain('.\\uagdeployntnx.ps1 .\\uag-nutanix-01.ini -rootPwd (ConvertTo-PlainTextAtInvocation $rootPwdSecure)');
     expect(generatePowerShell(c)).not.toContain('-iniFile');
     expect(generatePowerShell(c)).toContain('deletes and recreates a VM with the same name');
   });
@@ -639,7 +678,7 @@ describe('PowerShell output', () => {
     expect(yaml).not.toContain('sha256~secret');
     expect(manifestFileName(c)).toBe('uag-bootable-volume.yaml');
     expect(ps).toContain('oc apply -f .\\uag-bootable-volume.yaml');
-    expect(ps).toContain('.\\uagdeployopenshift.ps1 -iniFile .\\uag-openshift-01.ini');
+    expect(ps).toContain('.\\uagdeployopenshift.ps1 -iniFile .\\uag-openshift-01.ini -rootPwd (ConvertTo-PlainTextAtInvocation $rootPwdSecure) -adminPwd (ConvertTo-PlainTextAtInvocation $adminPwdSecure) no');
     expect(ps).not.toContain('-openshiftPassword');
     expect(ps).toContain('Clear-History');
     expect(generatePowerShell(c, 'omit')).toContain('-openshiftPassword');
@@ -685,7 +724,7 @@ describe('PowerShell output', () => {
     expect(generateDocs(undecided, validateConfig(undecided))).not.toMatch(/\*\*NIC0\*\*|192\.0\.2\.99/);
   });
   it('uses the Nutanix and OpenShift deployment scripts', () => {
-    expect(generatePowerShell(applyPatch(tunnel(), { platform: 'nutanix' }))).toContain('.\\uagdeployntnx.ps1 .\\uag-tunnel-01.ini');
+    expect(generatePowerShell(applyPatch(tunnel(), { platform: 'nutanix' }))).toContain('.\\uagdeployntnx.ps1 .\\uag-tunnel-01.ini -rootPwd (ConvertTo-PlainTextAtInvocation $rootPwdSecure)');
     const openshift = generatePowerShell(applyPatch(tunnel(), { platform: 'openshift' }), 'placeholder', 'headless');
     expect(openshift).toContain('.\\uagdeployopenshift.ps1 -iniFile .\\uag-tunnel-01.ini');
     expect(openshift).toContain('-openshiftPassword $env:OPENSHIFT_PASSWORD');

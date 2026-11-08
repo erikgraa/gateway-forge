@@ -2,6 +2,7 @@
   import { app, type OutputTab } from '../lib/store.svelte';
   import { render, download, copy, highlight } from '../lib/render';
   import { VERSIONS } from '../lib/versions';
+  import { MISSING_PASSWORD_WARNING } from '../lib/powershell';
 
   const tabs = $derived.by((): { id: OutputTab; label: string }[] => [
     { id: 'ini', label: 'INI' },
@@ -70,6 +71,7 @@
           </label>
         </div>
       </div>
+      <p class="warnbox">{MISSING_PASSWORD_WARNING}</p>
       {#if app.deploymentMode === 'headless'}
         <p class="runtime-note">Set <code>UAG_ROOT_PASSWORD</code> and <code>UAG_ADMIN_PASSWORD</code> in the deployment process environment. The generated script fails before invoking uagdeploy if either is absent.</p>
       {/if}

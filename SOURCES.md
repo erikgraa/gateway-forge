@@ -14,7 +14,7 @@ Verified implementation facts:
 - UAG 2606 and later use the native QCOW2 image format for Nutanix; the image must be uploaded to Prism Central first.
 - `[Nutanix]` uses `prismCentralUserName`, `prismCentralAddress`, `cluster`, `image`, and `subnet0`/`subnet1`/`subnet2`.
 - `subnetN` follows the numeric NIC mapping: NIC0/eth0, NIC1/eth1, NIC2/eth2.
-- Prism Central, the cluster and subnets must already exist. The script prompts for root, admin and Prism Central passwords.
+- Prism Central, the cluster and subnets must already exist. Generated PowerShell prompts for root and admin passwords as SecureString values; the vendor script prompts for the Prism Central password.
 - Minimum Nutanix software versions are Prism Central 2024.3, AOS 7.0 and AHV 10.0.
 - `-noSSLVerify` is a documented command-line option for an untrusted Prism Central certificate.
 - A VM with the same name is deleted and recreated by the script.
