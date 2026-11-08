@@ -71,7 +71,7 @@ export interface Field {
   json?: string | false;
   default?: Primitive;
   options?: Option[];
-  help?: string;
+  help?: string | ((platform: Platform) => string);
   placeholder?: string;
   since?: string;
   until?: string;
@@ -96,6 +96,10 @@ export interface Field {
     itemLabel: string;
     rule: 'ipv4' | 'hostOrIp';
   };
+}
+
+export function fieldHelp(field: Field, platform: Platform): string | undefined {
+  return typeof field.help === 'function' ? field.help(platform) : field.help;
 }
 
 export interface GroupDef {
@@ -282,7 +286,8 @@ export const GROUPS: GroupDef[] = [
         rule: 'uagName',
         required: true,
         placeholder: 'uag-dmz-01',
-        help: 'Up to 24 characters: A-Z, 0-9, minus and period; no spaces. Must match the VM name on Azure.'
+        help: (platform) =>
+          `Up to 24 characters: A-Z, 0-9, minus and period; no spaces.${platform === 'azure' ? ' Must match the VM name on Azure.' : ''}`
       }),
       bool('ceipEnabled', 'Join CEIP (Customer Experience Improvement Program)', 'ceipEnabled', false, {
         help: 'Sends telemetry to Omnissa from the appliance. Off by default in Gateway Forge.'

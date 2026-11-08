@@ -1,16 +1,19 @@
 <script lang="ts">
-  import type { Field, Values } from '../lib/schema';
+  import { fieldHelp, type Field, type Values } from '../lib/schema';
+  import type { Platform } from '../lib/versions';
   import type { Issue } from '../lib/validate';
   import { parseListValue, serializeListValue } from '../lib/listValue';
 
   interface Props {
     field: Field;
     values: Values;
+    platform: Platform;
     issues: Issue[];
   }
-  let { field, values = $bindable(), issues }: Props = $props();
+  let { field, values = $bindable(), platform, issues }: Props = $props();
 
   const definition = $derived(field.rows!);
+  const help = $derived(fieldHelp(field, platform));
   let rows = $state<string[]>([]);
   let emitted = $state('');
 
@@ -101,5 +104,5 @@
       <p class="help">No {definition.itemLabel.toLowerCase()}s configured.</p>
     {/each}
   </div>
-  {#if fieldError}<span class="err">{fieldError}</span>{:else if field.help}<span class="hint">{field.help}</span>{/if}
+  {#if fieldError}<span class="err">{fieldError}</span>{:else if help}<span class="hint">{help}</span>{/if}
 </fieldset>
