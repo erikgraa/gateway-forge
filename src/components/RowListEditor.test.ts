@@ -5,6 +5,7 @@ import { defaultConfig } from '../lib/model';
 import RowListEditor from './RowListEditor.svelte';
 
 const field = GROUPS.find((group) => group.id === 'dns')!.fields.find((item) => item.id === 'dnsSearch')!;
+const blastField = GROUPS.find((group) => group.id === 'horizon')!.fields.find((item) => item.id === 'blastAllowedHostHeaderValues')!;
 
 describe('RowListEditor', () => {
   it('renders accessible DNS search domain add and remove rows', () => {
@@ -34,5 +35,18 @@ describe('RowListEditor', () => {
     expect(body).toContain('aria-describedby="f-dnsSearch-1-error"');
     expect(body).toContain('id="f-dnsSearch-1-error"');
     expect(body).toContain('Not a valid DNS search domain');
+  });
+
+  it('renders comma-backed Blast host header values as accessible rows', () => {
+    const values = {
+      ...defaultConfig().values,
+      blastAllowedHostHeaderValues: 'uag.example.com:8443,_empty_'
+    };
+    const { body } = render(RowListEditor, { props: { field: blastField, values, issues: [], platform: 'vsphere' } });
+
+    expect(body).toContain('aria-label="Add allowed host header"');
+    expect(body).toContain('value="uag.example.com:8443"');
+    expect(body).toContain('value="_empty_"');
+    expect(body).toContain('aria-label="Remove allowed host header 2"');
   });
 });

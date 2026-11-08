@@ -41,6 +41,16 @@ describe('field validation', () => {
     expect(checkRule('osLoginUsername', 'Upper Case')).not.toBeNull();
     expect(checkRule('ascii', 'Banner\\nline two')).toBeNull();
     expect(checkRule('ascii', 'bannér')).not.toBeNull();
+    expect(checkRule('sourceImage', 'C:\\images\\uag.ova', 'vsphere')).toBeNull();
+    expect(checkRule('sourceImage', 'https://images.example.com/uag.ova?download=1', 'vsphere')).toBeNull();
+    expect(checkRule('sourceImage', 'C:\\images\\uag.vhdx', 'hyperv')).toBeNull();
+    expect(checkRule('sourceImage', 'https:\\\\broken.example\\uag.ova', 'vsphere')).toMatch(/valid local path/);
+    expect(checkRule('sourceImage', 'C:\\images\\uag.vhdx', 'vsphere')).toMatch(/\.ova/);
+    expect(checkRule('sourceImage', 'https://images.example.com/uag.vhdx', 'hyperv')).toMatch(/local/);
+    expect(checkRule('sourceImage', 'not-an-image', 'hyperv')).toMatch(/\.vhdx/);
+    expect(checkRule('hostPort', '_empty_')).toBeNull();
+    expect(checkRule('hostPort', 'uag.example.com:8443')).toBeNull();
+    expect(checkRule('hostPort', 'bad host')).not.toBeNull();
   });
 
   it('validates static routes and per-NIC custom configuration syntax', () => {
@@ -206,6 +216,43 @@ describe('config validation', () => {
     expect(rows).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ fieldId: 'dnsSearch', rowIndex: 0 })
     ]));
+  });
+
+  it('validates Blast allowed hosts independently per comma-separated row', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        horizon_enabled: true,
+        blastEnabled: true,
+        blastAllowedHostHeaderValues: 'uag.example.com:8443,bad host,_empty_'
+      }
+    });
+    expect(validateConfig(c).filter((issue) => issue.fieldId === 'blastAllowedHostHeaderValues')).toEqual([
+      expect.objectContaining({ rowIndex: 1, message: expect.stringContaining('Allowed host header 2') })
+    ]);
+  });
+
+  it('validates source images against the selected platform inline', () => {
+    const vsphere = applyPatch(defaultConfig(), { values: { source: 'https://images.example.com/uag.vhdx' } });
+    expect(messages(vsphere).join('\n')).toMatch(/Source image: vSphere source image URLs must point to a \.ova/);
+    const hyperv = applyPatch(defaultConfig(), { platform: 'hyperv', values: { source: 'C:\\images\\uag.ova' } });
+    expect(messages(hyperv).join('\n')).toMatch(/Source image: Hyper-V source images must be local \.vhdx paths/);
+  });
+
+  it('shows only addressing-mode controls for NICs in the active topology', () => {
+    const fields = GROUPS.find((group) => group.id === 'deploy')!.fields
+      .filter((field) => /^ipmode[0-2]$/.test(field.id));
+    const available = (deploymentOption: string) => fields
+      .filter((field) => fieldAvailable(field, '2609', 'vsphere', { deploymentOption }))
+      .map((field) => field.id);
+
+    expect(available('onenic')).toEqual(['ipmode0']);
+    expect(available('twonic')).toEqual(['ipmode0', 'ipmode1']);
+    expect(available('threenic')).toEqual(['ipmode0', 'ipmode1', 'ipmode2']);
+  });
+
+  it('rejects undocumented addressing mode values from imports', () => {
+    const c = applyPatch(defaultConfig(), { values: { ipmode0: 'STATICV4+AUTOMAGICV6' } });
+    expect(messages(c).join('\n')).toMatch(/NIC0 addressing mode: "STATICV4\+AUTOMAGICV6" is not an allowed value/);
   });
 
   it('does not require fields hidden for the platform', () => {

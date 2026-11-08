@@ -15,6 +15,8 @@ routes0=10.108.172.32/32 10.108.172.253,192.168.20.0/24 192.168.10.1
 routes1=172.16.0.0/16 10.1.0.1
 routes2=10.2.0.0/16 10.3.0.1
 ipmode0=STATICV4
+ipmode1=DHCPV4
+ipmode2=AUTOV6
 eth2CustomConfig=Network^Domains=~.
 uagName=UAG1
 dns=192.0.2.1 192.0.2.2
@@ -30,6 +32,7 @@ proxyDestinationUrlThumbprints=sha1=C3 89 A2 19 DC 7A 48 2B 85 1C 81 EC 5E 8F 6A
 authMethods=radius-auth
 blastEnabled=true
 blastExternalUrl=https://uag.example.com:443
+blastAllowedHostHeaderValues=uag.example.com:8443,_empty_
 
 [RADIUSAuth]
 hostName=r1.corp.local
@@ -80,12 +83,15 @@ describe('INI import', () => {
       routes1: '172.16.0.0/16 10.1.0.1',
       routes2: '10.2.0.0/16 10.3.0.1',
       ipmode0: 'STATICV4',
+      ipmode1: 'DHCPV4',
+      ipmode2: 'AUTOV6',
       eth2CustomConfig: 'Network^Domains=~.',
       dns: '192.0.2.1 192.0.2.2',
       horizon_enabled: true,
       proxyDestinationUrl: 'https://cs.corp.local',
       authMethods: 'radius-auth',
       blastEnabled: true,
+      blastAllowedHostHeaderValues: 'uag.example.com:8443,_empty_',
       radius_enabled: true,
       radius_hostName: 'r1.corp.local',
       radius_authPort: 1812,
@@ -336,6 +342,30 @@ describe('JSON import', () => {
     expect((generateJsonObject(r.config) as any).systemSettings.sshPublicKeys).toEqual([
       { name: 'admin.pub', data: SSH_PUBLIC_KEY }
     ]);
+  });
+
+  it('imports Blast host header arrays into the comma-separated row value', () => {
+    const r = importJson(JSON.stringify({
+      edgeServiceSettingsList: {
+        edgeServiceSettingsList: [{
+          identifier: 'VIEW',
+          enabled: true,
+          blastAllowedHostHeaderValues: ['uag.example.com:8443', '_empty_']
+        }]
+      }
+    }));
+    expect(r.config.values.blastAllowedHostHeaderValues).toBe('uag.example.com:8443,_empty_');
+    expect((generateJsonObject(r.config) as any).edgeServiceSettingsList.edgeServiceSettingsList[0].blastAllowedHostHeaderValues)
+      .toEqual(['uag.example.com:8443', '_empty_']);
+  });
+
+  it('imports all active INI addressing modes case-insensitively', () => {
+    const r = importIni('[General]\nsource=C:\\\\images\\\\uag.ova\nipMode0=DHCPV4\nipMode1=STATICV4+STATICV6\nipMode2=AUTOV6');
+    expect(r.config.values).toMatchObject({
+      ipmode0: 'DHCPV4',
+      ipmode1: 'STATICV4+STATICV6',
+      ipmode2: 'AUTOV6'
+    });
   });
 });
 

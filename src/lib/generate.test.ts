@@ -248,6 +248,8 @@ describe('INI generation', () => {
         routes1: '172.16.0.0/16 10.1.0.1',
         routes2: '10.2.0.0/16 10.3.0.1',
         ipmode0: 'STATICV4+STATICV6',
+        ipmode1: 'DHCPV4',
+        ipmode2: 'AUTOV6',
         v6ip0: '2402:740:2:209::5',
         v6ipprefix0: 64,
         v6DefaultGateway: '2402:740:2:209::253',
@@ -265,6 +267,8 @@ describe('INI generation', () => {
     expect(ini).toContain('routes1=172.16.0.0/16 10.1.0.1');
     expect(ini).toContain('routes2=10.2.0.0/16 10.3.0.1');
     expect(ini).toContain('ipmode0=STATICV4+STATICV6');
+    expect(ini).toContain('ipmode1=DHCPV4');
+    expect(ini).toContain('ipmode2=AUTOV6');
     expect(ini).toContain('v6ip0=2402:740:2:209::5');
     expect(ini).toContain('v6ipprefix0=64');
     expect(ini).toContain('eth2CustomConfig=Network^DNS=192.168.1.153#dns.example.com');
@@ -273,6 +277,36 @@ describe('INI generation', () => {
     expect(ini).toContain('adminpasswordPolicyUnlockTime=7');
     expect(ini).toContain('adminpasswordExpirationDays=60');
     expect(ini).not.toContain('adminPasswordPolicy');
+  });
+
+  it('serializes Blast host header rows as comma-separated INI and JSON arrays', () => {
+    const c = applyPatch(radiusMfa(), {
+      values: { blastAllowedHostHeaderValues: 'uag.example.com:8443,_empty_,192.0.2.21' }
+    });
+    expect(generateIni(c)).toContain('blastAllowedHostHeaderValues=uag.example.com:8443,_empty_,192.0.2.21');
+    const edge = (generateJsonObject(c) as any).edgeServiceSettingsList.edgeServiceSettingsList[0];
+    expect(edge.blastAllowedHostHeaderValues).toEqual(['uag.example.com:8443', '_empty_', '192.0.2.21']);
+  });
+
+  it('omits addressing modes and static IPv4 values for inactive NICs or DHCP', () => {
+    const oneNic = applyPatch(defaultConfig(), {
+    values: {
+      deploymentOption: 'onenic',
+      ipmode0: 'DHCPV4',
+      ip0: '192.0.2.21',
+      netmask0: '255.255.255.0',
+      ipmode1: 'STATICV4',
+      ip1: '192.0.3.21',
+      netmask1: '255.255.255.0'
+    }
+    });
+    const ini = generateIni(oneNic);
+    expect(ini).toContain('ipmode0=DHCPV4');
+    expect(ini).not.toContain('ip0=');
+    expect(ini).not.toContain('netmask0=');
+    expect(ini).not.toContain('ipmode1=');
+    expect(ini).not.toContain('ip1=');
+    expect(ini).not.toContain('netmask1=');
   });
 
   it('shows route keys only for NICs in the selected topology', () => {

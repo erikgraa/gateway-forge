@@ -27,15 +27,16 @@ references, the project evidence labels, and the source-review policy.
 - ✅ **Validation + best-practice lint** (required fields, IPv4/URL/port/thumbprint formats, RADIUS timing, duplicate IPs, TLS 1.0/1.1, SSH, missing syslog/NTP, no MFA on an external gateway, SHA-1 thumbprints …). Click a finding to jump to the field.
 - 🗺️ **Topology diagram** that updates live, 📋 **templates** (e.g. *Horizon external access with RADIUS MFA*), 📝 **Docs** tab (Markdown runbook summary), ⌨️ **command palette** (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd>).
 - 🌗 **Light/dark theme** - follows `prefers-color-scheme` by default, your choice is remembered.
-- 🔑 **Thumbprint helper** - see below.
+- 🔑 **Certificate thumbprints** - paste PEM/DER and use WebCrypto locally, or copy a PowerShell probe.
 
 | Light theme | RADIUS & validation |
 | --- | --- |
 | ![Light](docs/screenshots/builder-light.png) | ![RADIUS](docs/screenshots/radius.png) |
 | **JSON output** | **Command palette** |
 | ![JSON](docs/screenshots/json.png) | ![Palette](docs/screenshots/palette.png) |
-| **Thumbprint helper** | **Import** |
-| ![Thumbprint helper](docs/screenshots/thumbprint.png) | ![Import](docs/screenshots/import.png) |
+| **Import** |
+| --- |
+| ![Import](docs/screenshots/import.png) |
 
 ## 🛡️ Supported UAG versions
 
@@ -84,26 +85,21 @@ Omnissa documents the JSON as an *export/import format* of the admin UI but does
 
 ## 🔒 Security & privacy
 
-- Everything runs in your browser. **No telemetry, no network calls** (the only optional one is to a helper on `127.0.0.1` that *you* start).
-- Secrets (RADIUS shared secrets, SNMP community/passwords) are **masked in the form**, **never saved** in the browser draft, and exported as `<REDACTED>` placeholders by default. Choose *Omit entirely* or *Include (plain text)* under the output panel. UAG root/Admin UI passwords are never collected or stored by Gateway Forge. Interactive PowerShell reads them with `Read-Host -AsSecureString` and converts them only at command invocation; headless PowerShell reads them from `UAG_ROOT_PASSWORD` and `UAG_ADMIN_PASSWORD` at runtime and fails clearly when either is absent.
-- Omnissa marks `rootPwd` and `adminPwd` as mandatory in its [non-interactive parameter reference](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters). If root and Admin UI password parameters are not provided during deployment, the UAG is not accessible through the console or Admin UI/API. The [deployment workflow](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy) separately documents an intentional immutable option without an Admin UI password: the appliance is production-ready from the INI, but the Admin UI and API are unavailable, no user can later be added, and recovery requires redeployment. **This is not a passwordless appliance.**
+- Everything runs in your browser. **No telemetry and no network calls.**
+- Secrets (RADIUS shared secrets, SNMP community/passwords) are **masked in the form**, **never saved** in the browser draft, and exported as `<REDACTED>` placeholders by default. Choose *Omit entirely* or *Include (plain text)* under the output panel. UAG root/Admin UI passwords are never asked for or stored by Gateway Forge. Interactive PowerShell lets `uagdeploy` prompt; headless PowerShell reads them from `UAG_ROOT_PASSWORD` and `UAG_ADMIN_PASSWORD` at runtime and fails clearly when either is absent.
+- Omnissa marks `rootPwd` and `adminPwd` as mandatory in its [non-interactive parameter reference](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters). Its [deployment workflow](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy) separately documents an intentional immutable option without an Admin UI password: the appliance is production-ready from the INI, but the Admin UI and API are unavailable, no user can later be added, and recovery requires redeployment. **This is not a passwordless appliance.**
 - For immutable or replace-on-failure operations, treat the complete, validated INI as the recovery baseline and test that a clean redeployment restores service. Keep deployment artifacts in an approved secrets-managed location and assess console access, break-glass recovery, monitoring, password rotation, change control, backup, and compliance before deliberately omitting the Admin UI password.
 - SSH public keys are public, so they are not treated as secrets. Paste one OpenSSH RSA key per line, or provide `.pub` file paths for INI deployment. The PowerShell artifact writes pasted keys to numbered companion files; settings JSON uses UAG's `sshPublicKeys` `{name, data}` array.
 - The form state (minus secrets) is kept in `localStorage` so a refresh does not lose work; use **Reset** to clear it.
 - Certificates are referenced by *file path* (read by `uagdeploy` at deploy time); certificate or key content is never stored.
 - Future external secret-management and PKI integrations are design-only and explicitly opt-in; see the [provider security design and implementation roadmap](docs/secret-pki-provider-design.md).
 
-## 🔑 Thumbprint helper
+## 🔑 Thumbprint tools
 
-A static web page **cannot** open a TLS connection to read a remote server's certificate, so the Horizon *Connection Server thumbprint* field offers three routes (Horizon → *Thumbprint helper*):
+A static web page **cannot** open a TLS connection to read a remote server's certificate, so the Horizon *Connection Server thumbprint* field offers two routes (Horizon → *Thumbprint tools*):
 
 1. **Paste a PEM/DER certificate** (or load a file). SHA-1/256/384/512 are computed locally with WebCrypto and can be added as `sha256=aa:bb:…`.
 2. **PowerShell one-liner** - copy and run it on any host that can reach the Connection Server; it prints all four thumbprints.
-3. **Optional local helper** ([`helper/gateway-forge-helper.mjs`](helper/gateway-forge-helper.mjs)) - a ~100-line, dependency-free Node script. Start it with `node helper/gateway-forge-helper.mjs`; when it is running the app detects it and can fetch and apply the thumbprint with one click.
-
-   - Listens only on `http://127.0.0.1:47821`; rejects unexpected `Host` headers (DNS rebinding); answers only browsers from `localhost`, `*.github.io`, `gateway-forge.graa.dev` or an origin you pass with `--origin https://your-host` (`--port` changes the port).
-   - Endpoints: `GET /ping` and `GET /thumbprint?host=cs01.corp.local&port=443`. It returns only the certificate's public fingerprints and subject; it stores and logs nothing.
-   - The app works fully without it. (Safari blocks `https` pages talking to `http://127.0.0.1`; use the paste or PowerShell route there.)
 
 ## 🐳 Container
 
@@ -119,7 +115,7 @@ podman run --rm -p 8080:8080 ghcr.io/erikgraa/gateway-forge:nightly
 # then open http://localhost:8080
 ```r
 
-Tags: `nightly` / `latest` (newest build), `nightly-YYYYMMDD` and `sha-<commit>` (pin these for reproducibility). Build locally with `docker build -t gateway-forge .` or `podman build -t gateway-forge .`. The optional [thumbprint helper](helper/gateway-forge-helper.mjs) still runs on your host (`node helper/gateway-forge-helper.mjs --origin http://localhost:8080`).
+Tags: `nightly` / `latest` (newest build), `nightly-YYYYMMDD` and `sha-<commit>` (pin these for reproducibility). Build locally with `docker build -t gateway-forge .` or `podman build -t gateway-forge .`.
 
 ## 🛠️ Develop
 
@@ -147,10 +143,9 @@ Stack: Vite + Svelte 5 + TypeScript. Layout:
 | `src/lib/generate.ts` | INI + JSON generation, secret handling |
 | `src/lib/importer.ts` | INI/JSON parsing and mapping back onto the schema |
 | `src/lib/validate.ts` | Field validation and best-practice lint |
-| `src/lib/thumbprint.ts` | WebCrypto thumbprints, PowerShell one-liner, helper client |
+| `src/lib/thumbprint.ts` | WebCrypto thumbprints and the PowerShell one-liner |
 | `src/lib/templates.ts` | Ready-made designs |
 | `src/components/` | Svelte UI |
-| `helper/` | Optional localhost helper |
 | `SOURCES.md` | Authoritative source map and evidence/source-review policy |
 
 ### 🧩 Adding a setting

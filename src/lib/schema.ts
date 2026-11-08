@@ -10,6 +10,7 @@ export type Rule =
   | 'dnsDomain'
   | 'hostOrIp'
   | 'hostList'
+  | 'hostPort'
   | 'ipList'
   | 'url'
   | 'httpsUrl'
@@ -33,7 +34,8 @@ export type Rule =
   | 'kubeNamespace'
   | 'hostPortList'
   | 'hostEntry'
-  | 'redirectMappings';
+  | 'redirectMappings'
+  | 'sourceImage';
 
 export type SectionId = 'general' | 'network' | 'horizon' | 'tunnel' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
 
@@ -60,6 +62,11 @@ export function deploymentNicCount(v: Values): 1 | 2 | 3 {
   if (option.startsWith('threenic')) return 3;
   if (option.startsWith('twonic')) return 2;
   return 1;
+}
+
+function usesStaticIpv4(v: Values, nic: 0 | 1 | 2): boolean {
+  const mode = String(v[`ipmode${nic}`] ?? '');
+  return mode === '' || mode.includes('STATICV4');
 }
 
 export interface Option {
@@ -104,10 +111,11 @@ export interface Field {
   ipMode?: 0 | 1 | 2;
   /** This field needs format-specific output rather than a direct INI entry. */
   customOutput?: boolean;
-  /** Edit a string-backed, space-separated value as individually validated rows. */
+  /** Edit a string-backed value as individually validated rows. */
   rows?: {
     itemLabel: string;
-    rule: 'ipv4' | 'dnsDomain' | 'hostOrIp';
+    rule: 'ipv4' | 'dnsDomain' | 'hostOrIp' | 'hostPort';
+    separator?: 'space' | 'comma';
   };
 }
 
@@ -202,6 +210,20 @@ const usesRadius = (v: Values) => String(v.authMethods).startsWith('radius-auth'
 const usesSaml = (v: Values) => String(v.authMethods).startsWith('saml-auth') || v.authMethods === 'device-certificate-auth-and-saml-auth';
 const usesSecurId = (v: Values) => String(v.authMethods).startsWith('securid-auth');
 const usesCertificate = (v: Values) => String(v.authMethods).includes('certificate-auth');
+const UAG_IP_MODES = [
+  '',
+  'STATICV4',
+  'STATICV6',
+  'DHCPV4',
+  'DHCPV6',
+  'AUTOV6',
+  'STATICV4+STATICV6',
+  'STATICV4+DHCPV6',
+  'STATICV4+AUTOV6',
+  'DHCPV4+STATICV6',
+  'DHCPV4+DHCPV6',
+  'DHCPV4+AUTOV6'
+];
 
 const trustedCertFields = (
   idFor: (index: number) => string,
@@ -272,7 +294,7 @@ export const GROUPS: GroupDef[] = [
         showIf: (v) => v.cascade_role === 'outer',
         json: false,
         placeholder: 'sha256=ad:5c:f1:…',
-        help: 'Needed when the inner UAG certificate is not from a trusted CA. Use the thumbprint helper under Horizon settings.'
+        help: 'Needed when the inner UAG certificate is not from a trusted CA. Use the certificate or PowerShell method under Horizon settings.'
       }),
       ...trustedCertFields((n) => n === 1 ? 'cascade_innerTrustedCert' : `cascade_innerTrustedCert${n}`, {
         wide: true,
@@ -425,9 +447,12 @@ export const GROUPS: GroupDef[] = [
       text('source', 'Source image', 'source', {
         wide: true,
         required: true,
+        rule: 'sourceImage',
         placeholder: 'C:\\ova\\euc-unified-access-gateway-26.09.0.0-xxxxxxxx_OVF10.ova',
         platforms: vsphereHyperv,
-        help: 'vSphere: full path or URL of the .ova. Hyper-V: path of the .vhdx.'
+        help: (platform) => platform === 'hyperv'
+          ? 'Local Hyper-V .vhdx path. URLs and vSphere .ova files are not supported.'
+          : 'Local .ova path or HTTP(S) URL ending in .ova.'
       }),
       text('target', 'vCenter target', 'target', {
         wide: true,
@@ -456,36 +481,49 @@ export const GROUPS: GroupDef[] = [
         showIf: (v) => deploymentNicCount(v) === 3,
         help: 'The dedicated Backend interface is available only with threenic.'
       }),
-      text('ip0', 'NIC0 Internet IPv4 address', 'ip0', { rule: 'ipv4', platforms: vsphereHyperv, required: true, placeholder: '192.0.2.21' }),
-      text('netmask0', 'NIC0 Internet netmask', 'netmask0', { rule: 'ipv4', platforms: vsphereHyperv, required: true, placeholder: '255.255.255.0' }),
+      text('ip0', 'NIC0 Internet IPv4 address', 'ip0', {
+        rule: 'ipv4',
+        platforms: vsphereHyperv,
+        required: (v) => usesStaticIpv4(v, 0),
+        showIf: (v) => usesStaticIpv4(v, 0),
+        placeholder: '192.0.2.21'
+      }),
+      text('netmask0', 'NIC0 Internet netmask', 'netmask0', {
+        rule: 'ipv4',
+        platforms: vsphereHyperv,
+        required: (v) => usesStaticIpv4(v, 0),
+        showIf: (v) => usesStaticIpv4(v, 0),
+        placeholder: '255.255.255.0'
+      }),
       text('ip1', 'NIC1 Management / Backend IPv4 address', 'ip1', {
         rule: 'ipv4',
         platforms: vsphereHyperv,
-        required: true,
-        showIf: (v) => deploymentNicCount(v) >= 2
+        required: (v) => usesStaticIpv4(v, 1),
+        showIf: (v) => deploymentNicCount(v) >= 2 && usesStaticIpv4(v, 1)
       }),
       text('netmask1', 'NIC1 Management / Backend netmask', 'netmask1', {
         rule: 'ipv4',
         platforms: vsphereHyperv,
-        required: true,
-        showIf: (v) => deploymentNicCount(v) >= 2
+        required: (v) => usesStaticIpv4(v, 1),
+        showIf: (v) => deploymentNicCount(v) >= 2 && usesStaticIpv4(v, 1)
       }),
       text('ip2', 'NIC2 Backend IPv4 address', 'ip2', {
         rule: 'ipv4',
         platforms: vsphereHyperv,
-        required: true,
-        showIf: (v) => deploymentNicCount(v) === 3
+        required: (v) => usesStaticIpv4(v, 2),
+        showIf: (v) => deploymentNicCount(v) === 3 && usesStaticIpv4(v, 2)
       }),
       text('netmask2', 'NIC2 Backend netmask', 'netmask2', {
         rule: 'ipv4',
         platforms: vsphereHyperv,
-        required: true,
-        showIf: (v) => deploymentNicCount(v) === 3
+        required: (v) => usesStaticIpv4(v, 2),
+        showIf: (v) => deploymentNicCount(v) === 3 && usesStaticIpv4(v, 2)
       }),
       text('defaultGateway', 'Default gateway', 'defaultGateway', {
         rule: 'ipv4',
         platforms: vsphereHyperv,
-        required: true,
+        required: (v) => usesStaticIpv4(v, 0),
+        showIf: (v) => usesStaticIpv4(v, 0),
         placeholder: '192.0.2.1',
         help: 'IPv4 gateway on the NIC0 Internet network.'
       }),
@@ -515,23 +553,22 @@ export const GROUPS: GroupDef[] = [
         placeholder: '172.16.0.0/12 10.2.0.1',
         help: 'Available only on three-NIC deployments; same comma-separated CIDR-and-gateway format as routes0.'
       }),
-      sel('ipmode0', 'NIC addressing mode (ipmode0)', 'ipmode0', [
-        '',
-        'STATICV4',
-        'STATICV6',
-        'DHCPV4',
-        'DHCPV6',
-        'AUTOV6',
-        'STATICV4+STATICV6',
-        'STATICV4+DHCPV6',
-        'STATICV4+AUTOV6',
-        'DHCPV4+STATICV6',
-        'DHCPV4+DHCPV6',
-        'DHCPV4+AUTOV6'
-      ], {
+      sel('ipmode0', 'NIC0 addressing mode', 'ipmode0', UAG_IP_MODES, {
         platforms: vsphereHyperv,
         since: '2306',
-        help: 'Omnissa documents one ipmode0 key and says it controls the selected NIC topology. No ipmode1/ipmode2 keys are documented.'
+        help: 'Addressing mode for NIC0 / eth0.'
+      }),
+      sel('ipmode1', 'NIC1 addressing mode', 'ipmode1', UAG_IP_MODES, {
+        platforms: vsphereHyperv,
+        since: '2306',
+        showIf: (v) => deploymentNicCount(v) >= 2,
+        help: 'Addressing mode for NIC1 / eth1.'
+      }),
+      sel('ipmode2', 'NIC2 addressing mode', 'ipmode2', UAG_IP_MODES, {
+        platforms: vsphereHyperv,
+        since: '2306',
+        showIf: (v) => deploymentNicCount(v) === 3,
+        help: 'Addressing mode for NIC2 / eth2.'
       }),
       text('v6ip0', 'NIC0 IPv6 address', 'v6ip0', {
         rule: 'ipv6',
@@ -695,6 +732,7 @@ export const GROUPS: GroupDef[] = [
     target: 'deploy',
     iniSection: 'Nutanix',
     platforms: ['nutanix'],
+    since: '2606',
     help: 'The QCOW2 image must already be uploaded to Prism Central. Subnets and the target cluster must already exist. A VM with the same name is deleted and recreated by the official script.',
     fields: [
       text('ntnx_prismCentralUserName', 'Prism Central username', 'prismCentralUserName', { required: true, placeholder: 'user@domain.example', json: false }),
@@ -723,10 +761,11 @@ export const GROUPS: GroupDef[] = [
     target: 'deploy',
     iniSection: 'OpenShift',
     platforms: ['openshift'],
+    since: '2609',
     help: 'Limited Availability: request access from Omnissa. The target namespace, storage class, NADs and RBAC permissions must already exist. Gateway Forge generates the bootable-volume manifest and deployment INI; local QCOW2 uploads must be prepared through the OpenShift console.',
     fields: [
-      text('ocp_openShiftUserName', 'OpenShift user / service account', 'openShiftUserName', { required: true, placeholder: 'admin', json: false }),
-      text('ocp_openShiftEndpoint', 'OpenShift API endpoint', 'openShiftEndpoint', { required: true, rule: 'httpsUrl', wide: true, placeholder: 'https://api.cluster.example.com:6443', json: false }),
+      text('ocp_openShiftUserName', 'OpenShift user / service account', 'openShiftUserName', { required: (v) => !v.ocp_bearerToken, placeholder: 'admin', json: false }),
+      text('ocp_openShiftEndpoint', 'OpenShift API endpoint', 'openShiftEndpoint', { required: true, rule: 'httpsOrigin', wide: true, placeholder: 'https://api.cluster.example.com:6443', json: false }),
       text('ocp_namespace', 'Namespace / project', 'namespace', { required: true, rule: 'kubeNamespace', placeholder: 'uag-dmz', json: false }),
       text('ocp_instanceType', 'Instance type / profile', 'instanceType', { required: true, placeholder: 'uag-medium', help: 'Must provide at least 2 vCPU and 4 GB RAM; Omnissa does not enumerate accepted profile names.' , json: false }),
       text('ocp_storageClass', 'Storage class', 'storageClass', { required: true, rule: 'kubeName', placeholder: 'uag-rwx', json: false }),
@@ -867,10 +906,11 @@ export const GROUPS: GroupDef[] = [
         showIf: (v) => v.blastEnabled === true
       }),
       text('blastAllowedHostHeaderValues', 'Blast allowed Host header values', 'blastAllowedHostHeaderValues', {
-        rule: 'hostPortList',
+        rows: { itemLabel: 'Allowed host header', rule: 'hostPort', separator: 'comma' },
+        placeholder: 'uag.example.com:8443',
         wide: true,
         showIf: (v) => v.blastEnabled === true,
-        help: 'host[:port] list; use _empty_ to allow requests without a Host header.'
+        help: 'Add one host[:port] value per row; use _empty_ to allow requests without a Host header.'
       }),
       bool('pcoipEnabled', 'Enable PCoIP', 'pcoipEnabled', false),
       bool('pcoipDisableLegacyCertificate', 'Use appliance certificate for PCoIP', 'pcoipDisableLegacyCertificate', false, {
@@ -1016,79 +1056,6 @@ export const GROUPS: GroupDef[] = [
         placeholder: '10.192.168.1 cs1.corp.local cs1',
         help: 'IP address, hostname, and optional alias, separated by spaces.'
       }))
-    ]
-  },
-  {
-    id: 'nutanix',
-    title: 'Nutanix AHV deployment',
-    section: 'network',
-    target: 'deploy',
-    iniSection: 'Nutanix',
-    platforms: ['nutanix'],
-    since: '2606',
-    help: 'Deploys the UAG QCOW2 image with uagdeployntnx.ps1. Prism Central, the cluster, image, and subnets must already exist.',
-    fields: [
-      text('ntnx_prismCentralUserName', 'Prism Central user', 'prismCentralUserName', { required: true, json: false }),
-      text('ntnx_prismCentralAddress', 'Prism Central address', 'prismCentralAddress', { rule: 'hostOrIp', required: true, placeholder: 'prism.corp.local', json: false }),
-      text('ntnx_cluster', 'Cluster', 'cluster', { required: true, json: false }),
-      text('ntnx_image', 'Uploaded QCOW2 image', 'image', { required: true, placeholder: 'uag-2609', json: false }),
-      text('ntnx_subnet0', 'NIC0 subnet', 'subnet0', { required: true, json: false }),
-      text('ntnx_subnet1', 'NIC1 subnet', 'subnet1', {
-        required: (v) => deploymentNicCount(v) >= 2,
-        showIf: (v) => deploymentNicCount(v) >= 2,
-        json: false
-      }),
-      text('ntnx_subnet2', 'NIC2 subnet', 'subnet2', {
-        required: (v) => deploymentNicCount(v) >= 3,
-        showIf: (v) => deploymentNicCount(v) >= 3,
-        json: false
-      })
-    ]
-  },
-  {
-    id: 'openshift',
-    title: 'OpenShift Virtualization deployment',
-    section: 'network',
-    target: 'deploy',
-    iniSection: 'OpenShift',
-    platforms: ['openshift'],
-    since: '2609',
-    help: 'Limited-availability UAG deployment using uagdeployopenshift.ps1. The bootable volume and network attachments must already exist. Authenticate with either a username/password or bearer token.',
-    fields: [
-      text('ocp_openShiftUserName', 'OpenShift user / service account', 'openShiftUserName', {
-        required: (v) => !v.ocp_bearerToken,
-        json: false
-      }),
-      text('ocp_openShiftEndpoint', 'OpenShift API endpoint', 'openShiftEndpoint', {
-        rule: 'httpsOrigin',
-        required: true,
-        wide: true,
-        placeholder: 'https://cluster.example.com:6443',
-        json: false
-      }),
-      text('ocp_namespace', 'Namespace', 'namespace', { required: true, placeholder: 'uag-namespace', json: false }),
-      text('ocp_instanceType', 'Instance type', 'instanceType', { required: true, placeholder: 'uag-large', json: false }),
-      text('ocp_storageClass', 'Storage class', 'storageClass', { required: true, json: false }),
-      num('ocp_diskSizeGi', 'Disk size (GiB)', 'diskSizeGi', { default: 20, min: 20, required: true, json: false }),
-      text('ocp_volume', 'Bootable volume', 'volume', { required: true, json: false }),
-      text('ocp_nadName0', 'NIC0 NetworkAttachmentDefinition', 'nadName0', { required: true, json: false }),
-      text('ocp_nadName1', 'NIC1 NetworkAttachmentDefinition', 'nadName1', {
-        required: (v) => deploymentNicCount(v) >= 2,
-        showIf: (v) => deploymentNicCount(v) >= 2,
-        json: false
-      }),
-      text('ocp_nadName2', 'NIC2 NetworkAttachmentDefinition', 'nadName2', {
-        required: (v) => deploymentNicCount(v) >= 3,
-        showIf: (v) => deploymentNicCount(v) >= 3,
-        json: false
-      }),
-      text('ocp_networkPolicies', 'Network policies', 'networkPolicies', { wide: true, placeholder: 'uag-policy1,uag-policy2', json: false }),
-      text('ocp_labels', 'Resource labels', 'labels', { wide: true, placeholder: 'env=prod,app=uag', json: false }),
-      secret('ocp_bearerToken', 'OpenShift bearer token', 'bearerToken', {
-        wide: true,
-        json: false,
-        help: 'Alternative to username/password authentication. When omitted, the deployment script uses the username and prompts for the OpenShift password.'
-      })
     ]
   },
   {

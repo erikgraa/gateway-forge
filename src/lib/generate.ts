@@ -81,7 +81,7 @@ function sectionRank(name: string): number {
 function entryFor(f: Field, values: Values, mode: SecretMode): Entry | null {
   if (f.customOutput) return null;
   const raw = values[f.id];
-  const normalized = f.rows ? serializeListValue([raw]) : raw;
+  const normalized = f.rows ? serializeListValue([raw], f.rows.separator) : raw;
   if (isEmpty(normalized)) return null;
   if (f.omitDefault && isDefault(f, normalized)) return null;
   let value = normalized as Primitive;

@@ -101,7 +101,7 @@ Provider adapters authenticate through one approved mode: delegated OAuth/OIDC, 
 
 The UI must disclose requested scopes, tenant/account, audience, token lifetime, and allowed hosts before consent. The adapter must use least privilege, pin allowed origins, reject redirects not in its allowlist, support cancellation, and clear credentials on disable/disconnect. CORS is not an authorization boundary. Provider URLs and optional local helper origins must be schema-validated and cannot be controlled by untrusted imported configuration.
 
-Gateway Forge does not receive credentials through generated INI/JSON or store them in a provider reference. A local helper, if later used, must bind to loopback, authenticate browser requests (for example with a one-time random channel token), enforce Origin/Host checks, and relay only the minimum provider operation. Existing thumbprint-helper trust and privileges must not be expanded implicitly.
+Gateway Forge does not receive credentials through generated INI/JSON or store them in a provider reference. A local provider helper, if later used, must bind to loopback, authenticate browser requests (for example with a one-time random channel token), enforce Origin/Host checks, and relay only the minimum provider operation. It must be introduced as a separately reviewed feature with explicit trust and privileges.
 
 ## Auditability
 

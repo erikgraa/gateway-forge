@@ -4,23 +4,17 @@
     thumbprints,
     uagThumbprint,
     powershellThumbprintCommand,
-    helperAvailable,
-    helperFetch,
-    HELPER_URL,
     type HashAlg,
     type ThumbprintSet
   } from '../lib/thumbprint';
   import { copy } from '../lib/render';
 
-  type Mode = 'paste' | 'ps' | 'helper';
+  type Mode = 'paste' | 'ps';
   let mode = $state<Mode>('paste');
   let pem = $state('');
   let alg = $state<HashAlg>('SHA-256');
   let set = $state<ThumbprintSet | null>(null);
   let err = $state('');
-  let helperUp = $state<boolean | null>(null);
-  let helperMsg = $state('');
-  let busy = $state(false);
 
   const outer = $derived(app.config.values.cascade_role === 'outer');
   const thumbKey = $derived(outer ? 'cascade_innerThumbprints' : 'proxyDestinationUrlThumbprints');
@@ -50,41 +44,16 @@
     app.say(outer ? 'Thumbprint added to the inner UAG (cascade)' : 'Thumbprint added to the Horizon edge service');
   }
 
-  async function checkHelper() {
-    helperUp = await helperAvailable();
-    helperMsg = helperUp ? 'Helper detected.' : 'Helper not running (optional). Start it with: node helper/gateway-forge-helper.mjs';
-  }
-
-  async function fetchViaHelper() {
-    busy = true;
-    helperMsg = '';
-    try {
-      const r = await helperFetch(hostPort);
-      const colon = (hex: string) => hex;
-      set = { 'SHA-1': colon(r.sha1), 'SHA-256': colon(r.sha256), 'SHA-384': colon(r.sha384 ?? ''), 'SHA-512': colon(r.sha512) };
-      helperMsg = `Fetched certificate of ${r.subject ?? r.host}${r.validTo ? ` (valid to ${r.validTo})` : ''}.`;
-      apply(uagThumbprint(set, alg));
-    } catch (e) {
-      helperMsg = `Helper request failed: ${(e as Error).message}`;
-    } finally {
-      busy = false;
-    }
-  }
-
-  $effect(() => {
-    if (mode === 'helper' && helperUp === null) void checkHelper();
-  });
 </script>
 
 <section class="card">
-  <div class="card-head"><h3>Thumbprint helper</h3></div>
+  <div class="card-head"><h3>Thumbprint tools</h3></div>
   <p class="help">
-    A static web page cannot read a remote server's TLS certificate. Paste the certificate, run the one-liner, or use the optional local helper. Everything stays on your machine.
+    A static web page cannot read a remote server's TLS certificate. Paste the certificate or run the PowerShell one-liner. Everything stays on your machine.
   </p>
   <div class="tabs2" role="tablist">
     <button role="tab" aria-selected={mode === 'paste'} class:on={mode === 'paste'} onclick={() => (mode = 'paste')}>Paste certificate</button>
     <button role="tab" aria-selected={mode === 'ps'} class:on={mode === 'ps'} onclick={() => (mode = 'ps')}>PowerShell</button>
-    <button role="tab" aria-selected={mode === 'helper'} class:on={mode === 'helper'} onclick={() => (mode = 'helper')}>Local helper (optional)</button>
   </div>
 
   {#if mode === 'paste'}
@@ -96,16 +65,6 @@
     <p class="help">Run on any Windows/PowerShell host that can reach <code>{hostPort}</code>, then paste the printed value into the Connection Server thumbprint field.</p>
     <div class="result">{psCmd}</div>
     <div class="row" style="margin-top:8px"><button class="small" onclick={async () => app.say((await copy(psCmd)) ? 'Copied' : 'Copy failed')}>Copy one-liner</button></div>
-  {:else}
-    <p class="help">
-      Run <code>node helper/gateway-forge-helper.mjs</code> locally. It listens on <code>{HELPER_URL}</code>, fetches the certificate of <code>{hostPort}</code> and returns only its public fingerprints. The app works fully without it.
-    </p>
-    <div class="row">
-      <button class="small" onclick={checkHelper}>Check helper</button>
-      <button class="small primary" onclick={fetchViaHelper} disabled={busy || helperUp === false}>Fetch &amp; apply thumbprint</button>
-      <span class="chip">{helperUp === null ? 'checking…' : helperUp ? 'running' : 'not running'}</span>
-    </div>
-    {#if helperMsg}<p class="help" style="margin-top:8px">{helperMsg}</p>{/if}
   {/if}
 
   {#if err}<p class="err" style="color:var(--bad)">{err}</p>{/if}
