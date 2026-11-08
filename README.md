@@ -12,6 +12,8 @@
 A live demo is available at **[gateway-forge.graa.dev](https://gateway-forge.graa.dev)** - everything runs in your browser, nothing is uploaded.
 
 See the **[project roadmap](ROADMAP.md)** for planned work and ongoing priorities.
+See **[SOURCES.md](SOURCES.md)** for the authoritative product and tool
+references, the project evidence labels, and the source-review policy.
 
 ## ✨ Features
 
@@ -54,6 +56,10 @@ Per-version field availability (`since` in the schema) was derived by diffing th
 ### 📚 Where do the key names come from?
 
 INI section and key names (`[General]`, `[Horizon]`, `[RADIUSAuth]`, `[SnmpSettings]`, `[SyslogServerSettingsN]`, `[WebReverseProxyN]`, `[IDPExternalMetadata1]`, `[SSLCert]`, `[Azure]`) were taken from the official Omnissa documentation - *Run PowerShell script to deploy* (sample INI), *PowerShell deployment parameters*, *Configure Horizon Settings*, the vSphere/Hyper-V/Azure deployment pages and *Non-Interactive mode deployment parameters*. Keys whose name is only inferred from a documented pattern (secondary RADIUS server `hostName_2`/`sharedSecret_2`) carry a **verify** badge in the UI; the SNMPv3 *security level* token is free text because the docs do not list the INI values.
+
+The [source map](SOURCES.md#uag-ini-keys-and-deployment) records the exact
+evidence hierarchy for these keys and distinguishes Omnissa documentation from
+release-artifact observations and Gateway Forge assumptions.
 
 ### 🧾 Settings JSON - read this
 
@@ -125,6 +131,7 @@ Stack: Vite + Svelte 5 + TypeScript. Layout:
 | `src/lib/templates.ts` | Ready-made designs |
 | `src/components/` | Svelte UI |
 | `helper/` | Optional localhost helper |
+| `SOURCES.md` | Authoritative source map and evidence/source-review policy |
 
 ### 🧩 Adding a setting
 
