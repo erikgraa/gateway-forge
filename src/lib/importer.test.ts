@@ -11,6 +11,11 @@ const SAMPLE = `
 name=UAG1
 source=C:\\ova\\euc-unified-access-gateway-25.06.0.0-15261880358_OVF10.ova
 deploymentOption=threenic
+routes0=10.108.172.32/32 10.108.172.253,192.168.20.0/24 192.168.10.1
+routes1=172.16.0.0/16 10.1.0.1
+routes2=10.2.0.0/16 10.3.0.1
+ipmode0=STATICV4
+eth2CustomConfig=Network^Domains=~.
 uagName=UAG1
 dns=192.0.2.1 192.0.2.2
 ntpServers=pool.ntp.org
@@ -70,6 +75,11 @@ describe('INI import', () => {
     expect(r.config.values).toMatchObject({
       uagName: 'UAG1',
       deploymentOption: 'threenic',
+      routes0: '10.108.172.32/32 10.108.172.253,192.168.20.0/24 192.168.10.1',
+      routes1: '172.16.0.0/16 10.1.0.1',
+      routes2: '10.2.0.0/16 10.3.0.1',
+      ipmode0: 'STATICV4',
+      eth2CustomConfig: 'Network^Domains=~.',
       dns: '192.0.2.1 192.0.2.2',
       horizon_enabled: true,
       proxyDestinationUrl: 'https://cs.corp.local',
@@ -99,6 +109,21 @@ describe('INI import', () => {
   });
   it('detects Azure from the [Azure] section', () => {
     expect(importIni('[General]\nuagName=x\n[Azure]\nsubscriptionID=1\nlocation=uksouth').config.platform).toBe('azure');
+  });
+
+  it('imports the documented lowercase admin password policy keys', () => {
+    const r = importIni(`[General]
+adminpasswordPolicyMinLen=12
+adminpasswordPolicyFailedLockoutCount=4
+adminpasswordPolicyUnlockTime=7
+adminpasswordExpirationDays=60
+`);
+    expect(r.config.values).toMatchObject({
+      adminPasswordPolicyMinLen: 12,
+      adminPasswordPolicyFailedLockoutCount: 4,
+      adminPasswordPolicyUnlockTime: 7,
+      adminPasswordExpirationDays: 60
+    });
   });
 });
 

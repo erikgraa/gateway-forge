@@ -16,7 +16,12 @@ export type Rule =
   | 'port'
   | 'thumbprints'
   | 'uagName'
+  | 'osLoginUsername'
+  | 'ascii'
   | 'ipv4Port'
+  | 'ipv6'
+  | 'staticRoutes'
+  | 'customConfig'
   | 'path'
   | 'int';
 
@@ -247,16 +252,39 @@ export const GROUPS: GroupDef[] = [
       }),
       bool('sshEnabled', 'Enable SSH', 'sshEnabled', false, { help: 'Not recommended; console access is normally sufficient.' }),
       num('sshPort', 'SSH port', 'sshPort', { default: 22, rule: 'port', showIf: (v) => v.sshEnabled === true }),
+      sel('sshInterface', 'SSH interface', 'sshInterface', [
+        '',
+        { value: 'eth0', label: 'eth0 (NIC0)' },
+        { value: 'eth1', label: 'eth1 (NIC1)' },
+        { value: 'eth2', label: 'eth2 (NIC2)' }
+      ], {
+        showIf: (v) => v.sshEnabled === true,
+        help: 'Empty enables SSH on all interfaces. The interface must exist in the selected deployment topology.'
+      }),
       bool('sshPasswordAccessEnabled', 'SSH password access', 'sshPasswordAccessEnabled', false, { showIf: (v) => v.sshEnabled === true }),
       bool('sshKeyAccessEnabled', 'SSH key access', 'sshKeyAccessEnabled', true, { showIf: (v) => v.sshEnabled === true }),
       text('sshLoginBannerText', 'Login banner text', 'sshLoginBannerText', {
         wide: true,
+        rule: 'ascii',
         help: 'ASCII only. Use \\n for new lines.'
       }),
       text('osLoginUsername', 'High-privilege OS login user', 'osLoginUsername', {
+        rule: 'osLoginUsername',
         help: 'a-z, 0-9, underscore, hyphen (max 32). When set, root login is disabled.'
       }),
+      num('osMaxLoginLimit', 'High-privilege console login limit', 'osMaxLoginLimit', {
+        default: 10,
+        min: 1,
+        omitDefault: true,
+        showIf: (v) => String(v.osLoginUsername ?? '') !== '',
+        help: 'Applies only when a high-privilege non-root login user is configured.'
+      }),
       bool('dsComplianceOS', 'DISA STIG OS compliance', 'dsComplianceOS', false, { help: 'Use with the FIPS appliance when STIG compliance is required.' }),
+      sel('secureRandomSource', 'Java secure random source', 'secureRandomSource', ['', '/dev/random', '/dev/urandom'], {
+        json: false,
+        wide: true,
+        help: 'Deployment-only. Leave empty for the UAG/FIPS appliance default; changing it takes effect only during deployment.'
+      }),
       text('headersToBeLogged', 'Headers to be logged', 'headersToBeLogged', {
         since: '2312',
         placeholder: 'X-Forwarded-For,host',
@@ -278,14 +306,16 @@ export const GROUPS: GroupDef[] = [
       num('sessionTimeout', 'Session timeout (ms)', 'sessionTimeout', { default: 36000000, min: 1, omitDefault: true }),
       num('adminSessionIdleTimeoutMinutes', 'Admin UI idle timeout (min)', 'adminSessionIdleTimeoutMinutes', { default: 10, min: 0, max: 1440 }),
       num('adminMaxConcurrentSessions', 'Admin max concurrent sessions', 'adminMaxConcurrentSessions', { default: 5, min: 1, max: 50, omitDefault: true }),
-      num('adminPasswordExpirationDays', 'Admin password expiry (days)', 'adminPasswordExpirationDays', { default: 90, min: 0, max: 999, omitDefault: true }),
-      num('adminPasswordPolicyMinLen', 'Admin password min length', 'adminPasswordPolicyMinLen', { default: 8, min: 8, max: 64, omitDefault: true }),
-      num('adminPasswordPolicyFailedLockoutCount', 'Admin lockout after failed logins', 'adminPasswordPolicyFailedLockoutCount', { default: 3, min: 0, max: 10, omitDefault: true }),
-      num('adminPasswordPolicyUnlockTime', 'Admin unlock time (min)', 'adminPasswordPolicyUnlockTime', { default: 5, min: 1, max: 9999, omitDefault: true }),
+      num('adminPasswordExpirationDays', 'Admin password expiry (days)', 'adminpasswordExpirationDays', { default: 90, min: 0, max: 999, since: '2506', omitDefault: true }),
+      num('adminPasswordPolicyMinLen', 'Admin password min length', 'adminpasswordPolicyMinLen', { default: 8, min: 8, max: 64, omitDefault: true }),
+      num('adminPasswordPolicyFailedLockoutCount', 'Admin lockout after failed logins', 'adminpasswordPolicyFailedLockoutCount', { default: 3, min: 0, max: 10, omitDefault: true }),
+      num('adminPasswordPolicyUnlockTime', 'Admin unlock time (min)', 'adminpasswordPolicyUnlockTime', { default: 5, min: 1, max: 9999, omitDefault: true }),
       num('rootPasswordExpirationDays', 'Root password expiry (days)', 'rootPasswordExpirationDays', { default: 365, min: 0, omitDefault: true }),
       num('rootSessionIdleTimeoutSeconds', 'Console idle timeout (s)', 'rootSessionIdleTimeoutSeconds', { default: 300, min: 0, max: 3600, omitDefault: true }),
       num('passwordPolicyMinLen', 'OS password min length', 'passwordPolicyMinLen', { default: 6, min: 6, max: 64, omitDefault: true }),
-      num('passwordPolicyFailedLockout', 'OS lockout after failed logins', 'passwordPolicyFailedLockout', { default: 3, min: 0, max: 10, omitDefault: true })
+      num('passwordPolicyMinClass', 'OS password character classes', 'passwordPolicyMinClass', { default: 1, min: 1, max: 4, omitDefault: true }),
+      num('passwordPolicyFailedLockout', 'OS lockout after failed logins', 'passwordPolicyFailedLockout', { default: 3, min: 0, max: 10, omitDefault: true }),
+      num('passwordPolicyUnlockTime', 'OS unlock time (s)', 'passwordPolicyUnlockTime', { default: 900, min: 0, max: 3600, omitDefault: true, help: '0 permanently locks the console until an administrator unlocks it.' })
     ]
   },
   {
@@ -300,7 +330,7 @@ export const GROUPS: GroupDef[] = [
       sel(
         'deploymentOption',
         'Deployment option',
-        'deploymentOption',
+        'deploymentoption',
         [
           { value: 'onenic', label: 'onenic (2 vCPU / 4 GB)' },
           { value: 'twonic', label: 'twonic (2 vCPU / 4 GB)' },
@@ -361,7 +391,95 @@ export const GROUPS: GroupDef[] = [
         platforms: vsphereHyperv,
         showIf: (v) => String(v.deploymentOption).startsWith('threenic')
       }),
-      text('defaultGateway', 'Default gateway', 'defaultGateway', { rule: 'ipv4', platforms: vsphereHyperv, placeholder: '192.0.2.1' })
+      text('defaultGateway', 'Default gateway', 'defaultGateway', { rule: 'ipv4', platforms: vsphereHyperv, placeholder: '192.0.2.1' }),
+      text('routes0', 'NIC0 static routes', 'routes0', {
+        rule: 'staticRoutes',
+        platforms: vsphereHyperv,
+        since: '2306',
+        wide: true,
+        placeholder: '10.108.172.32/32 10.108.172.253,192.168.20.0/24 10.0.0.1',
+        help: 'Comma-separated CIDR-and-gateway pairs. Format: IPv4-network/prefix gateway-IPv4.'
+      }),
+      text('routes1', 'NIC1 static routes', 'routes1', {
+        rule: 'staticRoutes',
+        platforms: vsphereHyperv,
+        since: '2306',
+        wide: true,
+        showIf: (v) => !String(v.deploymentOption).startsWith('onenic'),
+        placeholder: '192.168.20.0/24 192.168.10.1',
+        help: 'Available only on two- and three-NIC deployments; same comma-separated CIDR-and-gateway format as routes0.'
+      }),
+      text('routes2', 'NIC2 static routes', 'routes2', {
+        rule: 'staticRoutes',
+        platforms: vsphereHyperv,
+        since: '2306',
+        wide: true,
+        showIf: (v) => String(v.deploymentOption).startsWith('threenic'),
+        placeholder: '172.16.0.0/12 10.2.0.1',
+        help: 'Available only on three-NIC deployments; same comma-separated CIDR-and-gateway format as routes0.'
+      }),
+      sel('ipmode0', 'NIC addressing mode (ipmode0)', 'ipmode0', [
+        '',
+        'STATICV4',
+        'STATICV6',
+        'DHCPV4',
+        'DHCPV6',
+        'AUTOV6',
+        'STATICV4+STATICV6',
+        'STATICV4+DHCPV6',
+        'STATICV4+AUTOV6',
+        'DHCPV4+STATICV6',
+        'DHCPV4+DHCPV6',
+        'DHCPV4+AUTOV6'
+      ], {
+        platforms: vsphereHyperv,
+        since: '2306',
+        help: 'Omnissa documents one ipmode0 key and says it controls the selected NIC topology. No ipmode1/ipmode2 keys are documented.'
+      }),
+      text('v6ip0', 'NIC0 IPv6 address', 'v6ip0', {
+        rule: 'ipv6',
+        platforms: vsphereHyperv,
+        since: '2506',
+        placeholder: '2402:740:2:209::5',
+        help: 'Only NIC0 IPv6 keys are documented; NIC1/NIC2 IPv6 keys are intentionally not inferred.'
+      }),
+      num('v6ipprefix0', 'NIC0 IPv6 prefix length', 'v6ipprefix0', {
+        platforms: vsphereHyperv,
+        since: '2506',
+        min: 0,
+        max: 128,
+        placeholder: '64'
+      }),
+      text('v6DefaultGateway', 'IPv6 default gateway', 'v6DefaultGateway', {
+        rule: 'ipv6',
+        platforms: vsphereHyperv,
+        since: '2506',
+        placeholder: '2402:740:2:209::253'
+      }),
+      text('eth0CustomConfig', 'NIC0 systemd.network overrides', 'eth0CustomConfig', {
+        rule: 'customConfig',
+        platforms: vsphereHyperv,
+        since: '2306',
+        wide: true,
+        placeholder: 'DHCP^UseDNS=false',
+        help: 'Semicolon-separated Section^Parameter=Value entries. Use only documented systemd.network overrides.'
+      }),
+      text('eth1CustomConfig', 'NIC1 systemd.network overrides', 'eth1CustomConfig', {
+        rule: 'customConfig',
+        platforms: vsphereHyperv,
+        since: '2306',
+        showIf: (v) => !String(v.deploymentOption).startsWith('onenic'),
+        wide: true,
+        placeholder: 'DHCP^UseDomains=false'
+      }),
+      text('eth2CustomConfig', 'NIC2 systemd.network overrides', 'eth2CustomConfig', {
+        rule: 'customConfig',
+        platforms: vsphereHyperv,
+        since: '2306',
+        showIf: (v) => String(v.deploymentOption).startsWith('threenic'),
+        wide: true,
+        placeholder: 'Network^Domains=~.'
+      })
     ]
   },
   {

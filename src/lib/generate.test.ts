@@ -14,7 +14,7 @@ describe('INI generation', () => {
     const ini = generateIni(c, { secrets: 'include' });
     expect(ini).toContain('[General]');
     expect(ini).toContain('uagName=uag-dmz-01');
-    expect(ini).toContain('deploymentOption=twonic');
+    expect(ini).toContain('deploymentoption=twonic');
     expect(ini).toContain('[Horizon]');
     expect(ini).toContain('proxyDestinationUrl=https://cs01.corp.local');
     expect(ini).toContain('authMethods=radius-auth');
@@ -109,6 +109,63 @@ describe('INI generation', () => {
     expect(ini).toContain('[SnmpSettings]');
     expect(ini).toContain('communityName=comm');
   });
+
+  it('emits static routes, addressing modes, IPv6, custom NIC config and exact admin policy keys', () => {
+    const c = applyPatch(defaultConfig(), {
+      version: '2609',
+      values: {
+        deploymentOption: 'threenic',
+        routes0: '10.108.172.32/32 10.108.172.253,192.168.20.0/24 192.168.10.1',
+        routes1: '172.16.0.0/16 10.1.0.1',
+        routes2: '10.2.0.0/16 10.3.0.1',
+        ipmode0: 'STATICV4+STATICV6',
+        v6ip0: '2402:740:2:209::5',
+        v6ipprefix0: 64,
+        v6DefaultGateway: '2402:740:2:209::253',
+        eth0CustomConfig: 'DHCP^UseDNS=false;Network^Domains=~.',
+        eth1CustomConfig: 'DHCP^UseDomains=false',
+        eth2CustomConfig: 'Network^DNS=192.168.1.153#dns.example.com',
+        adminPasswordPolicyMinLen: 12,
+        adminPasswordPolicyFailedLockoutCount: 4,
+        adminPasswordPolicyUnlockTime: 7,
+        adminPasswordExpirationDays: 60
+      }
+    });
+    const ini = generateIni(c);
+    expect(ini).toContain('routes0=10.108.172.32/32 10.108.172.253,192.168.20.0/24 192.168.10.1');
+    expect(ini).toContain('routes1=172.16.0.0/16 10.1.0.1');
+    expect(ini).toContain('routes2=10.2.0.0/16 10.3.0.1');
+    expect(ini).toContain('ipmode0=STATICV4+STATICV6');
+    expect(ini).toContain('v6ip0=2402:740:2:209::5');
+    expect(ini).toContain('v6ipprefix0=64');
+    expect(ini).toContain('eth2CustomConfig=Network^DNS=192.168.1.153#dns.example.com');
+    expect(ini).toContain('adminpasswordPolicyMinLen=12');
+    expect(ini).toContain('adminpasswordPolicyFailedLockoutCount=4');
+    expect(ini).toContain('adminpasswordPolicyUnlockTime=7');
+    expect(ini).toContain('adminpasswordExpirationDays=60');
+    expect(ini).not.toContain('adminPasswordPolicy');
+  });
+
+  it('shows route keys only for NICs in the selected topology', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        deploymentOption: 'onenic',
+        routes0: '10.0.0.0/8 192.0.2.1',
+        routes1: '10.1.0.0/16 192.0.2.1',
+        routes2: '10.2.0.0/16 192.0.2.1'
+      }
+    });
+    const one = generateIni(c);
+    expect(one).toContain('routes0=');
+    expect(one).not.toContain('routes1=');
+    expect(one).not.toContain('routes2=');
+    const two = generateIni(applyPatch(c, { values: { deploymentOption: 'twonic-large' } }));
+    expect(two).toContain('routes1=');
+    expect(two).not.toContain('routes2=');
+    const three = generateIni(applyPatch(c, { values: { deploymentOption: 'threenic-XL' } }));
+    expect(three).toContain('routes1=');
+    expect(three).toContain('routes2=');
+  });
 });
 
 describe('JSON generation', () => {
@@ -125,7 +182,7 @@ describe('JSON generation', () => {
   it('keeps deploy-time keys out of the settings JSON', () => {
     const c = applyPatch(radiusMfa(), { values: { ip0: '10.0.0.5', netInternet: 'DMZ', source: 'x.ova', name: 'vm1' } });
     const sys = (generateJsonObject(c) as any).systemSettings;
-    for (const k of ['ip0', 'netInternet', 'source', 'name', 'deploymentOption', 'dns']) expect(sys).not.toHaveProperty(k);
+    for (const k of ['ip0', 'routes0', 'v6ip0', 'netInternet', 'source', 'name', 'deploymentoption', 'dns']) expect(sys).not.toHaveProperty(k);
   });
 
   it('serialises list-like settings as arrays', () => {
