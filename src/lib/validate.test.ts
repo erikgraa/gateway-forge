@@ -19,6 +19,12 @@ describe('field validation', () => {
     expect(checkRule('hostOrIp', 'bad host')).not.toBeNull();
     expect(checkRule('httpsUrl', 'https://cs01.corp.local')).toBeNull();
     expect(checkRule('httpsUrl', 'http://cs01.corp.local')).not.toBeNull();
+    expect(checkRule('httpsOrigin', 'https://as1234.awmdm.com')).toBeNull();
+    expect(checkRule('httpsOrigin', 'https://as1234.awmdm.com/')).toBeNull();
+    expect(checkRule('httpsOrigin', 'https://as1234.awmdm.com:443')).toBeNull();
+    expect(checkRule('httpsOrigin', 'https://as1234.awmdm.com/api')).not.toBeNull();
+    expect(checkRule('httpsOrigin', 'https://as1234.awmdm.com?tenant=1')).not.toBeNull();
+    expect(checkRule('httpsOrigin', 'https://as1234.awmdm.com#api')).not.toBeNull();
     expect(checkRule('port', '70000')).not.toBeNull();
     expect(checkRule('ipv4Port', '10.1.2.3:4172')).toBeNull();
     expect(checkRule('ipv4Port', 'uag.corp.local:4172')).not.toBeNull();
@@ -225,6 +231,19 @@ describe('config validation', () => {
     expect(m).toMatch(/Tunnel server hostname is required/);
     expect(m).toMatch(/Tunnel gateway must be enabled/);
     expect(m).toMatch(/Outbound proxy port is required/);
+  });
+
+  it('rejects paths after the Workspace ONE UEM API origin', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        airwatch_enabled: true,
+        airwatch_apiServerUrl: 'https://as1234.awmdm.com/api',
+        airwatch_apiServerUsername: 'api-user',
+        airwatch_apiServerPassword: 'secret',
+        airwatch_airwatchServerHostname: 'tunnel.example.com'
+      }
+    });
+    expect(messages(c).join('\n')).toMatch(/Workspace ONE UEM API server URL: Must be an https:\/\/ origin with no path, query or fragment/);
   });
 
   it('gates Workspace ONE Tunnel to vSphere and Hyper-V', () => {

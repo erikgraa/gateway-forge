@@ -12,6 +12,7 @@ export type Rule =
   | 'ipList'
   | 'url'
   | 'httpsUrl'
+  | 'httpsOrigin'
   | 'urlList'
   | 'port'
   | 'thumbprints'
@@ -740,12 +741,12 @@ export const GROUPS: GroupDef[] = [
     fields: [
       bool('airwatch_tunnelGatewayEnabled', 'Enable Tunnel gateway', 'tunnelGatewayEnabled', true, { json: false }),
       text('airwatch_apiServerUrl', 'Workspace ONE UEM API server URL', 'apiServerUrl', {
-        rule: 'httpsUrl',
+        rule: 'httpsOrigin',
         required: true,
         wide: true,
         placeholder: 'https://as1234.awmdm.com',
         json: false,
-        help: 'REST API URL from Groups & Settings > All Settings > Advanced > Site URLs in Workspace ONE UEM.'
+        help: 'REST API origin from Groups & Settings > All Settings > Advanced > Site URLs in Workspace ONE UEM. Enter only the HTTPS host (and optional port), without a path, query, or fragment.'
       }),
       text('airwatch_apiServerUsername', 'Workspace ONE UEM API user', 'apiServerUsername', {
         required: true,
