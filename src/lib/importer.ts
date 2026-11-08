@@ -87,6 +87,7 @@ function detectCascade(c: Config): void {
   c.values.cascade_role = 'outer';
   c.values.cascade_innerUrl = String(w.proxyDestinationUrl ?? '');
   c.values.cascade_innerThumbprints = String(w.proxyDestinationUrlThumbprints ?? '');
+  c.values.cascade_innerTrustedCert = String(w.trustedCert1 ?? '');
   c.values.cascade_opswat = String(w.proxyPattern ?? '').includes('/gateway/resources');
 }
 

@@ -65,6 +65,13 @@
     }
   }
 
+  function resetAll() {
+    if (confirm('Reset all settings to a blank configuration? This cannot be undone.')) {
+      app.clearDraft();
+      app.say('Configuration reset');
+    }
+  }
+
   function exportAs(tab: 'ini' | 'json' | 'ps' | 'docs') {
     exportOpen = false;
     download(render(app.config, tab, app.secretMode));
@@ -125,7 +132,7 @@
       <div class="nav-assurance">
         <span class="lock-mark" aria-hidden="true"></span>
         <div><strong>Browser-only workspace</strong><p>No telemetry. Drafts are saved locally with secrets stripped.</p></div>
-        <button class="text-button" onclick={() => confirm('Reset all settings? This clears the local draft.') && app.clearDraft()}>Reset configuration</button>
+        <button class="text-button" onclick={resetAll}>Reset configuration</button>
       </div>
     </nav>
 
@@ -183,9 +190,9 @@
   </main>
 
   <footer class="site-footer">
-    <span><strong>Community tool.</strong> Not affiliated with Omnissa. Review generated artifacts before production deployment.</span>
-    <a href="https://github.com/erikgraa/gateway-forge" target="_blank" rel="noopener noreferrer">Source</a>
-    <span>· MIT</span>
+    <strong>Gateway Forge is a community-driven, unofficial tool.</strong>
+    It is <strong>not affiliated with, endorsed by, or supported by Omnissa</strong>. Omnissa, Unified Access Gateway, UAG and Horizon are trademarks of their respective owners. Always review generated configuration before deploying it, and refer to the official Omnissa documentation.
+    <a href="https://github.com/erikgraa/gateway-forge" target="_blank" rel="noopener noreferrer">Source on GitHub</a> · MIT license
   </footer>
 </div>
 

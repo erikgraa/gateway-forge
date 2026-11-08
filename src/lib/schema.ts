@@ -1,4 +1,4 @@
-import type { Platform } from './versions';
+import { TLS_LEGACY_UNTIL, type Platform } from './versions';
 
 export type Primitive = string | number | boolean;
 export type Values = Record<string, Primitive>;
@@ -37,7 +37,8 @@ export type Target =
   | 'securid'
   | 'certauth'
   | 'proxy'
-  | 'cascade';
+  | 'cascade'
+  | 'runtime';
 
 export interface Option {
   value: string;
@@ -202,6 +203,12 @@ export const GROUPS: GroupDef[] = [
         placeholder: 'sha256=ad:5c:f1:…',
         help: 'Needed when the inner UAG certificate is not from a trusted CA. Use the thumbprint helper under Horizon settings.'
       }),
+      text('cascade_innerTrustedCert', 'Inner UAG trusted CA certificate (PEM path)', 'cascade_innerTrustedCert', {
+        wide: true,
+        showIf: (v) => v.cascade_role === 'outer',
+        json: false,
+        help: 'Alternative to the thumbprint: trust the CA that issued the inner UAG certificate.'
+      }),
       bool('cascade_opswat', 'Allow OPSWAT on-demand agent download (/gateway/resources)', 'cascade_opswat', false, {
         showIf: (v) => v.cascade_role === 'outer',
         wide: true,
@@ -358,6 +365,27 @@ export const GROUPS: GroupDef[] = [
     ]
   },
   {
+    id: 'runtime',
+    title: 'Run-time options (uagdeploy.ps1)',
+    section: 'network',
+    target: 'runtime',
+    iniSection: 'Runtime',
+    help: 'Not INI settings: these are passed on the uagdeploy command line and only affect the PowerShell output. Passwords are never part of the INI or stored here: the root and admin passwords are read at deploy time, either via prompts or with -rootPwd "<root_password>" -adminPwd "<admin_password>" (minimum 8 characters; 14 for a FIPS appliance). The PowerShell tab shows both forms.',
+    fields: [
+      bool('run_noSSLVerify', 'Skip SSL/TLS certificate verification (-noSSLVerify)', 'run_noSSLVerify', false, {
+        wide: true,
+        json: false,
+        help: 'Disables SSL/TLS certificate verification in the deployment script. Use only in labs or with self-signed endpoints you trust.'
+      }),
+      bool('run_disableVerification', 'Skip OVA/OVF signature verification (-disableVerification)', 'run_disableVerification', false, {
+        wide: true,
+        json: false,
+        platforms: ['vsphere'],
+        help: 'vSphere only. Skips validating the digital signature and certificate chain embedded in the source OVA/OVF during import.'
+      })
+    ]
+  },
+  {
     id: 'dns',
     title: 'DNS & time',
     section: 'network',
@@ -413,8 +441,15 @@ export const GROUPS: GroupDef[] = [
         rule: 'thumbprints',
         wide: true,
         placeholder: 'sha256=ad:5c:f1:…',
-        help: 'Only needed when the CS certificate is not issued by a trusted CA. Format [alg=]xx:xx… (sha1/sha256/sha384/sha512), comma-separated.'
+        help: 'Only needed when the CS certificate is not issued by a trusted CA - or add that CA under Trusted CA certificate below instead. Format [alg=]xx:xx… (sha1/sha256/sha384/sha512), comma-separated.'
       }),
+      text('trustedCert1', 'Trusted CA certificate (PEM path)', 'trustedCert1', {
+        wide: true,
+        json: false,
+        placeholder: 'C:\\certs\\corp-root-ca.pem',
+        help: 'Alternative to a thumbprint: add the CA that issued the Connection Server certificate to the trust store (Admin UI: Horizon settings > More > Trusted Certificates). File path read by uagdeploy at deployment time.'
+      }),
+      text('trustedCert2', 'Additional trusted CA certificate (PEM path)', 'trustedCert2', { wide: true, json: false, inferred: true, help: 'Key name follows the trustedCert1 numbering pattern; verify against an exported INI.' }),
       sel('minSHAHashSize', 'Minimum SHA hash size', 'minSHAHashSize', ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512'], {
         since: '2312',
         default: 'SHA-256',
@@ -638,8 +673,8 @@ export const GROUPS: GroupDef[] = [
     fields: [
       bool('tls12Enabled', 'TLS 1.2', 'tls12Enabled', true),
       bool('tls13Enabled', 'TLS 1.3', 'tls13Enabled', true, { since: '2412' }),
-      bool('tls11Enabled', 'TLS 1.1 (insecure)', 'tls11Enabled', false),
-      bool('tls10Enabled', 'TLS 1.0 (insecure)', 'tls10Enabled', false),
+      bool('tls11Enabled', 'TLS 1.1 (insecure)', 'tls11Enabled', false, { until: TLS_LEGACY_UNTIL }),
+      bool('tls10Enabled', 'TLS 1.0 (insecure)', 'tls10Enabled', false, { until: TLS_LEGACY_UNTIL }),
       sel('sslProvider', 'SSL provider', 'sslProvider', ['OPENSSL', 'JDK'], {
         default: 'OPENSSL',
         omitDefault: true,
