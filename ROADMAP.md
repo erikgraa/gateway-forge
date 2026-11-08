@@ -23,6 +23,7 @@ This roadmap highlights current priorities and longer-running work. It is direct
 ## Future goals
 
 - **Future goal — integrate secrets and PKI providers.** Follow the [provider integration design](docs/secret-pki-provider-design.md) and milestone gates before enabling a reviewed adapter; the default workflow remains browser-only and offline-capable. ([#58](https://github.com/erikgraa/gateway-forge/issues/58))
+- **Future goal — automate robust UAG schema/key diff detection.** Layer source-aware detection of new, removed, and renamed keys onto the existing weekly lifecycle workflow, compare authoritative schemas and `since`/`until` version gates, fail explicitly on parsing or availability errors, and deduplicate tracking issues. Record snapshot/source provenance and confidence, with fixture tests for parser and comparison behavior. ([#92](https://github.com/erikgraa/gateway-forge/issues/92))
 
 ## Ongoing
 
