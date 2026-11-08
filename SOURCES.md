@@ -40,8 +40,16 @@ Verified implementation facts:
 ## Shared deployment parameters
 
 - [PowerShell deployment parameters](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/PowerShelldeploymentparameters)
+- [PowerShell deployment to vSphere](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/PSDeploymenttovSphere)
+- [PowerShell deployment to Hyper-V](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/PSDeploymentforHyperV)
 
 This reference supplies the common `[General]` deployment options, including `deploymentOption`, per-NIC `ipModeN`, `ipN`, `netmaskN`, and the 0/1/2 numeric NIC convention. Gateway Forge currently exposes the documented IPv4 `DHCPV4` and `STATICV4` modes for Nutanix and OpenShift output.
+
+The vSphere page accepts a local path or remote URL to the UAG `.ova`.
+The Hyper-V page requires the extracted UAG `.vhdx` file as a full local path.
+The shared parameter page publishes the supported IP mode combinations, while
+the official [UAG Terraform sample](https://github.com/euc-oss/euc-samples/blob/main/UAG-Samples/uag-terraform/uagdeploytr.ps1)
+maps `ipMode0`, `ipMode1`, and `ipMode2` to the numbered NICs.
 
 IPv6 mode combinations, per-interface `routesN`, and raw `CustomConfig`/`ethNCustomConfig` inputs are documented platform capabilities but are intentionally not generated yet; they require additional validation so Gateway Forge cannot emit a partially supported networking configuration by accident.
 
@@ -208,15 +216,7 @@ does not establish the validity of UAG keys, nesting, or values.
   their records are secondary. The applicable OMSA and the vendor's fixed
   release are authoritative for Omnissa remediation guidance.
 
-## Helper, crypto, and web-platform behavior
-
-The local thumbprint helper has no npm runtime dependencies. It uses Node.js
-built-in modules, governed by the official Node.js API documentation:
-
-- [`node:http`](https://nodejs.org/docs/latest-v20.x/api/http.html)
-- [`node:tls`](https://nodejs.org/docs/latest-v20.x/api/tls.html)
-- [`node:crypto`](https://nodejs.org/docs/latest-v20.x/api/crypto.html),
-  including `createHash` and `X509Certificate`
+## Certificate crypto and web-platform behavior
 
 Browser-side certificate hashing uses
 [Web Crypto `SubtleCrypto.digest()`](https://www.w3.org/TR/webcrypto-2/#dfn-SubtleCrypto-method-digest).
@@ -225,20 +225,14 @@ The digest algorithms are defined by
 verify how bytes are hashed; UAG's accepted `sha1=...`/`sha256=...` text syntax
 still has to be verified from UAG documentation or an appliance export.
 
-The helper's cross-origin requests and the browser's `Origin` behavior follow
-the [Fetch Standard](https://fetch.spec.whatwg.org/). Its loopback-only bind,
-allowed-origin list, `Host` validation, and response payload are **project
-behavior** designed for this helper. They are not UAG requirements or a general
-guarantee against every localhost or DNS-rebinding threat.
-
 The generated PowerShell certificate probe uses the documented
 [.NET `SslStream`](https://learn.microsoft.com/dotnet/api/system.net.security.sslstream)
 and
 [`X509Certificate2`](https://learn.microsoft.com/dotnet/api/system.security.cryptography.x509certificates.x509certificate2)
-APIs. Review the resulting thumbprint against the intended appliance; do not
-use the helper's certificate connection as proof of trust, because thumbprint
-discovery intentionally opens the TLS connection without normal trust
-validation.
+APIs. Review the resulting thumbprint against the intended appliance. The
+PowerShell probe intentionally opens the TLS connection without normal trust
+validation, so a discovered thumbprint is not itself proof of appliance
+identity.
 
 ## Build and documentation dependencies
 

@@ -14,26 +14,28 @@
   let { field, values = $bindable(), platform, issues }: Props = $props();
 
   const definition = $derived(field.rows!);
+  const separator = $derived(definition.separator ?? 'space');
   const help = $derived(fieldHelp(field, platform));
   const initial = untrack(() => String(values[field.id] ?? ''));
+  const initialSeparator = untrack(() => field.rows?.separator ?? 'space');
   let emitted = $state(initial);
-  let rows = $state<string[]>(parseListValue(initial));
+  let rows = $state<string[]>(parseListValue(initial, initialSeparator));
 
   $effect(() => {
     const external = String(values[field.id] ?? '');
     if (external !== emitted) {
-      rows = parseListValue(external);
+      rows = parseListValue(external, separator);
       emitted = external;
     }
   });
 
   function commit() {
-    emitted = serializeListValue(rows);
+    emitted = serializeListValue(rows, separator);
     values[field.id] = emitted;
   }
 
   function update(index: number, event: Event) {
-    const pasted = parseListValue((event.currentTarget as HTMLInputElement).value);
+    const pasted = parseListValue((event.currentTarget as HTMLInputElement).value, separator);
     if (pasted.length > 1) rows.splice(index, 1, ...pasted);
     else rows[index] = pasted[0] ?? '';
     commit();

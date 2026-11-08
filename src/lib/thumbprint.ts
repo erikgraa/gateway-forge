@@ -71,37 +71,3 @@ export function powershellThumbprintCommand(hostPort: string): string {
     `'sha1','sha256','sha384','sha512'|%{ "$_="+((([Security.Cryptography.HashAlgorithm]::Create($_)).ComputeHash($d)|%{$_.ToString('x2')}) -join ':') }`
   ].join('');
 }
-
-export const HELPER_URL = 'http://127.0.0.1:47821';
-
-export interface HelperResult {
-  host: string;
-  port: number;
-  subject?: string;
-  validTo?: string;
-  sha1: string;
-  sha256: string;
-  sha384?: string;
-  sha512: string;
-}
-
-export async function helperAvailable(base = HELPER_URL, timeoutMs = 800): Promise<boolean> {
-  try {
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), timeoutMs);
-    const r = await fetch(`${base}/ping`, { signal: ctl.signal });
-    clearTimeout(t);
-    const j = (await r.json()) as { app?: string };
-    return j.app === 'gateway-forge-helper';
-  } catch {
-    return false;
-  }
-}
-
-export async function helperFetch(hostPort: string, base = HELPER_URL): Promise<HelperResult> {
-  const [host, port = '443'] = hostPort.replace(/^https?:\/\//i, '').replace(/\/.*$/, '').split(':');
-  const r = await fetch(`${base}/thumbprint?host=${encodeURIComponent(host)}&port=${encodeURIComponent(port)}`);
-  const j = (await r.json()) as HelperResult & { error?: string };
-  if (!r.ok || j.error) throw new Error(j.error ?? `Helper returned HTTP ${r.status}`);
-  return j;
-}

@@ -1,7 +1,7 @@
 import { GROUPS, LISTS, deploymentNicCount, type Field, type Rule, type SectionId, type Values } from './schema';
 import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
-import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion, platformAvailable, platformDef } from './versions';
+import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion, platformAvailable, platformDef, type Platform } from './versions';
 import { parseOriginHeaderDetails } from './generate';
 import { sshPublicKeyValidationError } from './ssh';
 import { parseListValue } from './listValue';
@@ -45,6 +45,31 @@ function validStaticRoutes(s: string): string | null {
       return `"${m[1]}" is not an IPv4 CIDR network`;
     }
     if (!IPV4.test(m[2])) return `"${m[2]}" is not an IPv4 gateway`;
+  }
+  return null;
+}
+
+function validSourceImage(s: string, platform: Platform): string | null {
+  const extension = platform === 'hyperv' ? '.vhdx' : '.ova';
+  const isUrl = /^[A-Za-z][A-Za-z\d+.-]*:\/\//.test(s);
+  const hasUrlScheme = /^[A-Za-z][A-Za-z\d+.-]*:/.test(s);
+  const isDrivePath = /^[A-Za-z]:[\\/]/.test(s);
+  if (isUrl) {
+    if (platform === 'hyperv') return 'Hyper-V source images must be local .vhdx paths, not URLs';
+    try {
+      const url = new URL(s);
+      if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) return 'vSphere source image URLs must use http:// or https://';
+      if (!url.pathname.toLowerCase().endsWith(extension)) return 'vSphere source image URLs must point to a .ova file';
+      return null;
+    } catch {
+      return 'Not a valid source image URL';
+    }
+  }
+  if (hasUrlScheme && !isDrivePath) return 'Not a valid local path or source image URL';
+  if (!s.toLowerCase().endsWith(extension)) {
+    return platform === 'hyperv'
+      ? 'Hyper-V source images must be local .vhdx paths'
+      : 'vSphere source images must be local .ova paths or HTTP(S) URLs';
   }
   return null;
 }
@@ -116,7 +141,7 @@ export function validThumbprints(s: string): string | null {
   return null;
 }
 
-export function checkRule(rule: Rule, raw: string): string | null {
+export function checkRule(rule: Rule, raw: string, platform: Platform = 'vsphere'): string | null {
   const s = raw.trim();
   switch (rule) {
     case 'ipv4':
@@ -125,6 +150,8 @@ export function checkRule(rule: Rule, raw: string): string | null {
       return DNS_DOMAIN.test(s) && !IPV4.test(s.replace(/\.$/, '')) ? null : 'Not a valid DNS search domain';
     case 'hostOrIp':
       return hostPort(s) ? null : 'Not a valid host name, IP address or host:port';
+    case 'hostPort':
+      return s === '_empty_' || hostPort(s) ? null : 'Not a valid host[:port] value or _empty_';
     case 'hostList':
       return s.split(/[\s,]+/).filter(Boolean).every(hostPort) ? null : 'Contains an invalid host name or IP address';
     case 'hostPortList':
@@ -176,6 +203,8 @@ export function checkRule(rule: Rule, raw: string): string | null {
         const [from, to, extra] = x.split('_');
         return !!from && !!to && extra === undefined && hostPort(from) && hostPort(to);
       }) ? null : 'Use comma-separated source_host:port_redirect_host:port mappings';
+    case 'sourceImage':
+      return validSourceImage(s, platform);
     case 'pemPath': {
       const absolute = /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(s);
       if (!absolute) return 'Must be an absolute local path (Windows, UNC, or Unix)';
@@ -191,7 +220,7 @@ export function checkRule(rule: Rule, raw: string): string | null {
   }
 }
 
-function checkField(f: Field, values: Values): string | null {
+function checkField(f: Field, values: Values, platform: Platform): string | null {
   const v = values[f.id];
   const required = typeof f.required === 'function' ? f.required(values) : f.required;
   if (isEmpty(v)) return required ? `${f.label} is required` : null;
@@ -202,8 +231,11 @@ function checkField(f: Field, values: Values): string | null {
     if (f.max !== undefined && n > f.max) return `${f.label} must be ≤ ${f.max}`;
   }
   if (f.maxLength !== undefined && String(v).length > f.maxLength) return `${f.label} must be at most ${f.maxLength} characters`;
+  if (f.type === 'select' && f.options && !f.options.some((option) => option.value === String(v))) {
+    return `${f.label}: "${String(v)}" is not an allowed value`;
+  }
   if (f.rule && f.type !== 'bool') {
-    const err = checkRule(f.rule, String(v));
+    const err = checkRule(f.rule, String(v), platform);
     if (err) return `${f.label}: ${err}`;
   }
   return null;
@@ -233,14 +265,14 @@ export function validateConfig(c: Config): Issue[] {
     for (const f of g.fields) {
       if (!fieldAvailable(f, c.version, c.platform, v)) continue;
       if (f.rows) {
-        const rows = parseListValue(v[f.id]);
+        const rows = parseListValue(v[f.id], f.rows.separator);
         if (rows.length === 0) {
           const required = typeof f.required === 'function' ? f.required(v) : f.required;
           if (required) push({ level: 'error', section: g.section, fieldId: f.id, message: `${f.label} is required` });
           continue;
         }
         rows.forEach((row, index) => {
-          const error = checkRule(f.rows!.rule, row);
+          const error = checkRule(f.rows!.rule, row, c.platform);
           if (error) push({
             level: 'error',
             section: g.section,
@@ -251,7 +283,7 @@ export function validateConfig(c: Config): Issue[] {
         });
         continue;
       }
-      const msg = checkField(f, v);
+      const msg = checkField(f, v, c.platform);
       if (msg) push({ level: 'error', section: g.section, fieldId: f.id, message: msg });
     }
   }
@@ -259,7 +291,7 @@ export function validateConfig(c: Config): Issue[] {
     c[l.id].forEach((item, index) => {
       for (const f of l.fields) {
         if (!fieldAvailable(f, c.version, c.platform, item)) continue;
-        const msg = checkField(f, item);
+        const msg = checkField(f, item, c.platform);
         if (msg) push({ level: 'error', section: l.section, fieldId: f.id, message: `${l.itemLabel} ${index + 1}: ${msg}`, list: { id: l.id, index } });
       }
     });
@@ -362,14 +394,20 @@ function lint(c: Config, push: Push): void {
 
   const ip0 = String(v.ip0 ?? '');
   const activeIpIds = ['ip0', 'ip1', 'ip2'].slice(0, deploymentNicCount(v));
-  const ips = activeIpIds.map((k) => String(v[k] ?? '')).filter(Boolean);
-  const activeStaticIps = (c.platform === 'nutanix' || c.platform === 'openshift')
-    ? activeIpIds.filter((k) => v[`ipMode${k.slice(-1)}`] === 'STATICV4').map((k) => String(v[k] ?? '')).filter(Boolean)
-    : ips;
+  const usesStaticIpv4 = (id: string) => {
+    const nic = id.slice(-1);
+    if (c.platform === 'nutanix' || c.platform === 'openshift') return v[`ipMode${nic}`] === 'STATICV4';
+    const mode = String(v[`ipmode${nic}`] ?? '');
+    return mode === '' || mode.includes('STATICV4');
+  };
+  const activeStaticIps = activeIpIds
+    .filter(usesStaticIpv4)
+    .map((k) => String(v[k] ?? ''))
+    .filter(Boolean);
   if (c.platform !== 'azure' && new Set(activeStaticIps).size !== activeStaticIps.length) {
     push({ level: 'error', section: 'network', message: 'Two applicable NICs share the same IP address.' });
   }
-  const staticNic0 = c.platform === 'vsphere' || c.platform === 'hyperv' || v.ipMode0 === 'STATICV4';
+  const staticNic0 = usesStaticIpv4('ip0');
   if (staticNic0 && ip0 && nonEmpty('netmask0') && nonEmpty('defaultGateway')) {
     const a = netOf(ip0, String(v.netmask0));
     const b = netOf(String(v.defaultGateway), String(v.netmask0));
