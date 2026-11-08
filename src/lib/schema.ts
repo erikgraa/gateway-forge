@@ -39,8 +39,7 @@ export type Target =
   | 'securid'
   | 'certauth'
   | 'proxy'
-  | 'cascade'
-  | 'runtime';
+  | 'cascade';
 
 export interface Option {
   value: string;
@@ -400,27 +399,6 @@ export const GROUPS: GroupDef[] = [
         showIf: (v) => String(v.deploymentOption).startsWith('threenic')
       }),
       text('defaultGateway', 'Default gateway', 'defaultGateway', { rule: 'ipv4', platforms: vsphereHyperv, placeholder: '192.0.2.1' })
-    ]
-  },
-  {
-    id: 'runtime',
-    title: 'Run-time options (uagdeploy.ps1)',
-    section: 'network',
-    target: 'runtime',
-    iniSection: 'Runtime',
-    help: 'Not INI settings: these are passed on the uagdeploy command line and only affect the PowerShell output. Gateway Forge never asks for or stores the UAG root or Admin UI passwords. Omnissa marks -rootPwd and -adminPwd as mandatory for headless deployment. It separately documents an immutable option without an Admin UI password: the appliance can be production-ready, but the Admin UI and API are unavailable, no user can be added later, and administrative recovery requires redeployment. This is not a passwordless appliance; assess console access, break-glass recovery, logging, rotation, and compliance before choosing that model.',
-    fields: [
-      bool('run_noSSLVerify', 'Skip SSL/TLS certificate verification (-noSSLVerify)', 'run_noSSLVerify', false, {
-        wide: true,
-        json: false,
-        help: 'Disables SSL/TLS certificate verification in the deployment script. Use only in labs or with self-signed endpoints you trust.'
-      }),
-      bool('run_disableVerification', 'Skip OVA/OVF signature verification (-disableVerification)', 'run_disableVerification', false, {
-        wide: true,
-        json: false,
-        platforms: ['vsphere'],
-        help: 'vSphere only. Skips validating the digital signature and certificate chain embedded in the source OVA/OVF during import.'
-      })
     ]
   },
   {
@@ -852,8 +830,19 @@ export const VIRTUAL_DEFAULTS: Values = {
   oidc_enabled: false,
   securid_enabled: false,
   certauth_enabled: false,
-  obp_enabled: false
+  obp_enabled: false,
+  run_noSSLVerify: false,
+  run_disableVerification: false
 };
+
+/** Legacy runtime-only INI fields retained for draft/import compatibility, but not rendered in the form or INI/JSON output. */
+export const RUNTIME_FIELDS: Field[] = [
+  bool('run_noSSLVerify', 'Skip SSL/TLS certificate verification (-noSSLVerify)', 'run_noSSLVerify', false, { json: false }),
+  bool('run_disableVerification', 'Skip OVA/OVF signature verification (-disableVerification)', 'run_disableVerification', false, {
+    json: false,
+    platforms: ['vsphere']
+  })
+];
 
 export function allGroupFields(): { group: GroupDef; field: Field }[] {
   return GROUPS.flatMap((group) => group.fields.map((field) => ({ group, field })));

@@ -16,7 +16,7 @@
     docs: 'Markdown summary for runbooks'
   };
 
-  const rendered = $derived(render(app.config, app.tab, app.secretMode));
+  const rendered = $derived(render(app.config, app.tab, app.secretMode, app.deploymentMode));
   const html = $derived(highlight(rendered.text, app.tab));
   const hasSecrets = $derived(app.secretMode === 'include');
   const latestVersion = VERSIONS.find((v) => v.latest)!;
@@ -47,6 +47,50 @@
     <span class="file-type">{app.tab === 'ps' ? 'PS1' : app.tab.toUpperCase()}</span>
     <span><strong>{rendered.filename}</strong><small>{hints[app.tab]}</small></span>
   </div>
+  {#if app.tab === 'ps'}
+    <fieldset class="runtime-controls">
+      <legend>Run-time options (uagdeploy.ps1)</legend>
+      <div class="deployment-mode">
+        <span class="runtime-label" id="deployment-mode-label">Deployment mode</span>
+        <div class="mode-selector" role="radiogroup" aria-labelledby="deployment-mode-label">
+          <label class:active={app.deploymentMode === 'interactive'}>
+            <input type="radio" name="deployment-mode" value="interactive" bind:group={app.deploymentMode} />
+            <span><strong>Interactive</strong><small>Prompt for passwords</small></span>
+          </label>
+          <label class:active={app.deploymentMode === 'headless'}>
+            <input type="radio" name="deployment-mode" value="headless" bind:group={app.deploymentMode} />
+            <span><strong>Headless</strong><small>Use runtime environment</small></span>
+          </label>
+        </div>
+      </div>
+      {#if app.deploymentMode === 'headless'}
+        <p class="runtime-note">Set <code>UAG_ROOT_PASSWORD</code> and <code>UAG_ADMIN_PASSWORD</code> in the deployment process environment. The generated script fails before invoking uagdeploy if either is absent.</p>
+      {/if}
+      <div class="runtime-switches">
+        <label>
+          <input
+            id="f-run_noSSLVerify"
+            type="checkbox"
+            checked={app.config.values.run_noSSLVerify === true}
+            onchange={(e) => (app.config.values.run_noSSLVerify = e.currentTarget.checked)}
+          />
+          <span><strong>Skip SSL/TLS verification</strong><small>Adds <code>-noSSLVerify</code></small></span>
+        </label>
+        {#if app.config.platform === 'vsphere'}
+          <label>
+            <input
+              id="f-run_disableVerification"
+              type="checkbox"
+              checked={app.config.values.run_disableVerification === true}
+              onchange={(e) => (app.config.values.run_disableVerification = e.currentTarget.checked)}
+            />
+            <span><strong>Skip OVA/OVF signature verification</strong><small>Adds <code>-disableVerification</code> (vSphere)</small></span>
+          </label>
+        {/if}
+      </div>
+      <p class="runtime-note">These switches affect only PowerShell runtime commands. They are never written to deployment INI or settings JSON.</p>
+    </fieldset>
+  {/if}
   {#if olderVersion}
     <div class="artifact-version-warning">
       <strong>Older release selected: UAG {app.config.version}</strong>

@@ -76,7 +76,7 @@
 
   function exportAs(tab: 'ini' | 'json' | 'ps' | 'docs') {
     exportOpen = false;
-    download(render(app.config, tab, app.secretMode));
+    download(render(app.config, tab, app.secretMode, app.deploymentMode));
   }
 
   function useLatestVersion() {

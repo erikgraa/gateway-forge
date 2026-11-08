@@ -339,6 +339,21 @@ aside.out { min-width: 0; min-height: 0; display: flex; flex-direction: column; 
 }
 .artifact-version-warning span { color: var(--mut); line-height: 1.4; }
 .file-type { display: grid; place-items: center; width: 30px; height: 33px; border: 1px solid var(--line-strong); border-radius: 4px; color: var(--acc); font-size: 8px; font-weight: 800; background: var(--panel); }
+.runtime-controls { min-width: 0; margin: 0; padding: 11px 12px 12px; border: 0; border-bottom: 1px solid var(--line); background: var(--panel); }
+.runtime-controls legend { float: left; width: 100%; margin: 0 0 10px; padding: 0; color: var(--tx); font-size: 11px; font-weight: 700; }
+.deployment-mode, .runtime-switches { clear: both; }
+.runtime-label { display: block; margin-bottom: 5px; color: var(--mut); font-size: 9px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; }
+.mode-selector { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.mode-selector label { display: flex; align-items: flex-start; gap: 7px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--input); cursor: pointer; }
+.mode-selector label.active { border-color: var(--acc); background: var(--acc-soft); }
+.mode-selector input, .runtime-switches input { flex: 0 0 auto; margin: 2px 0 0; accent-color: var(--acc); }
+.mode-selector span, .runtime-switches span { min-width: 0; display: flex; flex-direction: column; }
+.mode-selector strong, .runtime-switches strong { color: var(--tx); font-size: 10px; line-height: 1.35; }
+.mode-selector small, .runtime-switches small { color: var(--mut); font-size: 9px; line-height: 1.4; }
+.runtime-switches { display: grid; gap: 7px; margin-top: 10px; }
+.runtime-switches label { display: flex; align-items: flex-start; gap: 8px; padding: 2px 0; cursor: pointer; }
+.runtime-note { margin: 8px 0 0; color: var(--mut); font-size: 9px; line-height: 1.45; }
+.runtime-note code, .runtime-switches code { color: var(--acc-strong); font-size: .95em; overflow-wrap: anywhere; }
 pre.code { flex: 1; margin: 0; padding: 14px 17px 28px; overflow: auto; color: var(--code-tx); font-size: 11px; line-height: 1.65; white-space: pre; }
 .out-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 13px; border-top: 1px solid var(--line); background: var(--panel); color: var(--mut); font-size: 10px; }
 .out-foot .row { flex-wrap: nowrap; }
@@ -478,6 +493,7 @@ pre.code { flex: 1; margin: 0; padding: 14px 17px 28px; overflow: auto; color: v
   .output-toolbar { align-items: flex-start; flex-direction: column; }
   .output-actions { position: absolute; right: 12px; margin-top: 1px; }
   .tabs { max-width: calc(100vw - 150px); overflow-x: auto; }
+  .mode-selector { grid-template-columns: 1fr; }
   pre.code { max-height: 500px; }
   .site-footer { display: none; }
 }

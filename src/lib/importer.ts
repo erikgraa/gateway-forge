@@ -1,4 +1,4 @@
-import { GROUPS, LISTS, type Field, type GroupDef, type ListDef, type Primitive, type Values } from './schema';
+import { GROUPS, LISTS, RUNTIME_FIELDS, type Field, type GroupDef, type ListDef, type Primitive, type Values } from './schema';
 import { defaultConfig, newListItem, type Config } from './model';
 import { SECRET_PLACEHOLDER } from './generate';
 import { inVersion, isSupportedVersion } from './versions';
@@ -75,10 +75,13 @@ export function versionFromSource(source: string): string | undefined {
   return isSupportedVersion(id) ? id : undefined;
 }
 
-type IniIndex = Map<string, { group: GroupDef; field: Field }>;
+type IniIndex = Map<string, { field: Field }>;
 const iniIndex: IniIndex = new Map();
 for (const g of GROUPS) for (const f of g.fields) {
-  if (!f.customOutput) iniIndex.set(`${g.iniSection}|${f.key}`.toLowerCase(), { group: g, field: f });
+  if (!f.customOutput) iniIndex.set(`${g.iniSection}|${f.key}`.toLowerCase(), { field: f });
+}
+for (const field of RUNTIME_FIELDS) {
+  iniIndex.set(`runtime|${field.key}`.toLowerCase(), { field });
 }
 
 const listRe = (l: ListDef) => new RegExp(`^${l.iniSection(0).replace(/0$/, '')}(\\d+)$`, 'i');
