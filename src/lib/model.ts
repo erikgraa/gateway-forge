@@ -9,6 +9,7 @@ import {
   type Values
 } from './schema';
 import { DEFAULT_VERSION, inVersion, type Platform } from './versions';
+import { compactConfigTrustedCerts } from './trusted-certs';
 
 export interface Config {
   version: string;
@@ -73,6 +74,7 @@ export function isDefault(f: Field, value: unknown): boolean {
 export function stripSecrets(c: Config): Config {
   const out = cloneConfig(c);
   for (const g of GROUPS) for (const f of g.fields) if (f.secret) out.values[f.id] = '';
+  compactConfigTrustedCerts(out);
   return out;
 }
 
@@ -84,5 +86,6 @@ export function applyPatch(base: Config, patch: Partial<Omit<Config, 'values'>> 
   if (patch.values) Object.assign(out.values, patch.values);
   if (patch.wrp) out.wrp = patch.wrp.map((i) => ({ ...newListItem('wrp'), ...i }));
   if (patch.syslog) out.syslog = patch.syslog.map((i) => ({ ...newListItem('syslog'), ...i }));
+  compactConfigTrustedCerts(out);
   return out;
 }

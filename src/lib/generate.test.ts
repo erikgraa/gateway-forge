@@ -3,9 +3,12 @@ import { defaultConfig, applyPatch } from './model';
 import { collectBlocks, generateIni, generateJson, generateJsonObject, SECRET_PLACEHOLDER } from './generate';
 import { TEMPLATES } from './templates';
 import { generatePowerShell } from './powershell';
+import { generateDocs } from './topology';
 import { validateConfig } from './validate';
 
 const radiusMfa = () => TEMPLATES.find((t) => t.id === 'horizon-radius')!.build(defaultConfig());
+const tunnel = () => TEMPLATES.find((t) => t.id === 'workspace-one-tunnel')!.build(defaultConfig());
+const SSH_PUBLIC_KEY = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7 test@workstation';
 
 describe('INI generation', () => {
   it('emits uagdeploy section and key names from the Omnissa reference', () => {
@@ -14,7 +17,7 @@ describe('INI generation', () => {
     const ini = generateIni(c, { secrets: 'include' });
     expect(ini).toContain('[General]');
     expect(ini).toContain('uagName=uag-dmz-01');
-    expect(ini).toContain('deploymentOption=twonic');
+    expect(ini).toContain('deploymentoption=twonic');
     expect(ini).toContain('[Horizon]');
     expect(ini).toContain('proxyDestinationUrl=https://cs01.corp.local');
     expect(ini).toContain('authMethods=radius-auth');
@@ -90,6 +93,40 @@ describe('INI generation', () => {
     expect(ini).not.toContain('[Azure]');
     expect(ini).toContain('netInternet=DMZ');
     expect(ini).toContain('source=C:\\a.ova');
+  });
+
+  it('emits only the applicable network fields for every deployment option family', () => {
+    const options = [
+      ['onenic', 1], ['twonic', 2], ['threenic', 3],
+      ['onenic-large', 1], ['twonic-large', 2], ['threenic-large', 3],
+      ['onenic-XL', 1], ['twonic-XL', 2], ['threenic-XL', 3]
+    ] as const;
+    const values = {
+      netInternet: 'DMZ-Internet',
+      netManagementNetwork: 'DMZ-Management',
+      netBackendNetwork: 'Internal-Backend',
+      ip0: '192.0.2.21',
+      netmask0: '255.255.255.0',
+      ip1: '192.0.3.21',
+      netmask1: '255.255.255.0',
+      ip2: '192.0.4.21',
+      netmask2: '255.255.255.0',
+      defaultGateway: '192.0.2.1'
+    };
+
+    for (const [deploymentOption, nicCount] of options) {
+      const ini = generateIni(applyPatch(defaultConfig(), { values: { ...values, deploymentOption } }));
+      expect(ini).toContain('netInternet=DMZ-Internet');
+      expect(ini).toContain('ip0=192.0.2.21');
+      expect(ini).toContain('netmask0=255.255.255.0');
+      expect(ini).toContain('defaultGateway=192.0.2.1');
+      expect(ini.includes('netManagementNetwork=')).toBe(nicCount >= 2);
+      expect(ini.includes('ip1=')).toBe(nicCount >= 2);
+      expect(ini.includes('netmask1=')).toBe(nicCount >= 2);
+      expect(ini.includes('netBackendNetwork=')).toBe(nicCount === 3);
+      expect(ini.includes('ip2=')).toBe(nicCount === 3);
+      expect(ini.includes('netmask2=')).toBe(nicCount === 3);
+    }
   });
 
   it('writes numbered web reverse proxy sections', () => {
@@ -199,6 +236,158 @@ describe('INI generation', () => {
     expect(ini).toContain('[SnmpSettings]');
     expect(ini).toContain('communityName=comm');
   });
+
+  it('emits static routes, addressing modes, IPv6, custom NIC config and exact admin policy keys', () => {
+    const c = applyPatch(defaultConfig(), {
+      version: '2609',
+      values: {
+        deploymentOption: 'threenic',
+        routes0: '10.108.172.32/32 10.108.172.253,192.168.20.0/24 192.168.10.1',
+        routes1: '172.16.0.0/16 10.1.0.1',
+        routes2: '10.2.0.0/16 10.3.0.1',
+        ipmode0: 'STATICV4+STATICV6',
+        v6ip0: '2402:740:2:209::5',
+        v6ipprefix0: 64,
+        v6DefaultGateway: '2402:740:2:209::253',
+        eth0CustomConfig: 'DHCP^UseDNS=false;Network^Domains=~.',
+        eth1CustomConfig: 'DHCP^UseDomains=false',
+        eth2CustomConfig: 'Network^DNS=192.168.1.153#dns.example.com',
+        adminPasswordPolicyMinLen: 12,
+        adminPasswordPolicyFailedLockoutCount: 4,
+        adminPasswordPolicyUnlockTime: 7,
+        adminPasswordExpirationDays: 60
+      }
+    });
+    const ini = generateIni(c);
+    expect(ini).toContain('routes0=10.108.172.32/32 10.108.172.253,192.168.20.0/24 192.168.10.1');
+    expect(ini).toContain('routes1=172.16.0.0/16 10.1.0.1');
+    expect(ini).toContain('routes2=10.2.0.0/16 10.3.0.1');
+    expect(ini).toContain('ipmode0=STATICV4+STATICV6');
+    expect(ini).toContain('v6ip0=2402:740:2:209::5');
+    expect(ini).toContain('v6ipprefix0=64');
+    expect(ini).toContain('eth2CustomConfig=Network^DNS=192.168.1.153#dns.example.com');
+    expect(ini).toContain('adminpasswordPolicyMinLen=12');
+    expect(ini).toContain('adminpasswordPolicyFailedLockoutCount=4');
+    expect(ini).toContain('adminpasswordPolicyUnlockTime=7');
+    expect(ini).toContain('adminpasswordExpirationDays=60');
+    expect(ini).not.toContain('adminPasswordPolicy');
+  });
+
+  it('shows route keys only for NICs in the selected topology', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        deploymentOption: 'onenic',
+        routes0: '10.0.0.0/8 192.0.2.1',
+        routes1: '10.1.0.0/16 192.0.2.1',
+        routes2: '10.2.0.0/16 192.0.2.1'
+      }
+    });
+    const one = generateIni(c);
+    expect(one).toContain('routes0=');
+    expect(one).not.toContain('routes1=');
+    expect(one).not.toContain('routes2=');
+    const two = generateIni(applyPatch(c, { values: { deploymentOption: 'twonic-large' } }));
+    expect(two).toContain('routes1=');
+    expect(two).not.toContain('routes2=');
+    const three = generateIni(applyPatch(c, { values: { deploymentOption: 'threenic-XL' } }));
+    expect(three).toContain('routes1=');
+    expect(three).toContain('routes2=');
+  });
+
+  it('writes the documented Workspace ONE Tunnel [Airwatch] keys', () => {
+    const c = applyPatch(tunnel(), {
+      values: {
+        airwatch_apiServerPassword: 'uem-secret',
+        airwatch_outboundProxyHost: 'proxy.corp.local',
+        airwatch_outboundProxyPort: 3128,
+        airwatch_outboundProxyUsername: 'proxy-user',
+        airwatch_outboundProxyPassword: 'proxy-secret',
+        airwatch_ntlmAuthentication: true,
+        airwatch_hostEntry1: '10.0.0.20 api.corp.local api-alias',
+        airwatch_trustedCert1: 'C:\\certs\\uem-ca.pem',
+        airwatch_pacFilePath: 'C:\\pac\\tunnel.pac'
+      }
+    });
+    const ini = generateIni(c, { secrets: 'include' });
+    expect(ini).toMatch(/\[Airwatch\][\s\S]*tunnelGatewayEnabled=true/);
+    expect(ini).toContain('apiServerUrl=https://as1234.awmdm.com');
+    expect(ini).toContain('apiServerUsername=domain\\svc-uag-tunnel');
+    expect(ini).toContain('apiServerPassword=uem-secret');
+    expect(ini).toContain('organizationGroupCode=CORP');
+    expect(ini).toContain('tunnelConfigurationId=tunnel-production');
+    expect(ini).toContain('airwatchServerHostname=tunnel.example.com');
+    expect(ini).toContain('outboundProxyHost=proxy.corp.local');
+    expect(ini).toContain('outboundProxyPort=3128');
+    expect(ini).toContain('outboundProxyPassword=proxy-secret');
+    expect(ini).toContain('ntlmAuthentication=true');
+    expect(ini).toContain('pacFilePath=C:\\pac\\tunnel.pac');
+    expect(ini).toContain('hostEntry1=10.0.0.20 api.corp.local api-alias');
+    expect(ini).toContain('trustedCert1=C:\\certs\\uem-ca.pem');
+  });
+
+  it('does not emit Tunnel when disabled or on an unsupported platform', () => {
+    const c = tunnel();
+    expect(generateIni(applyPatch(c, { values: { airwatch_enabled: false } }))).not.toContain('[Airwatch]');
+    expect(generateIni(applyPatch(c, { platform: 'azure' }))).not.toContain('[Airwatch]');
+  });
+
+  it('gates Tunnel keys by documented historical samples', () => {
+    const c = applyPatch(tunnel(), {
+      values: {
+        airwatch_disableAutoConfigUpdate: true,
+        airwatch_tunnelConfigurationId: 'cfg-1',
+        airwatch_airwatchOutboundProxy: true,
+        airwatch_tunnelProxyEnabled: true
+      }
+    });
+    expect(generateIni(applyPatch(c, { version: '2212' }))).toContain('airwatchOutboundProxy=true');
+    expect(generateIni(applyPatch(c, { version: '2212' }))).not.toContain('tunnelConfigurationId');
+    expect(generateIni(applyPatch(c, { version: '2303' }))).toContain('disableAutoConfigUpdate=true');
+    expect(generateIni(applyPatch(c, { version: '2303' }))).not.toContain('tunnelConfigurationId');
+    expect(generateIni(applyPatch(c, { version: '2306' }))).toContain('tunnelConfigurationId=cfg-1');
+    expect(generateIni(applyPatch(c, { version: '2306' }))).not.toContain('tunnelProxyEnabled');
+  });
+
+  it('redacts both Workspace ONE UEM and outbound proxy credentials', () => {
+    const c = applyPatch(tunnel(), { values: { airwatch_apiServerPassword: 'uem-secret', airwatch_outboundProxyPassword: 'proxy-secret' } });
+    const ini = generateIni(c);
+    expect(ini).not.toMatch(/uem-secret|proxy-secret/);
+    expect(ini).toContain('apiServerPassword=<REDACTED>');
+    expect(ini).toContain('outboundProxyPassword=<REDACTED>');
+  });
+
+  it('writes numbered SSH public-key file references for INI deployment', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: { sshEnabled: true, sshKeyAccessEnabled: true, sshPublicKeys: `${SSH_PUBLIC_KEY}\nC:\\keys\\second.pub` }
+    });
+    const ini = generateIni(c);
+    expect(ini).toContain('sshPublicKey1=ssh-public-key-1.pub');
+    expect(ini).toContain('sshPublicKey2=C:\\keys\\second.pub');
+    expect(ini).not.toContain(SSH_PUBLIC_KEY);
+  });
+
+  it('does not export SSH key material after key access is disabled', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: { sshEnabled: true, sshKeyAccessEnabled: false, sshPublicKeys: SSH_PUBLIC_KEY }
+    });
+    expect(generateIni(c)).not.toContain('sshPublicKey');
+    expect(generateJson(c)).not.toContain('sshPublicKeys');
+    expect(generatePowerShell(c)).not.toContain(SSH_PUBLIC_KEY);
+  });
+
+  it('serializes DNS and NTP rows to space-separated INI values', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        dns: '10.0.0.1   10.0.0.2',
+        ntpServers: 'ntp1.corp.local\nntp2.corp.local',
+        fallBackNtpServers: ' pool.ntp.org '
+      }
+    });
+    const ini = generateIni(c);
+    expect(ini).toContain('dns=10.0.0.1 10.0.0.2');
+    expect(ini).toContain('ntpServers=ntp1.corp.local ntp2.corp.local');
+    expect(ini).toContain('fallBackNtpServers=pool.ntp.org');
+  });
 });
 
 describe('JSON generation', () => {
@@ -215,12 +404,26 @@ describe('JSON generation', () => {
   it('keeps deploy-time keys out of the settings JSON', () => {
     const c = applyPatch(radiusMfa(), { values: { ip0: '10.0.0.5', netInternet: 'DMZ', source: 'x.ova', name: 'vm1' } });
     const sys = (generateJsonObject(c) as any).systemSettings;
-    for (const k of ['ip0', 'netInternet', 'source', 'name', 'deploymentOption', 'dns']) expect(sys).not.toHaveProperty(k);
+    for (const k of ['ip0', 'routes0', 'v6ip0', 'netInternet', 'source', 'name', 'deploymentoption', 'dns']) expect(sys).not.toHaveProperty(k);
   });
 
   it('serialises list-like settings as arrays', () => {
     const c = applyPatch(radiusMfa(), { values: { cipherSuites: 'TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384' } });
     expect((generateJsonObject(c) as any).systemSettings.cipherSuites).toEqual(['TLS_AES_128_GCM_SHA256', 'TLS_AES_256_GCM_SHA384']);
+  });
+
+  it('keeps the INI-only Airwatch mapping out of settings JSON', () => {
+    const json = generateJson(tunnel(), { secrets: 'include' });
+    expect(json).not.toMatch(/Airwatch|apiServerUrl|airwatchServerHostname|tunnelConfigurationId/);
+  });
+
+  it('serialises pasted SSH public keys as the UAG name/data array', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: { sshEnabled: true, sshKeyAccessEnabled: true, sshPublicKeys: SSH_PUBLIC_KEY }
+    });
+    expect((generateJsonObject(c) as any).systemSettings.sshPublicKeys).toEqual([
+      { name: 'ssh-public-key-1.pub', data: SSH_PUBLIC_KEY }
+    ]);
   });
 });
 
@@ -243,6 +446,15 @@ describe('run-time options', () => {
     expect(az).toContain('.\\uagdeployaz.ps1 .\\uag-dmz-01.ini -noSSLVerify');
     expect(az).not.toContain('-disableVerification');
   });
+
+  it('materialises pasted SSH keys as companion files for deployment', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: { sshEnabled: true, sshKeyAccessEnabled: true, sshPublicKeys: SSH_PUBLIC_KEY }
+    });
+    const ps = generatePowerShell(c);
+    expect(ps).toContain(`Set-Content -Path .\\ssh-public-key-1.pub -Value $sshKey`);
+    expect(ps).toContain(SSH_PUBLIC_KEY);
+  });
   it('is off by default and linted when enabled', () => {
     expect(generatePowerShell(radiusMfa())).not.toContain('-noSSLVerify');
     const c = applyPatch(radiusMfa(), { values: { run_noSSLVerify: true, run_disableVerification: true } });
@@ -263,6 +475,22 @@ describe('PowerShell output', () => {
     expect(ps).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini');
     expect(ps).toContain('-rootPwd');
     expect(ps).toContain('<REDACTED>');
+  });
+  it('documents immutable deployment without suggesting passwordless UAG', () => {
+    const ps = generatePowerShell(radiusMfa());
+    expect(ps).toContain('headless parameter reference marks -rootPwd and -adminPwd as mandatory');
+    expect(ps).toContain('The Admin UI and API are then unavailable, no user can be added later');
+    expect(ps).toContain('This does not remove the root account');
+    expect(ps).toContain('Gateway Forge never requests or stores');
+    expect(ps).toContain('https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy');
+  });
+  it('includes immutable recovery and compliance guidance in the runbook', () => {
+    const docs = generateDocs(radiusMfa(), []);
+    expect(docs).toContain('Immutable / replace-on-failure option');
+    expect(docs).toContain('must be redeployed to restore administrative access');
+    expect(docs).toContain('This does not remove or disable the root account');
+    expect(docs).toContain('compliance requirements');
+    expect(docs).toContain('https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy');
   });
   it('uses the Hyper-V and Azure scripts', () => {
     expect(generatePowerShell(applyPatch(radiusMfa(), { platform: 'hyperv' }))).toContain('uagdeployhv.ps1 -iniFile');

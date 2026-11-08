@@ -34,7 +34,7 @@
       {field.label}
       {#if field.required === true}<span class="req" title="Required">*</span>{/if}
       {#if field.since}<span class="chip">UAG ≥ {field.since}</span>{/if}
-      {#if field.inferred}<span class="chip" title="Key name inferred from the documented naming pattern">verify</span>{/if}
+      {#if field.inferred}<span class="chip" title="Key or semantics require verification against the official source">verify</span>{/if}
     </span>
     {#if field.type === 'select'}
       <select {id} class:bad={!!error} bind:value={values[field.id]}>
