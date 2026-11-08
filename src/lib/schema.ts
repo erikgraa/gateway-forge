@@ -15,6 +15,7 @@ export type Rule =
   | 'urlList'
   | 'port'
   | 'thumbprints'
+  | 'sshPublicKeys'
   | 'uagName'
   | 'ipv4Port'
   | 'path'
@@ -71,6 +72,8 @@ export interface Field {
   wide?: boolean;
   /** Emit to INI only when the user sets it (not when equal to the documented default). */
   omitDefault?: boolean;
+  /** This field needs format-specific output rather than a direct INI entry. */
+  customOutput?: boolean;
 }
 
 export interface GroupDef {
@@ -249,6 +252,17 @@ export const GROUPS: GroupDef[] = [
       num('sshPort', 'SSH port', 'sshPort', { default: 22, rule: 'port', showIf: (v) => v.sshEnabled === true }),
       bool('sshPasswordAccessEnabled', 'SSH password access', 'sshPasswordAccessEnabled', false, { showIf: (v) => v.sshEnabled === true }),
       bool('sshKeyAccessEnabled', 'SSH key access', 'sshKeyAccessEnabled', true, { showIf: (v) => v.sshEnabled === true }),
+      text('sshPublicKeys', 'SSH public keys', 'sshPublicKey1', {
+        type: 'textarea',
+        wide: true,
+        rule: 'sshPublicKeys',
+        json: 'sshPublicKeys',
+        customOutput: true,
+        required: (v) => v.sshEnabled === true && v.sshKeyAccessEnabled === true,
+        showIf: (v) => v.sshEnabled === true && v.sshKeyAccessEnabled === true,
+        placeholder: 'ssh-rsa AAAAB3NzaC1yc2E... administrator@workstation',
+        help: 'Paste one OpenSSH RSA public key or existing .pub file path per line. INI uses numbered sshPublicKeyN file paths; PowerShell writes pasted keys as companion files.'
+      }),
       text('sshLoginBannerText', 'Login banner text', 'sshLoginBannerText', {
         wide: true,
         help: 'ASCII only. Use \\n for new lines.'
