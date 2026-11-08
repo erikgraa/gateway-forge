@@ -1,0 +1,107 @@
+import { describe, expect, it } from 'vitest';
+import { GROUPS, LISTS } from './schema';
+import { defaultConfig } from './model';
+import { addTrustedCertPath, trustedCertPaths } from './trusted-certs';
+import { generateIni } from './generate';
+import { importIni } from './importer';
+import { validateConfig } from './validate';
+
+const horizonFields = GROUPS.find((group) => group.id === 'horizon')!.fields;
+const wrpFields = LISTS.find((list) => list.id === 'wrp')!.fields;
+
+describe('trusted CA path families', () => {
+  it('defines trustedCert1 through trustedCert9 for every verified target', () => {
+    const targets = ['horizon', 'wrp', 'outboundproxy', 'cascade'];
+    for (const target of targets) {
+      const fields = target === 'wrp'
+        ? wrpFields
+        : GROUPS.find((group) => group.id === target)!.fields;
+      expect(fields.filter((field) => field.trustedCertIndex).map((field) => field.key))
+        .toEqual(Array.from({ length: 9 }, (_, index) => `trustedCert${index + 1}`));
+    }
+  });
+
+  it('generates ordered, non-empty Horizon and WRP keys', () => {
+    const c = defaultConfig();
+    c.values.horizon_enabled = true;
+    c.values.trustedCert1 = 'C:\\certs\\root.pem';
+    c.values.trustedCert9 = 'C:\\certs\\nine.pem';
+    c.wrp.push({
+      instanceId: 'app',
+      proxyDestinationUrl: 'https://app.example.com',
+      proxyPattern: '/(.*)',
+      trustedCert1: '/certs/one.pem',
+      trustedCert4: '/certs/four.pem'
+    });
+
+    const ini = generateIni(c);
+    expect(ini).toContain('trustedCert1=C:\\certs\\root.pem\ntrustedCert2=C:\\certs\\nine.pem');
+    expect(ini).not.toContain('trustedCert3=');
+    expect(ini).toContain('trustedCert1=/certs/one.pem\ntrustedCert2=/certs/four.pem');
+  });
+
+  it('imports sparse INI paths in documented order without empty slots', () => {
+    const result = importIni([
+      '[Horizon]',
+      'proxyDestinationUrl=https://cs.example.com',
+      'trustedCert2=C:\\certs\\two.pem',
+      'trustedCert9=C:\\certs\\nine.pem',
+      '',
+      '[WebReverseProxy1]',
+      'instanceId=app',
+      'proxyDestinationUrl=https://app.example.com',
+      'proxyPattern=/(.*)',
+      'trustedCert3=/certs/three.pem',
+      'trustedCert8=/certs/eight.pem'
+    ].join('\n'));
+
+    expect(trustedCertPaths(result.config.values, horizonFields)).toEqual(['C:\\certs\\two.pem', 'C:\\certs\\nine.pem']);
+    expect(trustedCertPaths(result.config.wrp[0], wrpFields)).toEqual(['/certs/three.pem', '/certs/eight.pem']);
+    expect(generateIni(result.config)).toContain('trustedCert1=C:\\certs\\two.pem\ntrustedCert2=C:\\certs\\nine.pem');
+    expect(generateIni(result.config)).toContain('trustedCert1=/certs/three.pem\ntrustedCert2=/certs/eight.pem');
+  });
+
+  it('imports and generates cascade trustedCert paths through WebReverseProxy1', () => {
+    const result = importIni([
+      '[WebReverseProxy1]',
+      'instanceId=HORIZON-WRP',
+      'proxyDestinationUrl=https://inner.example.com',
+      'trustedCert1=C:\\certs\\root.pem',
+      'trustedCert9=C:\\certs\\issuer.pem',
+      'proxyPattern=/(.*)'
+    ].join('\n'));
+    const ini = generateIni(result.config);
+
+    expect(result.config.values.cascade_role).toBe('outer');
+    expect(result.config.values.cascade_innerTrustedCert).toBe('C:\\certs\\root.pem');
+    expect(result.config.values.cascade_innerTrustedCert2).toBe('C:\\certs\\issuer.pem');
+    expect(ini).toContain('trustedCert1=C:\\certs\\root.pem');
+    expect(ini).toContain('trustedCert2=C:\\certs\\issuer.pem');
+  });
+
+  it('supports outbound proxy paths without mapping deploy-time values to JSON', () => {
+    const c = defaultConfig();
+    c.values.obp_enabled = true;
+    c.values.obp_trustedCert1 = '/certs/one.pem';
+    c.values.obp_trustedCert2 = '/certs/two.pem';
+    const ini = generateIni(c);
+
+    expect(ini).toContain('[OutboundProxySettings1]');
+    expect(ini).toContain('trustedCert1=/certs/one.pem\ntrustedCert2=/certs/two.pem');
+  });
+
+  it('validates every PEM path and caps the reusable editor model at nine', () => {
+    const c = defaultConfig();
+    c.values.horizon_enabled = true;
+    c.values.trustedCert1 = 'relative-root.pem';
+    c.values.trustedCert2 = 'C:\\certs\\root.txt';
+    const messages = validateConfig(c).map((issue) => `${issue.fieldId}:${issue.message}`).join('\n');
+    expect(messages).toContain('trustedCert1:Trusted CA certificate (PEM path): Must be an absolute local path');
+    expect(messages).toContain('trustedCert2:Additional trusted CA certificate (PEM path): Must point to a .pem file');
+
+    const values = defaultConfig().values;
+    for (let index = 1; index <= 9; index++) values[`trustedCert${index}`] = `/certs/${index}.pem`;
+    expect(addTrustedCertPath(values, horizonFields)).toBe(9);
+    expect(trustedCertPaths(values, horizonFields)).toHaveLength(9);
+  });
+});

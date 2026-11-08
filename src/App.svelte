@@ -19,6 +19,7 @@
     general: { eyebrow: 'Appliance profile', description: 'Define the appliance identity and administrative hardening baseline.' },
     network: { eyebrow: 'Platform & connectivity', description: 'Set deployment targets, addressing, DNS, and time synchronization.' },
     horizon: { eyebrow: 'Edge service', description: 'Publish Horizon securely through the UAG with client protocol endpoints.' },
+    tunnel: { eyebrow: 'Workspace ONE edge service', description: 'Connect the UAG-hosted Tunnel gateway to Workspace ONE UEM for per-app VPN access.' },
     wrp: { eyebrow: 'Application publishing', description: 'Add web reverse proxy instances for internal applications and portals.' },
     auth: { eyebrow: 'Identity & MFA', description: 'Configure the authentication providers selected by your published services.' },
     tls: { eyebrow: 'Transport security', description: 'Control appliance certificates and permitted TLS protocols.' },
@@ -27,7 +28,7 @@
   };
 
   const glyphs: Record<SectionId, string> = {
-    general: 'AG', network: 'NW', horizon: 'HZ', wrp: 'WP', auth: 'ID', tls: 'TS', monitoring: 'OP', templates: 'TP'
+    general: 'AG', network: 'NW', horizon: 'HZ', tunnel: 'TN', wrp: 'WP', auth: 'ID', tls: 'TS', monitoring: 'OP', templates: 'TP'
   };
   const issues = $derived(validateConfig(app.config));
   const counts = $derived(countBySection(issues));
@@ -221,6 +222,9 @@
           <span>Current section</span>
           <strong>{currentIssues.length ? `${currentIssues.length} finding${currentIssues.length === 1 ? '' : 's'} to review` : 'No findings in this section'}</strong>
         </div>
+        {#if app.section === 'tunnel' && app.config.platform === 'azure'}
+          <section class="notice">Workspace ONE Tunnel on UAG is documented for vSphere and Hyper-V PowerShell deployments. Select one of those platforms to configure the [Airwatch] section.</section>
+        {/if}
         {#each groups as g (g.id)}<GroupCard group={g} {issues} />{/each}
         {#each lists as l (l.id)}<ListEditor list={l} {issues} />{/each}
         {#if app.section === 'horizon'}<ThumbprintTool />{/if}

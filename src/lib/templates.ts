@@ -209,6 +209,31 @@ export const TEMPLATES: Template[] = [
       )
   },
   {
+    id: 'workspace-one-tunnel',
+    title: 'Workspace ONE Tunnel (per-app VPN)',
+    description: 'UAG-hosted Tunnel basic endpoint on vSphere or Hyper-V, with Workspace ONE UEM bootstrap, outbound-proxy options and TLS syslog.',
+    tags: ['Workspace ONE', 'Tunnel', 'Per-app VPN'],
+    build: (b) =>
+      fresh(
+        b,
+        {
+          uagName: 'uag-tunnel-01',
+          name: 'uag-tunnel-01',
+          horizon_enabled: false,
+          airwatch_enabled: true,
+          airwatch_tunnelGatewayEnabled: true,
+          airwatch_apiServerUrl: 'https://as1234.awmdm.com',
+          airwatch_apiServerUsername: 'domain\\svc-uag-tunnel',
+          airwatch_organizationGroupCode: 'CORP',
+          airwatch_tunnelConfigurationId: 'tunnel-production',
+          airwatch_airwatchServerHostname: 'tunnel.example.com',
+          airwatch_disableAutoConfigUpdate: false,
+          airwatch_healthCheckUrl: '/favicon.ico'
+        },
+        { syslog: [syslogTls] }
+      )
+  },
+  {
     id: 'nutanix-ahv',
     title: 'Nutanix AHV (QCOW2 / PowerShell)',
     description: 'UAG 2609 on Nutanix AHV. Generates the [Nutanix] INI section and uagdeployntnx.ps1 command; the QCOW2 image, cluster and subnets must already exist in Prism Central.',

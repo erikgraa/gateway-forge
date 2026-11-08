@@ -1,6 +1,7 @@
 import { nicUsesStaticIpv4, type Config } from './model';
 import { deploymentCommand, generateBootableVolumeManifest, generateIni, generateJson, iniFileName, jsonFileName, manifestFileName, platformScript, type SecretMode } from './generate';
 import { platformDef } from './versions';
+import { sshPublicKeys } from './ssh';
 
 const psq = (s: string) => `'${s.replace(/'/g, "''")}'`;
 
@@ -33,7 +34,23 @@ export function generatePowerShell(c: Config, mode: SecretMode = 'placeholder'):
     `Set-Content -Path .\\${file} -Value $ini -Encoding ASCII`,
     ''
   ];
+  const keys = sshPublicKeys(c.values.sshPublicKeys, c.values.sshPublicKeyNames).filter((key) => key.data);
+  if (c.values.sshEnabled === true && c.values.sshKeyAccessEnabled === true && keys.length) {
+    out.push('# Write SSH public key files referenced by sshPublicKeyN in the INI');
+    for (const key of keys) {
+      out.push(`$sshKey = @'`, key.data!, `'@`, `Set-Content -Path .\\${key.fileName} -Value $sshKey -Encoding ASCII`, '');
+    }
+  }
   if (mode === 'placeholder' && ini.includes('<REDACTED>')) out.push('# Replace every <REDACTED> value in the INI before deploying.', '');
+  out.push(`# 2. Password handling and deployment`);
+  out.push(`# Gateway Forge never requests or stores the UAG root or Admin UI passwords.`);
+  out.push(`# Omnissa's headless parameter reference marks -rootPwd and -adminPwd as mandatory.`);
+  out.push(`# Its deployment workflow also documents an intentional immutable option: if no post-deployment changes are needed,`);
+  out.push(`# the Admin UI password can be left unset. The Admin UI and API are then unavailable, no user can be added later,`);
+  out.push(`# and the appliance must be redeployed to regain administrative access. This does not remove the root account.`);
+  out.push(`# References: https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters`);
+  out.push(`#             https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy`);
+  out.push('');
   if (c.platform === 'openshift') return generateOpenShiftPowerShell(c, mode, out);
   out.push(`# 2a. Interactive deployment (prompts for the root and admin passwords)`);
   out.push(deploymentCommand(c, sw), '');

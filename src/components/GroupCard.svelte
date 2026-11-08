@@ -4,6 +4,8 @@
   import type { GroupDef, Values } from '../lib/schema';
   import type { Issue } from '../lib/validate';
   import FieldInput from './FieldInput.svelte';
+  import TrustedCertEditor from './TrustedCertEditor.svelte';
+  import RowListEditor from './RowListEditor.svelte';
 
   interface Props {
     group: GroupDef;
@@ -15,6 +17,8 @@
   const available = $derived(groupAvailable(group, c.version, c.platform) && group.fields.some((f) => fieldAvailable(f, c.version, c.platform, c.values)));
   const enabled = $derived(groupEnabled(group, c));
   const visible = $derived(group.fields.filter((f) => fieldAvailable(f, c.version, c.platform, c.values)));
+  const trustedFields = $derived(visible.filter((f) => f.trustedCertIndex !== undefined));
+  const regularFields = $derived(visible.filter((f) => f.trustedCertIndex === undefined));
   const hiddenByVersion = $derived(group.fields.filter((f) => f.since && c.version < f.since).length);
 
   function err(fieldId: string): string | undefined {
@@ -36,9 +40,16 @@
     {#if group.help}<p class="help">{group.help}</p>{/if}
     {#if enabled}
       <div class="grid">
-        {#each visible as f (f.id)}
-          <FieldInput field={f} bind:values={app.config.values as Values} error={err(f.id)} />
+        {#each regularFields as f (f.id)}
+          {#if f.rows}
+            <RowListEditor field={f} bind:values={app.config.values as Values} {issues} />
+          {:else}
+            <FieldInput field={f} bind:values={app.config.values as Values} error={err(f.id)} />
+          {/if}
         {/each}
+        {#if trustedFields.length}
+          <TrustedCertEditor fields={trustedFields} bind:values={app.config.values as Values} {issues} uid={group.id} />
+        {/if}
       </div>
       {#if hiddenByVersion > 0}
         <div class="notice">{hiddenByVersion} setting{hiddenByVersion > 1 ? 's' : ''} in this group {hiddenByVersion > 1 ? 'are' : 'is'} not available in UAG {c.version} and {hiddenByVersion > 1 ? 'are' : 'is'} hidden.</div>

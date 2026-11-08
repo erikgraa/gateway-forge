@@ -15,19 +15,28 @@ export type Rule =
   | 'urlList'
   | 'port'
   | 'thumbprints'
+  | 'pemPath'
+  | 'sshPublicKeys'
   | 'uagName'
+  | 'osLoginUsername'
+  | 'ascii'
   | 'ipv4Port'
+  | 'ipv6'
+  | 'staticRoutes'
+  | 'customConfig'
+  | 'hostEntryList'
   | 'path'
   | 'int'
   | 'kubeName'
   | 'kubeNamespace';
 
-export type SectionId = 'general' | 'network' | 'horizon' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
+export type SectionId = 'general' | 'network' | 'horizon' | 'tunnel' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
 
 export type Target =
   | 'system'
   | 'deploy'
   | 'horizon'
+  | 'airwatch'
   | 'wrp'
   | 'radius'
   | 'saml'
@@ -41,6 +50,13 @@ export type Target =
   | 'proxy'
   | 'cascade'
   | 'runtime';
+
+export function deploymentNicCount(v: Values): 1 | 2 | 3 {
+  const option = String(v.deploymentOption);
+  if (option.startsWith('threenic')) return 3;
+  if (option.startsWith('twonic')) return 2;
+  return 1;
+}
 
 export interface Option {
   value: string;
@@ -68,8 +84,10 @@ export interface Field {
   required?: boolean | ((v: Values) => boolean);
   showIf?: (v: Values) => boolean;
   platforms?: Platform[];
-  /** Key name is inferred from a documented pattern rather than copied from the docs. */
+  /** Key or semantics require verification against the official source. */
   inferred?: boolean;
+  /** 1-based position in an ordered trustedCert1-trustedCert9 field family. */
+  trustedCertIndex?: number;
   wide?: boolean;
   /** Emit to INI only when the user sets it (not when equal to the documented default). */
   omitDefault?: boolean;
@@ -77,6 +95,13 @@ export interface Field {
   ini?: false;
   /** For DHCP-capable platforms, emit this IPv4 input only when its NIC is STATICV4. */
   ipMode?: 0 | 1 | 2;
+  /** This field needs format-specific output rather than a direct INI entry. */
+  customOutput?: boolean;
+  /** Edit a string-backed, space-separated value as individually validated rows. */
+  rows?: {
+    itemLabel: string;
+    rule: 'ipv4' | 'hostOrIp';
+  };
 }
 
 export interface GroupDef {
@@ -115,6 +140,7 @@ export const SECTIONS: SectionDef[] = [
   { id: 'general', title: 'General', icon: '⚙' },
   { id: 'network', title: 'Network & deploy', icon: '🌐' },
   { id: 'horizon', title: 'Horizon', icon: '🖥' },
+  { id: 'tunnel', title: 'Workspace ONE Tunnel', icon: '🚇' },
   { id: 'wrp', title: 'Web reverse proxy', icon: '🔀' },
   { id: 'auth', title: 'Authentication', icon: '🔐' },
   { id: 'tls', title: 'TLS & certs', icon: '🔒' },
@@ -161,6 +187,22 @@ const secret = (id: string, label: string, key: string, extra: Partial<Field> = 
   ...extra
 });
 
+const trustedCertFields = (
+  idFor: (index: number) => string,
+  extra: Partial<Field> = {}
+): Field[] =>
+  Array.from({ length: 9 }, (_, offset) => {
+    const index = offset + 1;
+    return text(idFor(index), index === 1 ? 'Trusted CA certificate (PEM path)' : 'Additional trusted CA certificate (PEM path)', `trustedCert${index}`, {
+      wide: true,
+      json: false,
+      rule: 'pemPath',
+      trustedCertIndex: index,
+      placeholder: index === 1 ? 'C:\\certs\\corp-root-ca.pem' : 'C:\\certs\\intermediate-ca.pem',
+      ...extra
+    });
+  });
+
 export const AUTH_METHODS: Option[] = [
   { value: 'passthrough', label: 'Passthrough (username/password)' },
   { value: 'radius-auth', label: 'RADIUS' },
@@ -171,8 +213,6 @@ export const AUTH_METHODS: Option[] = [
 ];
 
 const vsphereHyperv: Platform[] = ['vsphere', 'hyperv'];
-const allNicPlatforms: Platform[] = ['vsphere', 'hyperv', 'nutanix', 'openshift'];
-
 export const GROUPS: GroupDef[] = [
   {
     id: 'cascade',
@@ -210,11 +250,11 @@ export const GROUPS: GroupDef[] = [
         placeholder: 'sha256=ad:5c:f1:…',
         help: 'Needed when the inner UAG certificate is not from a trusted CA. Use the thumbprint helper under Horizon settings.'
       }),
-      text('cascade_innerTrustedCert', 'Inner UAG trusted CA certificate (PEM path)', 'cascade_innerTrustedCert', {
+      ...trustedCertFields((n) => n === 1 ? 'cascade_innerTrustedCert' : `cascade_innerTrustedCert${n}`, {
         wide: true,
         showIf: (v) => v.cascade_role === 'outer',
         json: false,
-        help: 'Alternative to the thumbprint: trust the CA that issued the inner UAG certificate.'
+        help: 'Alternative to the thumbprint: trust the CA that issued the inner UAG certificate. Up to nine ordered PEM paths are supported.'
       }),
       bool('cascade_opswat', 'Allow OPSWAT on-demand agent download (/gateway/resources)', 'cascade_opswat', false, {
         showIf: (v) => v.cascade_role === 'outer',
@@ -254,16 +294,50 @@ export const GROUPS: GroupDef[] = [
       }),
       bool('sshEnabled', 'Enable SSH', 'sshEnabled', false, { help: 'Not recommended; console access is normally sufficient.' }),
       num('sshPort', 'SSH port', 'sshPort', { default: 22, rule: 'port', showIf: (v) => v.sshEnabled === true }),
+      sel('sshInterface', 'SSH interface', 'sshInterface', [
+        '',
+        { value: 'eth0', label: 'eth0 (NIC0)' },
+        { value: 'eth1', label: 'eth1 (NIC1)' },
+        { value: 'eth2', label: 'eth2 (NIC2)' }
+      ], {
+        showIf: (v) => v.sshEnabled === true,
+        help: 'Empty enables SSH on all interfaces. The interface must exist in the selected deployment topology.'
+      }),
       bool('sshPasswordAccessEnabled', 'SSH password access', 'sshPasswordAccessEnabled', false, { showIf: (v) => v.sshEnabled === true }),
       bool('sshKeyAccessEnabled', 'SSH key access', 'sshKeyAccessEnabled', true, { showIf: (v) => v.sshEnabled === true }),
+      text('sshPublicKeys', 'SSH public keys', 'sshPublicKey1', {
+        type: 'textarea',
+        wide: true,
+        rule: 'sshPublicKeys',
+        json: 'sshPublicKeys',
+        customOutput: true,
+        required: (v) => v.sshEnabled === true && v.sshKeyAccessEnabled === true,
+        showIf: (v) => v.sshEnabled === true && v.sshKeyAccessEnabled === true,
+        placeholder: 'ssh-rsa AAAAB3NzaC1yc2E... administrator@workstation',
+        help: 'Paste one OpenSSH RSA public key or existing .pub file path per line. INI uses numbered sshPublicKeyN file paths; PowerShell writes pasted keys as companion files.'
+      }),
       text('sshLoginBannerText', 'Login banner text', 'sshLoginBannerText', {
         wide: true,
+        rule: 'ascii',
         help: 'ASCII only. Use \\n for new lines.'
       }),
       text('osLoginUsername', 'High-privilege OS login user', 'osLoginUsername', {
+        rule: 'osLoginUsername',
         help: 'a-z, 0-9, underscore, hyphen (max 32). When set, root login is disabled.'
       }),
+      num('osMaxLoginLimit', 'High-privilege console login limit', 'osMaxLoginLimit', {
+        default: 10,
+        min: 1,
+        omitDefault: true,
+        showIf: (v) => String(v.osLoginUsername ?? '') !== '',
+        help: 'Applies only when a high-privilege non-root login user is configured.'
+      }),
       bool('dsComplianceOS', 'DISA STIG OS compliance', 'dsComplianceOS', false, { help: 'Use with the FIPS appliance when STIG compliance is required.' }),
+      sel('secureRandomSource', 'Java secure random source', 'secureRandomSource', ['', '/dev/random', '/dev/urandom'], {
+        json: false,
+        wide: true,
+        help: 'Deployment-only. Leave empty for the UAG/FIPS appliance default; changing it takes effect only during deployment.'
+      }),
       text('headersToBeLogged', 'Headers to be logged', 'headersToBeLogged', {
         since: '2312',
         placeholder: 'X-Forwarded-For,host',
@@ -285,14 +359,16 @@ export const GROUPS: GroupDef[] = [
       num('sessionTimeout', 'Session timeout (ms)', 'sessionTimeout', { default: 36000000, min: 1, omitDefault: true }),
       num('adminSessionIdleTimeoutMinutes', 'Admin UI idle timeout (min)', 'adminSessionIdleTimeoutMinutes', { default: 10, min: 0, max: 1440 }),
       num('adminMaxConcurrentSessions', 'Admin max concurrent sessions', 'adminMaxConcurrentSessions', { default: 5, min: 1, max: 50, omitDefault: true }),
-      num('adminPasswordExpirationDays', 'Admin password expiry (days)', 'adminPasswordExpirationDays', { default: 90, min: 0, max: 999, omitDefault: true }),
-      num('adminPasswordPolicyMinLen', 'Admin password min length', 'adminPasswordPolicyMinLen', { default: 8, min: 8, max: 64, omitDefault: true }),
-      num('adminPasswordPolicyFailedLockoutCount', 'Admin lockout after failed logins', 'adminPasswordPolicyFailedLockoutCount', { default: 3, min: 0, max: 10, omitDefault: true }),
-      num('adminPasswordPolicyUnlockTime', 'Admin unlock time (min)', 'adminPasswordPolicyUnlockTime', { default: 5, min: 1, max: 9999, omitDefault: true }),
+      num('adminPasswordExpirationDays', 'Admin password expiry (days)', 'adminpasswordExpirationDays', { default: 90, min: 0, max: 999, since: '2506', omitDefault: true }),
+      num('adminPasswordPolicyMinLen', 'Admin password min length', 'adminpasswordPolicyMinLen', { default: 8, min: 8, max: 64, omitDefault: true }),
+      num('adminPasswordPolicyFailedLockoutCount', 'Admin lockout after failed logins', 'adminpasswordPolicyFailedLockoutCount', { default: 3, min: 0, max: 10, omitDefault: true }),
+      num('adminPasswordPolicyUnlockTime', 'Admin unlock time (min)', 'adminpasswordPolicyUnlockTime', { default: 5, min: 1, max: 9999, omitDefault: true }),
       num('rootPasswordExpirationDays', 'Root password expiry (days)', 'rootPasswordExpirationDays', { default: 365, min: 0, omitDefault: true }),
       num('rootSessionIdleTimeoutSeconds', 'Console idle timeout (s)', 'rootSessionIdleTimeoutSeconds', { default: 300, min: 0, max: 3600, omitDefault: true }),
       num('passwordPolicyMinLen', 'OS password min length', 'passwordPolicyMinLen', { default: 6, min: 6, max: 64, omitDefault: true }),
-      num('passwordPolicyFailedLockout', 'OS lockout after failed logins', 'passwordPolicyFailedLockout', { default: 3, min: 0, max: 10, omitDefault: true })
+      num('passwordPolicyMinClass', 'OS password character classes', 'passwordPolicyMinClass', { default: 1, min: 1, max: 4, omitDefault: true }),
+      num('passwordPolicyFailedLockout', 'OS lockout after failed logins', 'passwordPolicyFailedLockout', { default: 3, min: 0, max: 10, omitDefault: true }),
+      num('passwordPolicyUnlockTime', 'OS unlock time (s)', 'passwordPolicyUnlockTime', { default: 900, min: 0, max: 3600, omitDefault: true, help: '0 permanently locks the console until an administrator unlocks it.' })
     ]
   },
   {
@@ -307,7 +383,7 @@ export const GROUPS: GroupDef[] = [
       sel(
         'deploymentOption',
         'Deployment option',
-        'deploymentOption',
+        'deploymentoption',
         [
           { value: 'onenic', label: 'onenic (2 vCPU / 4 GB)' },
           { value: 'twonic', label: 'twonic (2 vCPU / 4 GB)' },
@@ -337,77 +413,144 @@ export const GROUPS: GroupDef[] = [
       }),
       text('folder', 'VM folder', 'folder', { platforms: ['vsphere'], help: 'VMs and Templates folder; must exist.' }),
       text('ds', 'Datastore', 'ds', { platforms: vsphereHyperv, required: true, placeholder: 'datastore1' }),
-      text('netInternet', 'Internet network', 'netInternet', { platforms: vsphereHyperv, required: true, placeholder: 'DMZ-Internet' }),
-      text('netManagementNetwork', 'Management network', 'netManagementNetwork', {
+      text('netInternet', 'Internet network (NIC0)', 'netInternet', {
         platforms: vsphereHyperv,
-        showIf: (v) => !String(v.deploymentOption).startsWith('onenic')
-      }),
-      text('netBackendNetwork', 'Backend network', 'netBackendNetwork', {
-        platforms: vsphereHyperv,
-        showIf: (v) => String(v.deploymentOption).startsWith('threenic')
-      }),
-      text('ip0', 'NIC0 IPv4 address', 'ip0', {
-        rule: 'ipv4',
-        platforms: allNicPlatforms,
-        placeholder: '192.0.2.21',
-        ipMode: 0,
-        required: (v) => v.ipMode0 === 'STATICV4'
-      }),
-      text('netmask0', 'NIC0 netmask', 'netmask0', {
-        rule: 'ipv4',
-        platforms: allNicPlatforms,
-        placeholder: '255.255.255.0',
-        ipMode: 0,
-        required: (v) => v.ipMode0 === 'STATICV4'
-      }),
-      sel('ipMode0', 'NIC0 IP mode', 'ipMode0', ['', 'DHCPV4', 'STATICV4'], {
-        platforms: ['nutanix', 'openshift'],
         required: true,
-        help: 'The documented IPv4 modes supported by the generated workflow.'
+        placeholder: 'DMZ-Internet',
+        help: 'Connects the appliance Internet-facing interface.'
       }),
-      text('ip1', 'NIC1 IPv4 address', 'ip1', {
+      text('netManagementNetwork', 'Management / Backend network (NIC1)', 'netManagementNetwork', {
+        platforms: vsphereHyperv,
+        required: true,
+        showIf: (v) => deploymentNicCount(v) >= 2,
+        help: 'NIC1 is the combined Backend + Management network for twonic; threenic uses it for Management traffic.'
+      }),
+      text('netBackendNetwork', 'Backend network (NIC2)', 'netBackendNetwork', {
+        platforms: vsphereHyperv,
+        required: true,
+        showIf: (v) => deploymentNicCount(v) === 3,
+        help: 'The dedicated Backend interface is available only with threenic.'
+      }),
+      text('ip0', 'NIC0 Internet IPv4 address', 'ip0', { rule: 'ipv4', platforms: vsphereHyperv, required: true, placeholder: '192.0.2.21' }),
+      text('netmask0', 'NIC0 Internet netmask', 'netmask0', { rule: 'ipv4', platforms: vsphereHyperv, required: true, placeholder: '255.255.255.0' }),
+      text('ip1', 'NIC1 Management / Backend IPv4 address', 'ip1', {
         rule: 'ipv4',
-        platforms: allNicPlatforms,
-        showIf: (v) => !String(v.deploymentOption).startsWith('onenic'),
-        ipMode: 1,
-        required: (v) => v.ipMode1 === 'STATICV4'
+        platforms: vsphereHyperv,
+        required: true,
+        showIf: (v) => deploymentNicCount(v) >= 2
       }),
-      text('netmask1', 'NIC1 netmask', 'netmask1', {
+      text('netmask1', 'NIC1 Management / Backend netmask', 'netmask1', {
         rule: 'ipv4',
-        platforms: allNicPlatforms,
-        showIf: (v) => !String(v.deploymentOption).startsWith('onenic'),
-        ipMode: 1,
-        required: (v) => v.ipMode1 === 'STATICV4'
+        platforms: vsphereHyperv,
+        required: true,
+        showIf: (v) => deploymentNicCount(v) >= 2
       }),
-      sel('ipMode1', 'NIC1 IP mode', 'ipMode1', ['', 'DHCPV4', 'STATICV4'], {
-        platforms: ['nutanix', 'openshift'],
-        showIf: (v) => !String(v.deploymentOption).startsWith('onenic'),
-        required: (v) => !String(v.deploymentOption).startsWith('onenic')
-      }),
-      text('ip2', 'NIC2 IPv4 address', 'ip2', {
+      text('ip2', 'NIC2 Backend IPv4 address', 'ip2', {
         rule: 'ipv4',
-        platforms: allNicPlatforms,
-        showIf: (v) => String(v.deploymentOption).startsWith('threenic'),
-        ipMode: 2,
-        required: (v) => v.ipMode2 === 'STATICV4'
+        platforms: vsphereHyperv,
+        required: true,
+        showIf: (v) => deploymentNicCount(v) === 3
       }),
-      text('netmask2', 'NIC2 netmask', 'netmask2', {
+      text('netmask2', 'NIC2 Backend netmask', 'netmask2', {
         rule: 'ipv4',
-        platforms: allNicPlatforms,
-        showIf: (v) => String(v.deploymentOption).startsWith('threenic'),
-        ipMode: 2,
-        required: (v) => v.ipMode2 === 'STATICV4'
-      }),
-      sel('ipMode2', 'NIC2 IP mode', 'ipMode2', ['', 'DHCPV4', 'STATICV4'], {
-        platforms: ['nutanix', 'openshift'],
-        showIf: (v) => String(v.deploymentOption).startsWith('threenic'),
-        required: (v) => String(v.deploymentOption).startsWith('threenic')
+        platforms: vsphereHyperv,
+        required: true,
+        showIf: (v) => deploymentNicCount(v) === 3
       }),
       text('defaultGateway', 'Default gateway', 'defaultGateway', {
         rule: 'ipv4',
-        platforms: allNicPlatforms,
+        platforms: vsphereHyperv,
+        required: true,
         placeholder: '192.0.2.1',
-        ipMode: 0
+        help: 'IPv4 gateway on the NIC0 Internet network.'
+      }),
+      text('routes0', 'NIC0 static routes', 'routes0', {
+        rule: 'staticRoutes',
+        platforms: vsphereHyperv,
+        since: '2306',
+        wide: true,
+        placeholder: '10.108.172.32/32 10.108.172.253,192.168.20.0/24 10.0.0.1',
+        help: 'Comma-separated CIDR-and-gateway pairs. Format: IPv4-network/prefix gateway-IPv4.'
+      }),
+      text('routes1', 'NIC1 static routes', 'routes1', {
+        rule: 'staticRoutes',
+        platforms: vsphereHyperv,
+        since: '2306',
+        wide: true,
+        showIf: (v) => deploymentNicCount(v) >= 2,
+        placeholder: '192.168.20.0/24 192.168.10.1',
+        help: 'Available only on two- and three-NIC deployments; same comma-separated CIDR-and-gateway format as routes0.'
+      }),
+      text('routes2', 'NIC2 static routes', 'routes2', {
+        rule: 'staticRoutes',
+        platforms: vsphereHyperv,
+        since: '2306',
+        wide: true,
+        showIf: (v) => deploymentNicCount(v) === 3,
+        placeholder: '172.16.0.0/12 10.2.0.1',
+        help: 'Available only on three-NIC deployments; same comma-separated CIDR-and-gateway format as routes0.'
+      }),
+      sel('ipmode0', 'NIC addressing mode (ipmode0)', 'ipmode0', [
+        '',
+        'STATICV4',
+        'STATICV6',
+        'DHCPV4',
+        'DHCPV6',
+        'AUTOV6',
+        'STATICV4+STATICV6',
+        'STATICV4+DHCPV6',
+        'STATICV4+AUTOV6',
+        'DHCPV4+STATICV6',
+        'DHCPV4+DHCPV6',
+        'DHCPV4+AUTOV6'
+      ], {
+        platforms: vsphereHyperv,
+        since: '2306',
+        help: 'Omnissa documents one ipmode0 key and says it controls the selected NIC topology. No ipmode1/ipmode2 keys are documented.'
+      }),
+      text('v6ip0', 'NIC0 IPv6 address', 'v6ip0', {
+        rule: 'ipv6',
+        platforms: vsphereHyperv,
+        since: '2506',
+        placeholder: '2402:740:2:209::5',
+        help: 'Only NIC0 IPv6 keys are documented; NIC1/NIC2 IPv6 keys are intentionally not inferred.'
+      }),
+      num('v6ipprefix0', 'NIC0 IPv6 prefix length', 'v6ipprefix0', {
+        platforms: vsphereHyperv,
+        since: '2506',
+        min: 0,
+        max: 128,
+        placeholder: '64'
+      }),
+      text('v6DefaultGateway', 'IPv6 default gateway', 'v6DefaultGateway', {
+        rule: 'ipv6',
+        platforms: vsphereHyperv,
+        since: '2506',
+        placeholder: '2402:740:2:209::253'
+      }),
+      text('eth0CustomConfig', 'NIC0 systemd.network overrides', 'eth0CustomConfig', {
+        rule: 'customConfig',
+        platforms: vsphereHyperv,
+        since: '2306',
+        wide: true,
+        placeholder: 'DHCP^UseDNS=false',
+        help: 'Semicolon-separated Section^Parameter=Value entries. Use only documented systemd.network overrides.'
+      }),
+      text('eth1CustomConfig', 'NIC1 systemd.network overrides', 'eth1CustomConfig', {
+        rule: 'customConfig',
+        platforms: vsphereHyperv,
+        since: '2306',
+        showIf: (v) => deploymentNicCount(v) >= 2,
+        wide: true,
+        placeholder: 'DHCP^UseDomains=false'
+      }),
+      text('eth2CustomConfig', 'NIC2 systemd.network overrides', 'eth2CustomConfig', {
+        rule: 'customConfig',
+        platforms: vsphereHyperv,
+        since: '2306',
+        showIf: (v) => deploymentNicCount(v) === 3,
+        wide: true,
+        placeholder: 'Network^Domains=~.'
       })
     ]
   },
@@ -417,7 +560,7 @@ export const GROUPS: GroupDef[] = [
     section: 'network',
     target: 'runtime',
     iniSection: 'Runtime',
-    help: 'Not INI settings: these are passed on the uagdeploy command line and only affect the PowerShell output. Passwords are never part of the INI or stored here: the root and admin passwords are read at deploy time, either via prompts or with -rootPwd "<root_password>" -adminPwd "<admin_password>" (minimum 8 characters; 14 for a FIPS appliance). The PowerShell tab shows both forms.',
+    help: 'Not INI settings: these are passed on the uagdeploy command line and only affect the PowerShell output. Gateway Forge never asks for or stores the UAG root or Admin UI passwords. Omnissa marks -rootPwd and -adminPwd as mandatory for headless deployment. It separately documents an immutable option without an Admin UI password: the appliance can be production-ready, but the Admin UI and API are unavailable, no user can be added later, and administrative recovery requires redeployment. This is not a passwordless appliance; assess console access, break-glass recovery, logging, rotation, and compliance before choosing that model.',
     fields: [
       bool('run_noSSLVerify', 'Skip SSL/TLS certificate verification (-noSSLVerify)', 'run_noSSLVerify', false, {
         wide: true,
@@ -434,16 +577,107 @@ export const GROUPS: GroupDef[] = [
     ]
   },
   {
+    id: 'native-ipv4',
+    title: 'QCOW2 platform networking',
+    section: 'network',
+    target: 'deploy',
+    iniSection: 'General',
+    platforms: ['nutanix', 'openshift'],
+    help: 'Nutanix and OpenShift use the shared numeric ipModeN/ipN/netmaskN convention. DHCP suppresses stale static values; STATICV4 requires an address and netmask for that NIC.',
+    fields: [
+      sel('ipMode0', 'NIC0 IP mode', 'ipMode0', ['', 'DHCPV4', 'STATICV4'], {
+        required: true,
+        json: false,
+        help: 'NIC0 maps to eth0 and the first subnet/NAD.'
+      }),
+      text('ip0', 'NIC0 / eth0 IPv4 address', 'ip0', {
+        rule: 'ipv4',
+        placeholder: '192.0.2.21',
+        ipMode: 0,
+        required: (v) => v.ipMode0 === 'STATICV4',
+        json: false
+      }),
+      text('netmask0', 'NIC0 / eth0 netmask', 'netmask0', {
+        rule: 'ipv4',
+        placeholder: '255.255.255.0',
+        ipMode: 0,
+        required: (v) => v.ipMode0 === 'STATICV4',
+        json: false
+      }),
+      text('defaultGateway', 'Default gateway', 'defaultGateway', {
+        rule: 'ipv4',
+        placeholder: '192.0.2.1',
+        ipMode: 0,
+        json: false
+      }),
+      sel('ipMode1', 'NIC1 IP mode', 'ipMode1', ['', 'DHCPV4', 'STATICV4'], {
+        showIf: (v) => deploymentNicCount(v) >= 2,
+        required: (v) => deploymentNicCount(v) >= 2,
+        json: false,
+        help: 'NIC1 maps to eth1 and subnet1/NAD1.'
+      }),
+      text('ip1', 'NIC1 / eth1 IPv4 address', 'ip1', {
+        rule: 'ipv4',
+        showIf: (v) => deploymentNicCount(v) >= 2,
+        ipMode: 1,
+        required: (v) => v.ipMode1 === 'STATICV4',
+        json: false
+      }),
+      text('netmask1', 'NIC1 / eth1 netmask', 'netmask1', {
+        rule: 'ipv4',
+        showIf: (v) => deploymentNicCount(v) >= 2,
+        ipMode: 1,
+        required: (v) => v.ipMode1 === 'STATICV4',
+        json: false
+      }),
+      sel('ipMode2', 'NIC2 IP mode', 'ipMode2', ['', 'DHCPV4', 'STATICV4'], {
+        showIf: (v) => deploymentNicCount(v) === 3,
+        required: (v) => deploymentNicCount(v) === 3,
+        json: false,
+        help: 'NIC2 maps to eth2 and subnet2/NAD2.'
+      }),
+      text('ip2', 'NIC2 / eth2 IPv4 address', 'ip2', {
+        rule: 'ipv4',
+        showIf: (v) => deploymentNicCount(v) === 3,
+        ipMode: 2,
+        required: (v) => v.ipMode2 === 'STATICV4',
+        json: false
+      }),
+      text('netmask2', 'NIC2 / eth2 netmask', 'netmask2', {
+        rule: 'ipv4',
+        showIf: (v) => deploymentNicCount(v) === 3,
+        ipMode: 2,
+        required: (v) => v.ipMode2 === 'STATICV4',
+        json: false
+      })
+    ]
+  },
+  {
     id: 'dns',
     title: 'DNS & time',
     section: 'network',
     target: 'system',
     iniSection: 'General',
     fields: [
-      text('dns', 'DNS servers', 'dns', {       rule: 'ipList', placeholder: '10.0.0.10 10.0.0.11', required: true, json: false, help: 'Space-separated IPv4 addresses.' }),
-            text('dnsSearch', 'DNS search domains', 'dnsSearch', { placeholder: 'corp.local', json: false }),
-      text('ntpServers', 'NTP servers', 'ntpServers', { rule: 'hostList', placeholder: 'pool.ntp.org', help: 'Space-separated hostnames/IPs.' }),
-      text('fallBackNtpServers', 'Fallback NTP servers', 'fallBackNtpServers', { rule: 'hostList' })
+      text('dns', 'DNS servers', 'dns', {
+        rule: 'ipList',
+        rows: { itemLabel: 'DNS server', rule: 'ipv4' },
+        placeholder: '10.0.0.10',
+        required: true,
+        json: false,
+        help: 'Add each IPv4 address on its own row.'
+      }),
+      text('dnsSearch', 'DNS search domains', 'dnsSearch', { placeholder: 'corp.local', json: false }),
+      text('ntpServers', 'NTP servers', 'ntpServers', {
+        rule: 'hostList',
+        rows: { itemLabel: 'NTP server', rule: 'hostOrIp' },
+        placeholder: 'pool.ntp.org',
+        help: 'Add each hostname or IP address on its own row.'
+      }),
+      text('fallBackNtpServers', 'Fallback NTP servers', 'fallBackNtpServers', {
+        rule: 'hostList',
+        rows: { itemLabel: 'Fallback NTP server', rule: 'hostOrIp' }
+      })
     ]
   },
   {
@@ -581,13 +815,9 @@ export const GROUPS: GroupDef[] = [
         placeholder: 'sha256=ad:5c:f1:…',
         help: 'Only needed when the CS certificate is not issued by a trusted CA - or add that CA under Trusted CA certificate below instead. Format [alg=]xx:xx… (sha1/sha256/sha384/sha512), comma-separated.'
       }),
-      text('trustedCert1', 'Trusted CA certificate (PEM path)', 'trustedCert1', {
-        wide: true,
-        json: false,
-        placeholder: 'C:\\certs\\corp-root-ca.pem',
+      ...trustedCertFields((n) => `trustedCert${n}`, {
         help: 'Alternative to a thumbprint: add the CA that issued the Connection Server certificate to the trust store (Admin UI: Horizon settings > More > Trusted Certificates). File path read by uagdeploy at deployment time.'
       }),
-      text('trustedCert2', 'Additional trusted CA certificate (PEM path)', 'trustedCert2', { wide: true, json: false, inferred: true, help: 'Key name follows the trustedCert1 numbering pattern; verify against an exported INI.' }),
       sel('minSHAHashSize', 'Minimum SHA hash size', 'minSHAHashSize', ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512'], {
         since: '2312',
         default: 'SHA-256',
@@ -667,6 +897,137 @@ export const GROUPS: GroupDef[] = [
         wide: true,
         placeholder: '(/|/view-client(.*)|/portal(.*)|/appblast(.*))',
         help: 'Leave empty for the Horizon default.'
+      })
+    ]
+  },
+  {
+    id: 'airwatch',
+    title: 'Workspace ONE Tunnel gateway',
+    section: 'tunnel',
+    target: 'airwatch',
+    iniSection: 'Airwatch',
+    enabledBy: 'airwatch_enabled',
+    platforms: ['vsphere', 'hyperv'],
+    help: 'Configures the Workspace ONE Tunnel edge service through its documented [Airwatch] PowerShell INI section. This edge service is supported for UAG deployed on vSphere or Hyper-V. The settings JSON mapping is not documented, so this section is INI-only.',
+    fields: [
+      bool('airwatch_tunnelGatewayEnabled', 'Enable Tunnel gateway', 'tunnelGatewayEnabled', true, { json: false }),
+      text('airwatch_apiServerUrl', 'Workspace ONE UEM API server URL', 'apiServerUrl', {
+        rule: 'httpsUrl',
+        required: true,
+        wide: true,
+        placeholder: 'https://as1234.awmdm.com',
+        json: false,
+        help: 'REST API URL from Groups & Settings > All Settings > Advanced > Site URLs in Workspace ONE UEM.'
+      }),
+      text('airwatch_apiServerUsername', 'Workspace ONE UEM API user', 'apiServerUsername', {
+        required: true,
+        placeholder: 'domain\\svc-uag',
+        json: false,
+        help: 'Console admin account used for initial configuration; Console Administrator privileges are required at minimum.'
+      }),
+      secret('airwatch_apiServerPassword', 'Workspace ONE UEM API password', 'apiServerPassword', {
+        required: true,
+        json: false,
+        help: 'Used to save the initial Tunnel service configuration. It is not retained in Gateway Forge drafts.'
+      }),
+      text('airwatch_organizationGroupCode', 'Organization Group ID', 'organizationGroupCode', {
+        placeholder: 'CORP',
+        json: false,
+        help: 'Optional when Workspace ONE UEM supports multiple Tunnel configurations.'
+      }),
+      text('airwatch_tunnelConfigurationId', 'Tunnel Configuration ID', 'tunnelConfigurationId', {
+        since: '2306',
+        json: false,
+        help: 'Optional. Use the ID configured in Workspace ONE UEM; when blank, UAG fetches the default configuration for the organization group.'
+      }),
+      text('airwatch_airwatchServerHostname', 'Tunnel server hostname', 'airwatchServerHostname', {
+        rule: 'hostOrIp',
+        required: true,
+        wide: true,
+        placeholder: 'tunnel.example.com',
+        json: false,
+        help: 'Must exactly match the external hostname in the Workspace ONE UEM Tunnel configuration.'
+      }),
+      bool('airwatch_disableAutoConfigUpdate', 'Lock configuration (disable UEM auto-update)', 'disableAutoConfigUpdate', false, {
+        since: '2303',
+        omitDefault: true,
+        json: false,
+        help: 'Prevents configuration, authentication, certificate and networking auto-updates from Workspace ONE UEM.'
+      }),
+      text('airwatch_outboundProxyHost', 'Outbound proxy host', 'outboundProxyHost', { rule: 'hostOrIp', json: false }),
+      num('airwatch_outboundProxyPort', 'Outbound proxy port', 'outboundProxyPort', {
+        rule: 'port',
+        required: (v) => String(v.airwatch_outboundProxyHost ?? '').trim() !== '',
+        json: false
+      }),
+      text('airwatch_outboundProxyUsername', 'Outbound proxy user', 'outboundProxyUsername', { json: false }),
+      secret('airwatch_outboundProxyPassword', 'Outbound proxy password', 'outboundProxyPassword', { json: false }),
+      bool('airwatch_ntlmAuthentication', 'Use NTLM for outbound proxy', 'ntlmAuthentication', false, { omitDefault: true, json: false }),
+      text('airwatch_hostEntry1', 'Host entries', 'hostEntry1', {
+        rule: 'hostEntryList',
+        wide: true,
+        placeholder: '10.0.0.15 api.corp.local',
+        json: false,
+        help: 'Optional /etc/hosts entries: IP, hostname, optional alias, separated by spaces; separate entries with commas.'
+      }),
+      text('airwatch_trustedCert1', 'Trusted CA certificate (PEM path)', 'trustedCert1', {
+        wide: true,
+        placeholder: 'C:\\certs\\workspace-one-ca.pem',
+        json: false,
+        help: 'PEM certificate file added to the UAG trust store by the deployment script.'
+      }),
+      bool('airwatch_reinitializeGatewayProcess', 'Reinitialize gateway process', 'reinitializeGatewayProcess', false, {
+        omitDefault: true,
+        json: false,
+        inferred: true,
+        help: 'Present in the official sample INI, but Omnissa does not describe its semantics on the reference page. Leave false unless an appliance export or support guidance requires it.'
+      }),
+      text('airwatch_healthCheckUrl', 'Health check path', 'healthCheckUrl', {
+        rule: 'path',
+        default: '/favicon.ico',
+        json: false,
+        inferred: true,
+        help: 'Present in the official sample INI; the reference page does not state how this path is used.'
+      }),
+      text('airwatch_proxyDestinationUrl', 'Proxy destination URL', 'proxyDestinationUrl', {
+        rule: 'url',
+        wide: true,
+        json: false,
+        inferred: true,
+        help: 'Present in the official sample INI; its role is not described in the 2609 reference. Leave empty unless required by an exported appliance configuration.'
+      }),
+      text('airwatch_pacFilePath', 'PAC file path', 'pacFilePath', {
+        wide: true,
+        json: false,
+        inferred: true,
+        help: 'Present in the official sample INI; expected file format and location are not documented there.'
+      }),
+      text('airwatch_pacFileURL', 'PAC file URL', 'pacFileURL', {
+        rule: 'url',
+        wide: true,
+        json: false,
+        inferred: true,
+        help: 'Present in the official sample INI; interaction with pacFilePath is not documented.'
+      }),
+      text('airwatch_credentialFilePath', 'Credential file path', 'credentialFilePath', {
+        wide: true,
+        json: false,
+        inferred: true,
+        help: 'Present in the official sample INI; contents and deployment behavior are not documented in the reference.'
+      }),
+      bool('airwatch_airwatchOutboundProxy', 'Use AirWatch outbound proxy (legacy)', 'airwatchOutboundProxy', false, {
+        until: '2303',
+        omitDefault: true,
+        json: false,
+        inferred: true,
+        help: 'Documented in the UAG 2212 sample and replaced in later samples. Verify against the target release export.'
+      }),
+      bool('airwatch_tunnelProxyEnabled', 'Enable Tunnel proxy (legacy)', 'tunnelProxyEnabled', false, {
+        until: '2303',
+        omitDefault: true,
+        json: false,
+        inferred: true,
+        help: 'Documented in the UAG 2212 sample and absent from the UAG 2303+ sample. Verify against the target release export.'
       })
     ]
   },
@@ -799,7 +1160,9 @@ export const GROUPS: GroupDef[] = [
       text('obp_proxyUrl', 'Proxy URL', 'proxyUrl', { rule: 'url', required: true, wide: true, placeholder: 'http://proxy.corp.local:3128', json: false }),
       sel('obp_proxyType', 'Proxy type', 'proxyType', ['HTTP', 'HTTPS'], { default: 'HTTP', json: false }),
       text('obp_includedHosts1', 'Included hosts', 'includedHosts1', { wide: true, placeholder: 'api.example.com', json: false }),
-      text('obp_trustedCert1', 'Trusted CA cert (PEM path)', 'trustedCert1', { wide: true, json: false })
+      ...trustedCertFields((n) => `obp_trustedCert${n}`, {
+        help: 'CA certificates trusted for the outbound HTTPS proxy. File paths are deployment-time values.'
+      })
     ]
   },
   {
@@ -894,7 +1257,9 @@ export const LISTS: ListDef[] = [
       text('landingPagePath', 'Landing page path', 'landingPagePath', { rule: 'path', default: '/' }),
       text('userNameHeader', 'User name header', 'userNameHeader', { placeholder: 'AccessPoint-User-ID' }),
       text('hostEntry1', 'Host entry (/etc/hosts)', 'hostEntry1', { placeholder: '10.0.0.5 intranet.corp.local', wide: true }),
-      text('trustedCert1', 'Trusted CA cert (PEM path)', 'trustedCert1', { wide: true, json: false })
+      ...trustedCertFields((n) => `trustedCert${n}`, {
+        help: 'CA certificates trusted when connecting to this proxy destination. File paths are deployment-time values.'
+      })
     ]
   },
   {
@@ -937,7 +1302,8 @@ export const VIRTUAL_DEFAULTS: Values = {
   oidc_enabled: false,
   securid_enabled: false,
   certauth_enabled: false,
-  obp_enabled: false
+  obp_enabled: false,
+  airwatch_enabled: false
 };
 
 export function allGroupFields(): { group: GroupDef; field: Field }[] {

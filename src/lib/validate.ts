@@ -1,7 +1,9 @@
-import { GROUPS, LISTS, type Field, type Rule, type SectionId, type Values } from './schema';
+import { GROUPS, LISTS, deploymentNicCount, type Field, type Rule, type SectionId, type Values } from './schema';
 import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
 import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion, platformAvailable, platformDef } from './versions';
+import { sshPublicKeyValidationError } from './ssh';
+import { parseListValue } from './listValue';
 
 export type Level = 'error' | 'warn' | 'info';
 
@@ -13,12 +15,37 @@ export interface Issue {
   fieldId?: string;
   /** For list items: list id and 0-based index. */
   list?: { id: 'wrp' | 'syslog'; index: number };
+  /** For a row within a string-backed multi-value field. */
+  rowIndex?: number;
 }
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 const HOST = /^(?=.{1,253}$)([A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(\.[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*$/;
 
 export const isIpv4 = (s: string) => IPV4.test(s);
+
+function isIpv6(s: string): boolean {
+  if (!s.includes(':')) return false;
+  try {
+    return new URL(`http://[${s}]`).hostname.startsWith('[');
+  } catch {
+    return false;
+  }
+}
+
+function validStaticRoutes(s: string): string | null {
+  for (const route of s.split(',').map((x) => x.trim()).filter(Boolean)) {
+    const m = /^(\S+)\s+(\S+)$/.exec(route);
+    if (!m) return `Route "${route}" must be "IPv4-network/prefix gateway-IPv4"`;
+    const network = m[1].split('/');
+    const prefix = Number(network[1]);
+    if (network.length !== 2 || !IPV4.test(network[0]) || !Number.isInteger(prefix) || prefix < 0 || prefix > 32) {
+      return `"${m[1]}" is not an IPv4 CIDR network`;
+    }
+    if (!IPV4.test(m[2])) return `"${m[2]}" is not an IPv4 gateway`;
+  }
+  return null;
+}
 
 function hostPort(s: string): boolean {
   const m = /^(.+?)(?::(\d{1,5}))?$/.exec(s);
@@ -35,6 +62,13 @@ function validUrl(s: string, httpsOnly: boolean): boolean {
   } catch {
     return false;
   }
+}
+
+function validHostEntries(s: string): boolean {
+  return s.split(',').map((entry) => entry.trim()).filter(Boolean).every((entry) => {
+    const parts = entry.split(/\s+/);
+    return parts.length >= 2 && parts.length <= 3 && IPV4.test(parts[0]) && parts.slice(1).every((part) => HOST.test(part));
+  });
 }
 
 const HASH_LEN: Record<string, number> = { sha1: 40, sha256: 64, sha384: 96, sha512: 128 };
@@ -86,14 +120,36 @@ export function checkRule(rule: Rule, raw: string): string | null {
       return /^\d+$/.test(s) && Number(s) >= 1 && Number(s) <= 65535 ? null : 'Port must be 1-65535';
     case 'thumbprints':
       return validThumbprints(s);
+    case 'sshPublicKeys':
+      return sshPublicKeyValidationError(s);
     case 'uagName':
       return /^[A-Za-z0-9.-]{1,24}$/.test(s) ? null : 'Up to 24 characters: A-Z, 0-9, "-" and "."; no spaces';
+    case 'osLoginUsername':
+      return /^[a-z0-9_-]{1,32}$/.test(s) ? null : 'Up to 32 lowercase characters: a-z, 0-9, "_" and "-"';
+    case 'ascii':
+      return /^[\x20-\x7e]*$/.test(s) ? null : 'ASCII characters only; use literal \\n for line breaks';
     case 'ipv4Port': {
       const [ip, port] = s.split(':');
       return IPV4.test(ip) && (port === undefined || (Number(port) >= 1 && Number(port) <= 65535)) ? null : 'Must be an IPv4 address with optional :port';
     }
+    case 'ipv6':
+      return isIpv6(s) ? null : 'Not a valid IPv6 address';
+    case 'staticRoutes':
+      return validStaticRoutes(s);
+    case 'customConfig':
+      return s.split(';').map((x) => x.trim()).filter(Boolean).every((x) => /^[A-Za-z0-9_.-]+\^[A-Za-z0-9_.-]+=.*$/.test(x))
+        ? null
+        : 'Use semicolon-separated Section^Parameter=Value entries';
+    case 'hostEntryList':
+      return validHostEntries(s) ? null : 'Must contain comma-separated "IP hostname [alias]" entries';
     case 'path':
       return s.startsWith('/') ? null : 'Must start with "/"';
+    case 'pemPath': {
+      const absolute = /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(s);
+      if (!absolute) return 'Must be an absolute local path (Windows, UNC, or Unix)';
+      if (!/\.pem$/i.test(s)) return 'Must point to a .pem file';
+      return null;
+    }
     case 'int':
       return /^-?\d+$/.test(s) ? null : 'Must be an integer';
     case 'kubeName':
@@ -143,6 +199,25 @@ export function validateConfig(c: Config): Issue[] {
     if (!groupEnabled(g, c)) continue;
     for (const f of g.fields) {
       if (!fieldAvailable(f, c.version, c.platform, v)) continue;
+      if (f.rows) {
+        const rows = parseListValue(v[f.id]);
+        if (rows.length === 0) {
+          const required = typeof f.required === 'function' ? f.required(v) : f.required;
+          if (required) push({ level: 'error', section: g.section, fieldId: f.id, message: `${f.label} is required` });
+          continue;
+        }
+        rows.forEach((row, index) => {
+          const error = checkRule(f.rows!.rule, row);
+          if (error) push({
+            level: 'error',
+            section: g.section,
+            fieldId: f.id,
+            rowIndex: index,
+            message: `${f.rows!.itemLabel} ${index + 1}: ${error}`
+          });
+        });
+        continue;
+      }
       const msg = checkField(f, v);
       if (msg) push({ level: 'error', section: g.section, fieldId: f.id, message: msg });
     }
@@ -197,12 +272,21 @@ function lint(c: Config, push: Push): void {
   if (role === 'outer') {
     push({ level: 'info', section: 'horizon', fieldId: 'cascade_role', message: 'Outer UAG: Horizon edge service is replaced by a "Horizon-WRP" reverse proxy to the inner UAG. Set Blast/tunnel external URLs on the INNER UAG to this UAG\'s public FQDN.' });
     if (String(v.deploymentOption).startsWith('onenic')) push({ level: 'info', section: 'network', fieldId: 'deploymentOption', message: 'Cascade: use separate NICs/DMZ networks so the outer UAG can reach DMZ 2 only through the inter-DMZ firewall.' });
-    if (!nonEmpty('cascade_innerThumbprints') && !nonEmpty('cascade_innerTrustedCert') && nonEmpty('cascade_innerUrl')) push({ level: 'info', section: 'horizon', fieldId: 'cascade_innerThumbprints', message: 'No inner UAG thumbprint or trusted CA certificate: required if the inner UAG uses a self-signed or private-CA certificate.' });
+    if (!nonEmpty('cascade_innerThumbprints') && !['cascade_innerTrustedCert', ...Array.from({ length: 8 }, (_, i) => `cascade_innerTrustedCert${i + 2}`)].some(nonEmpty) && nonEmpty('cascade_innerUrl')) push({ level: 'info', section: 'horizon', fieldId: 'cascade_innerThumbprints', message: 'No inner UAG thumbprint or trusted CA certificate: required if the inner UAG uses a self-signed or private-CA certificate.' });
     if (v.cascade_fwdPcoipTcp === true !== (v.cascade_fwdPcoipUdp === true)) push({ level: 'warn', section: 'horizon', fieldId: 'cascade_fwdPcoipTcp', message: 'PCoIP needs both TCP and UDP 4172 forwarded.' });
   }
   if (role === 'inner') {
     push({ level: 'info', section: 'horizon', fieldId: 'cascade_role', message: 'Inner UAG: allow only the outer UAG\'s IPs through the inter-DMZ firewall, and point Blast/tunnel external URLs at the OUTER UAG\'s public FQDN.' });
     if (v.horizon_enabled !== true) push({ level: 'error', section: 'horizon', fieldId: 'horizon_enabled', message: 'The inner UAG of a cascade must have the Horizon edge service enabled.' });
+  }
+
+  if (v.airwatch_enabled === true) {
+    if (c.platform === 'azure') push({ level: 'error', section: 'tunnel', message: 'Workspace ONE Tunnel on UAG is documented for vSphere and Hyper-V PowerShell deployments, not Azure.' });
+    if (v.airwatch_tunnelGatewayEnabled !== true) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_tunnelGatewayEnabled', message: 'Tunnel gateway must be enabled for the [Airwatch] section to configure an active Tunnel service.' });
+    if (v.airwatch_outboundProxyHost && isEmpty(v.airwatch_outboundProxyPort)) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_outboundProxyPort', message: 'Outbound proxy port is required when an outbound proxy host is set.' });
+    if (!!v.airwatch_outboundProxyUsername !== !!v.airwatch_outboundProxyPassword) push({ level: 'warn', section: 'tunnel', fieldId: 'airwatch_outboundProxyPassword', message: 'Outbound proxy user and password should be configured together.' });
+    if (v.airwatch_tunnelProxyEnabled === true || v.airwatch_airwatchOutboundProxy === true) push({ level: 'info', section: 'tunnel', message: 'Legacy 2212 proxy switches are present only for historical imports; current UAG releases do not document them.' });
+    if (v.airwatch_pacFilePath && v.airwatch_pacFileURL) push({ level: 'warn', section: 'tunnel', fieldId: 'airwatch_pacFileURL', message: 'Both PAC file path and URL are set; the 2609 reference does not document how they interact.' });
   }
 
   if (c.syslog.length === 0) push({ level: 'warn', section: 'monitoring', message: 'No syslog server configured - events stay on the appliance.' });
@@ -220,18 +304,41 @@ function lint(c: Config, push: Push): void {
   if (c.platform === 'vsphere' && v.run_disableVerification === true) push({ level: 'warn', section: 'network', fieldId: 'run_disableVerification', message: '-disableVerification is on: the OVA/OVF signature and certificate chain are not validated. Only use with an image you downloaded from Omnissa and verified yourself.' });
   if (v.ceipEnabled === true) push({ level: 'info', section: 'general', fieldId: 'ceipEnabled', message: 'CEIP is enabled - the appliance sends telemetry to Omnissa.' });
 
+  const sshInterface = String(v.sshInterface ?? '');
+  const nicCount = deploymentNicCount(v);
+  if (v.sshEnabled === true && sshInterface && Number(sshInterface.slice(3)) >= nicCount) {
+    push({ level: 'error', section: 'general', fieldId: 'sshInterface', message: `${sshInterface} is not present in the selected ${nicCount}-NIC deployment.` });
+  }
+  const staticIpv6 = String(v.v6ip0 ?? '');
+  if (staticIpv6 && !String(v.ipmode0 ?? '').includes('STATICV6')) {
+    push({ level: 'warn', section: 'network', fieldId: 'ipmode0', message: 'NIC0 has a static IPv6 address but ipmode0 does not include STATICV6.' });
+  }
+  if (nicCount === 1) {
+    for (const key of ['routes1', 'routes2', 'eth1CustomConfig', 'eth2CustomConfig']) {
+      if (nonEmpty(key)) push({ level: 'error', section: 'network', fieldId: key, message: `${key} is configured but the selected deployment has only NIC0.` });
+    }
+  } else if (nicCount === 2 && (nonEmpty('routes2') || nonEmpty('eth2CustomConfig'))) {
+    for (const key of ['routes2', 'eth2CustomConfig']) {
+      if (nonEmpty(key)) push({ level: 'error', section: 'network', fieldId: key, message: `${key} is configured but the selected two-NIC deployment has no NIC2.` });
+    }
+  }
+
   const latest = VERSIONS.find((x) => x.latest);
   if (latest && c.version !== latest.id) push({ level: 'info', section: 'general', message: `UAG ${latest.id} is available; you are targeting ${c.version}. Stay current for security fixes.` });
 
   if (String(v.deploymentOption).startsWith('onenic') && v.gatewayLocation === 'external' && horizon) push({ level: 'info', section: 'network', fieldId: 'deploymentOption', message: 'Single-NIC deployment: for DMZ use consider twonic/threenic to separate Internet, management and backend traffic.' });
 
-  const ip0 = !v.ipMode0 || v.ipMode0 === 'STATICV4' ? String(v.ip0 ?? '') : '';
-  const ips = ['ip0', 'ip1', 'ip2'].filter((k) => {
-    const mode = v[`ipMode${k.slice(-1)}`];
-    return !mode || mode === 'STATICV4';
-  }).map((k) => String(v[k] ?? '')).filter(Boolean);
-  if (new Set(ips).size !== ips.length) push({ level: 'error', section: 'network', message: 'Two NICs share the same IP address.' });
-  if (ip0 && nonEmpty('netmask0') && nonEmpty('defaultGateway')) {
+  const ip0 = String(v.ip0 ?? '');
+  const activeIpIds = ['ip0', 'ip1', 'ip2'].slice(0, deploymentNicCount(v));
+  const ips = activeIpIds.map((k) => String(v[k] ?? '')).filter(Boolean);
+  const activeStaticIps = (c.platform === 'nutanix' || c.platform === 'openshift')
+    ? activeIpIds.filter((k) => v[`ipMode${k.slice(-1)}`] === 'STATICV4').map((k) => String(v[k] ?? '')).filter(Boolean)
+    : ips;
+  if (c.platform !== 'azure' && new Set(activeStaticIps).size !== activeStaticIps.length) {
+    push({ level: 'error', section: 'network', message: 'Two applicable NICs share the same IP address.' });
+  }
+  const staticNic0 = c.platform === 'vsphere' || c.platform === 'hyperv' || v.ipMode0 === 'STATICV4';
+  if (staticNic0 && ip0 && nonEmpty('netmask0') && nonEmpty('defaultGateway')) {
     const a = netOf(ip0, String(v.netmask0));
     const b = netOf(String(v.defaultGateway), String(v.netmask0));
     if (a !== null && b !== null && a !== b) push({ level: 'warn', section: 'network', fieldId: 'defaultGateway', message: 'Default gateway is not in the NIC0 subnet.' });
@@ -239,7 +346,7 @@ function lint(c: Config, push: Push): void {
 
   if (horizon) {
     const url = String(v.proxyDestinationUrl ?? '');
-    if (url && validUrl(url, true) && !nonEmpty('proxyDestinationUrlThumbprints') && !nonEmpty('trustedCert1')) push({ level: 'info', section: 'horizon', fieldId: 'trustedCert1', message: 'No Connection Server thumbprint or trusted CA certificate: one of them is required if its certificate is self-signed or from a private CA.' });
+    if (url && validUrl(url, true) && !nonEmpty('proxyDestinationUrlThumbprints') && !Array.from({ length: 9 }, (_, i) => `trustedCert${i + 1}`).some(nonEmpty)) push({ level: 'info', section: 'horizon', fieldId: 'trustedCert1', message: 'No Connection Server thumbprint or trusted CA certificate: one of them is required if its certificate is self-signed or from a private CA.' });
     const tp = String(v.proxyDestinationUrlThumbprints ?? '');
     if (tp && tp.split(',').some((e) => parseThumbprint(e)?.alg === 'sha1')) push({ level: 'warn', section: 'horizon', fieldId: 'proxyDestinationUrlThumbprints', message: 'SHA-1 thumbprint in use - prefer SHA-256 or stronger.' });
     if (v.minSHAHashSize === 'SHA-1' && c.version >= '2312') push({ level: 'warn', section: 'horizon', fieldId: 'minSHAHashSize', message: 'Minimum SHA hash size is SHA-1, which is not recommended.' });
@@ -278,7 +385,7 @@ function lint(c: Config, push: Push): void {
 
 export function countBySection(issues: Issue[]): Record<SectionId, { error: number; warn: number; info: number }> {
   const out = {} as Record<SectionId, { error: number; warn: number; info: number }>;
-  for (const s of ['general', 'network', 'horizon', 'wrp', 'auth', 'tls', 'monitoring', 'templates'] as SectionId[]) out[s] = { error: 0, warn: 0, info: 0 };
+  for (const s of ['general', 'network', 'horizon', 'tunnel', 'wrp', 'auth', 'tls', 'monitoring', 'templates'] as SectionId[]) out[s] = { error: 0, warn: 0, info: 0 };
   for (const i of issues) out[i.section][i.level]++;
   return out;
 }
