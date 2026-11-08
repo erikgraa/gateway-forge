@@ -23,6 +23,10 @@ describe('field validation', () => {
     expect(checkRule('uagName', 'uag-dmz-01')).toBeNull();
     expect(checkRule('uagName', 'this-name-is-way-too-long-for-uag')).not.toBeNull();
     expect(checkRule('ipList', '10.0.0.1 10.0.0.2')).toBeNull();
+    expect(checkRule('hostPortList', 'uag.example.com:8443,_empty_')).toBeNull();
+    expect(checkRule('hostPortList', 'bad host')).not.toBeNull();
+    expect(checkRule('hostEntry', '192.0.2.10 cs.example.com cs')).toBeNull();
+    expect(checkRule('redirectMappings', 'client.example.com_uag-01.example.com:443')).toBeNull();
   });
 
   it('validates thumbprint formats and lengths', () => {
@@ -67,6 +71,28 @@ describe('config validation', () => {
     expect(messages(c).join('\n')).toMatch(/error:Horizon uses RADIUS/);
     const t = applyPatch(c, { values: { radius_enabled: true, radius_numAttempts: 10, radius_serverTimeout: 20, radius_hostName: 'r' } });
     expect(messages(t).join('\n')).toMatch(/must not exceed 120/);
+  });
+  it('validates combined authentication methods and Horizon interactions', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        authMethods: 'saml-auth-and-unauthenticated',
+        gatewayLocation: 'external',
+        saml_enabled: false,
+        origin: 'not an origin',
+        additionalBlastExternalUrls: 'https://vdi.example.com:443,https://vdi.example.com:8443',
+        blastExternalUrl: 'https://vdi.example.com:10443',
+        canonicalizationEnabled: false
+      }
+    });
+    const m = messages(c).join('\n');
+    expect(m).toMatch(/SAML authentication but no SAML/);
+    expect(m).toMatch(/Unauthenticated Horizon authentication methods require Gateway location/);
+    expect(m).toMatch(/Allowed origin 1/);
+    expect(m).toMatch(/Blast external URLs must be unique/);
+    expect(m).toMatch(/canonicalization is disabled/);
+    expect(messages(applyPatch(defaultConfig(), {
+      values: { authMethods: 'securid-auth-and-unauthenticated', gatewayLocation: 'internal' }
+    })).join('\n')).toMatch(/RSA SecurID is not configured/);
   });
 
   it('detects duplicate NIC IPs and gateway outside subnet', () => {
