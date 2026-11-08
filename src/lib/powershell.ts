@@ -5,6 +5,8 @@ import { sshPublicKeys } from './ssh';
 
 const psq = (s: string) => `'${s.replace(/'/g, "''")}'`;
 
+export type DeploymentMode = 'interactive' | 'headless';
+
 /** Run-time switches for the deploy script (not INI settings). */
 export function runtimeSwitches(c: Config): string {
   let s = '';
@@ -14,8 +16,12 @@ export function runtimeSwitches(c: Config): string {
 }
 
 /** PowerShell that writes the INI and runs the deployment script. */
-export function generatePowerShell(c: Config, mode: SecretMode = 'placeholder'): string {
-  const ini = generateIni(c, { secrets: mode });
+export function generatePowerShell(
+  c: Config,
+  secretMode: SecretMode = 'placeholder',
+  deploymentMode: DeploymentMode = 'interactive'
+): string {
+  const ini = generateIni(c, { secrets: secretMode });
   const file = iniFileName(c);
   const script = platformScript(c);
   const def = platformDef(c.platform);
@@ -40,32 +46,25 @@ export function generatePowerShell(c: Config, mode: SecretMode = 'placeholder'):
       out.push(`$sshKey = @'`, key.data!, `'@`, `Set-Content -Path .\\${key.fileName} -Value $sshKey -Encoding ASCII`, '');
     }
   }
-  if (mode === 'placeholder' && ini.includes('<REDACTED>')) out.push('# Replace every <REDACTED> value in the INI before deploying.', '');
-  out.push(`# 2. Password handling and deployment`);
-  out.push(`# Gateway Forge never requests or stores the UAG root or Admin UI passwords.`);
-  out.push(`# Omnissa's headless parameter reference marks -rootPwd and -adminPwd as mandatory.`);
-  out.push(`# Its deployment workflow also documents an intentional immutable option: if no post-deployment changes are needed,`);
-  out.push(`# the Admin UI password can be left unset. The Admin UI and API are then unavailable, no user can be added later,`);
-  out.push(`# and the appliance must be redeployed to regain administrative access. This does not remove the root account.`);
-  out.push(`# References: https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters`);
-  out.push(`#             https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy`);
-  out.push(`# For replace-on-failure workflows, test this tradeoff and the complete INI as a recovery baseline, and retain the`);
-  out.push(`# deployment artifacts in an approved secrets-managed location outside Gateway Forge and the exported script.`);
-  out.push('');
-  out.push(`# 2a. Interactive deployment (the deployment script prompts for credentials)`);
-  out.push(invocation + sw, '');
-  out.push(`# 2b. Non-interactive deployment: -rootPwd / -adminPwd are read at deploy time and are never stored in the INI (min 8 characters; 14 for FIPS)`);
-  out.push(`$rootPwd  = Read-Host 'UAG root password'  -AsSecureString`);
-  out.push(`$adminPwd = Read-Host 'UAG admin password' -AsSecureString`);
-  out.push(`$plain = { param($s) [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s)) }`);
-  if (c.platform === 'openshift' && isEmpty(c.values.ocp_bearerToken)) {
-    out.push(`$openshiftPwd = Read-Host 'OpenShift password' -AsSecureString`);
-  }
-  const openshiftPassword = c.platform === 'openshift' && isEmpty(c.values.ocp_bearerToken) ? ' -openshiftPassword (& $plain $openshiftPwd)' : '';
-  if (def.nonInteractive === 'positional') {
-    out.push(`.\\${script} .\\${file} (& $plain $rootPwd) (& $plain $adminPwd) no${sw}   # <ceip-yes-no> follows the passwords`);
+  if (secretMode === 'placeholder' && ini.includes('<REDACTED>')) out.push('# Replace every <REDACTED> value in the INI before deploying.', '');
+  out.push('# 2. Deploy the appliance');
+  if (deploymentMode === 'interactive') {
+    out.push('# Interactive mode: the deployment script prompts for the root and Admin UI passwords.');
+    out.push(invocation + sw);
   } else {
-    out.push(`${invocation} -rootPwd (& $plain $rootPwd) -adminPwd (& $plain $adminPwd)${sw}${openshiftPassword}`);
+    out.push('# Headless mode: passwords are read from the runtime environment and never written to this script or the INI.');
+    out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running headless deployment.' }`);
+    out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.' }`);
+    const needsOpenShiftPassword = c.platform === 'openshift' && isEmpty(c.values.ocp_bearerToken);
+    if (needsOpenShiftPassword) {
+      out.push(`if ([string]::IsNullOrWhiteSpace($env:OPENSHIFT_PASSWORD)) { throw 'Set OPENSHIFT_PASSWORD before running headless OpenShift deployment.' }`);
+    }
+    const openshiftPassword = needsOpenShiftPassword ? ' -openshiftPassword $env:OPENSHIFT_PASSWORD' : '';
+    if (def.nonInteractive === 'positional') {
+      out.push(`${invocation} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no${sw}`);
+    } else {
+      out.push(`${invocation} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD${sw}${openshiftPassword}`);
+    }
   }
   out.push('');
   return out.join('\n');

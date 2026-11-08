@@ -7,6 +7,7 @@ export type FieldType = 'text' | 'number' | 'bool' | 'select' | 'secret' | 'text
 
 export type Rule =
   | 'ipv4'
+  | 'dnsDomain'
   | 'hostOrIp'
   | 'hostList'
   | 'ipList'
@@ -27,7 +28,10 @@ export type Rule =
   | 'customConfig'
   | 'hostEntryList'
   | 'path'
-  | 'int';
+  | 'int'
+  | 'hostPortList'
+  | 'hostEntry'
+  | 'redirectMappings';
 
 export type SectionId = 'general' | 'network' | 'horizon' | 'tunnel' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
 
@@ -47,8 +51,7 @@ export type Target =
   | 'securid'
   | 'certauth'
   | 'proxy'
-  | 'cascade'
-  | 'runtime';
+  | 'cascade';
 
 export function deploymentNicCount(v: Values): 1 | 2 | 3 {
   const option = String(v.deploymentOption);
@@ -72,7 +75,7 @@ export interface Field {
   json?: string | false;
   default?: Primitive;
   options?: Option[];
-  help?: string;
+  help?: string | ((platform: Platform) => string);
   placeholder?: string;
   since?: string;
   until?: string;
@@ -85,9 +88,12 @@ export interface Field {
   platforms?: Platform[];
   /** Key or semantics require verification against the official source. */
   inferred?: boolean;
+  /** Alternative INI spellings accepted during import (generation uses `key`). */
+  aliases?: string[];
   /** 1-based position in an ordered trustedCert1-trustedCert9 field family. */
   trustedCertIndex?: number;
   wide?: boolean;
+  maxLength?: number;
   /** Emit to INI only when the user sets it (not when equal to the documented default). */
   omitDefault?: boolean;
   /** This field needs format-specific output rather than a direct INI entry. */
@@ -95,8 +101,12 @@ export interface Field {
   /** Edit a string-backed, space-separated value as individually validated rows. */
   rows?: {
     itemLabel: string;
-    rule: 'ipv4' | 'hostOrIp';
+    rule: 'ipv4' | 'dnsDomain' | 'hostOrIp';
   };
+}
+
+export function fieldHelp(field: Field, platform: Platform): string | undefined {
+  return typeof field.help === 'function' ? field.help(platform) : field.help;
 }
 
 export interface GroupDef {
@@ -182,6 +192,11 @@ const secret = (id: string, label: string, key: string, extra: Partial<Field> = 
   ...extra
 });
 
+const usesRadius = (v: Values) => String(v.authMethods).startsWith('radius-auth') || v.authMethods === 'certificate-auth-and-radius-auth';
+const usesSaml = (v: Values) => String(v.authMethods).startsWith('saml-auth') || v.authMethods === 'device-certificate-auth-and-saml-auth';
+const usesSecurId = (v: Values) => String(v.authMethods).startsWith('securid-auth');
+const usesCertificate = (v: Values) => String(v.authMethods).includes('certificate-auth');
+
 const trustedCertFields = (
   idFor: (index: number) => string,
   extra: Partial<Field> = {}
@@ -201,9 +216,17 @@ const trustedCertFields = (
 export const AUTH_METHODS: Option[] = [
   { value: 'passthrough', label: 'Passthrough (username/password)' },
   { value: 'radius-auth', label: 'RADIUS' },
+  { value: 'radius-auth-and-unauthenticated', label: 'RADIUS and unauthenticated' },
   { value: 'saml-auth', label: 'SAML' },
+  { value: 'saml-auth-and-passthrough', label: 'SAML and passthrough' },
+  { value: 'saml-auth-and-unauthenticated', label: 'SAML and unauthenticated' },
   { value: 'securid-auth', label: 'RSA SecurID' },
+  { value: 'securid-auth-and-unauthenticated', label: 'RSA SecurID and unauthenticated' },
   { value: 'certificate-auth', label: 'X.509 certificate' },
+  { value: 'certificate-auth-and-passthrough', label: 'X.509 certificate or passthrough' },
+  { value: 'certificate-auth-and-radius-auth', label: 'X.509 certificate or RADIUS' },
+  { value: 'device-certificate-auth-and-passthrough', label: 'Device X.509 certificate and passthrough' },
+  { value: 'device-certificate-auth-and-saml-auth', label: 'Device X.509 certificate and SAML' },
   { value: 'oidc-auth', label: 'OpenID Connect' }
 ];
 
@@ -283,7 +306,8 @@ export const GROUPS: GroupDef[] = [
         rule: 'uagName',
         required: true,
         placeholder: 'uag-dmz-01',
-        help: 'Up to 24 characters: A-Z, 0-9, minus and period; no spaces. Must match the VM name on Azure.'
+        help: (platform) =>
+          `Up to 24 characters: A-Z, 0-9, minus and period; no spaces.${platform === 'azure' ? ' Must match the VM name on Azure.' : ''}`
       }),
       bool('ceipEnabled', 'Join CEIP (Customer Experience Improvement Program)', 'ceipEnabled', false, {
         help: 'Sends telemetry to Omnissa from the appliance. Off by default in Gateway Forge.'
@@ -551,27 +575,6 @@ export const GROUPS: GroupDef[] = [
     ]
   },
   {
-    id: 'runtime',
-    title: 'Run-time options (uagdeploy.ps1)',
-    section: 'network',
-    target: 'runtime',
-    iniSection: 'Runtime',
-    help: 'Not INI settings: these are passed on the uagdeploy command line and only affect the PowerShell output. Gateway Forge never asks for or stores the UAG root or Admin UI passwords. Omnissa marks -rootPwd and -adminPwd as mandatory for headless deployment. It separately documents an immutable option without an Admin UI password: the appliance can be production-ready, but the Admin UI and API are unavailable, no user can be added later, and administrative recovery requires redeployment. This is not a passwordless appliance; assess console access, break-glass recovery, logging, rotation, and compliance before choosing that model.',
-    fields: [
-      bool('run_noSSLVerify', 'Skip SSL/TLS certificate verification (-noSSLVerify)', 'run_noSSLVerify', false, {
-        wide: true,
-        json: false,
-        help: 'Disables SSL/TLS certificate verification in the deployment script. Use only in labs or with self-signed endpoints you trust.'
-      }),
-      bool('run_disableVerification', 'Skip OVA/OVF signature verification (-disableVerification)', 'run_disableVerification', false, {
-        wide: true,
-        json: false,
-        platforms: ['vsphere'],
-        help: 'vSphere only. Skips validating the digital signature and certificate chain embedded in the source OVA/OVF during import.'
-      })
-    ]
-  },
-  {
     id: 'dns',
     title: 'DNS & time',
     section: 'network',
@@ -586,7 +589,12 @@ export const GROUPS: GroupDef[] = [
         json: false,
         help: 'Add each IPv4 address on its own row.'
       }),
-      text('dnsSearch', 'DNS search domains', 'dnsSearch', { placeholder: 'corp.local', json: false }),
+      text('dnsSearch', 'DNS search domains', 'dnsSearch', {
+        rows: { itemLabel: 'DNS search domain', rule: 'dnsDomain' },
+        placeholder: 'corp.local',
+        json: false,
+        help: 'Add each DNS search domain on its own row.'
+      }),
       text('ntpServers', 'NTP servers', 'ntpServers', {
         rule: 'hostList',
         rows: { itemLabel: 'NTP server', rule: 'hostOrIp' },
@@ -667,6 +675,7 @@ export const GROUPS: GroupDef[] = [
       }),
       text('additionalTunnelExternalUrls', 'Additional tunnel external URLs', 'additionalTunnelExternalUrls', {
         rule: 'urlList',
+        aliases: ['tunnelUrls'],
         since: '2412',
         wide: true,
         showIf: (v) => v.tunnelEnabled === true,
@@ -681,16 +690,23 @@ export const GROUPS: GroupDef[] = [
       }),
       text('additionalBlastExternalUrls', 'Additional Blast external URLs', 'additionalBlastExternalUrls', {
         rule: 'urlList',
+        aliases: ['blastUrls'],
         since: '2412',
         wide: true,
         showIf: (v) => v.blastEnabled === true
       }),
       text('blastAllowedHostHeaderValues', 'Blast allowed Host header values', 'blastAllowedHostHeaderValues', {
+        rule: 'hostPortList',
         wide: true,
         showIf: (v) => v.blastEnabled === true,
         help: 'host[:port] list; use _empty_ to allow requests without a Host header.'
       }),
       bool('pcoipEnabled', 'Enable PCoIP', 'pcoipEnabled', false),
+      bool('pcoipDisableLegacyCertificate', 'Use appliance certificate for PCoIP', 'pcoipDisableLegacyCertificate', false, {
+        since: '2506',
+        showIf: (v) => v.pcoipEnabled === true,
+        help: 'Disables the legacy PCoIP certificate. Legacy PCoIP clients cannot connect.'
+      }),
       text('pcoipExternalUrl', 'PCoIP external URL', 'pcoipExternalUrl', {
         rule: 'ipv4Port',
         placeholder: '192.0.2.21:4172',
@@ -700,33 +716,135 @@ export const GROUPS: GroupDef[] = [
       sel('clientEncryptionMode', 'Client encryption mode', 'clientEncryptionMode', ['ALLOWED', 'REQUIRED', 'DISABLED'], { default: 'ALLOWED' }),
       bool('hostRedirectionEnabled', 'Honor Connection Server redirect', 'hostRedirectionEnabled', false),
       bool('originCheckEnabled', 'Origin header check', 'originCheckEnabled', true, { since: '2503' }),
+      text('origin', 'Allowed origins', 'origin', {
+        type: 'textarea',
+        since: '2503',
+        wide: true,
+        showIf: (v) => v.originCheckEnabled === true,
+        help: 'One origin per line. Optional details: origin | rewriteEnabled | autoGenerated. URLs and hostnames are accepted.',
+        aliases: ['originHeaderDetailsList']
+      }),
       bool('disableWebClient', 'Disable web client access', 'disableWebClient', false, { since: '2412' }),
       bool('windowsSSOEnabled', 'Windows SSO (RADIUS passcode = AD password)', 'windowsSSOEnabled', false, {
-        showIf: (v) => v.authMethods === 'radius-auth'
+        showIf: usesRadius
       }),
-      bool('matchWindowsUserName', 'Match Windows user name', 'matchWindowsUserName', false),
-      bool('smartCardHintPrompt', 'Smart card hint prompt', 'smartCardHintPrompt', false, { showIf: (v) => v.authMethods === 'certificate-auth' }),
-      bool('enableAuthOnRedirectedSite', 'Re-authenticate on home site (CPA)', 'enableAuthOnRedirectedSite', false, { since: '2406' }),
+      text('radiusClassAttributeList', 'RADIUS class attributes', 'radiusClassAttributeList', {
+        since: '2506',
+        wide: true,
+        showIf: usesRadius,
+        help: 'Comma-separated class attributes used for additional authorization.'
+      }),
+      text('disclaimerText', 'Horizon disclaimer text', 'disclaimerText', { wide: true }),
+      bool('proxyDestinationPreLoginMessageEnabled', 'Show Connection Server pre-login message', 'proxyDestinationPreLoginMessageEnabled', true, {
+        since: '2609',
+        help: 'Controls whether a pre-login message configured on Connection Server is shown.'
+      }),
+      bool('matchWindowsUserName', 'Match Windows user name', 'matchWindowsUserName', false, {
+        showIf: (v) => usesSecurId(v) || usesRadius(v)
+      }),
+      bool('smartCardHintPrompt', 'Smart card hint prompt', 'smartCardHintPrompt', false, { showIf: usesCertificate }),
+      bool('logoutOnCertRemoval', 'Log out when certificate is removed', 'logoutOnCertRemoval', false, {
+        since: '2506',
+        showIf: usesCertificate
+      }),
+      bool('enableAuthOnRedirectedSite', 'Re-authenticate on home site (CPA)', 'enableAuthOnRedirectedSite', false, {
+        since: '2406',
+        showIf: (v) => [
+          'radius-auth',
+          'radius-auth-and-unauthenticated',
+          'securid-auth',
+          'securid-auth-and-unauthenticated',
+          'certificate-auth',
+          'certificate-auth-and-passthrough',
+          'certificate-auth-and-radius-auth',
+          'device-certificate-auth-and-passthrough'
+        ].includes(String(v.authMethods))
+      }),
       text('radiusUsernameLabel', 'RADIUS username label', 'radiusUsernameLabel', {
-        showIf: (v) => v.authMethods === 'radius-auth',
+        showIf: usesRadius,
         placeholder: 'Username',
+        maxLength: 20,
         help: 'Max 20 characters.'
       }),
       text('radiusPasscodeLabel', 'RADIUS passcode label', 'radiusPasscodeLabel', {
-        showIf: (v) => v.authMethods === 'radius-auth',
+        showIf: usesRadius,
         placeholder: 'Passcode',
+        maxLength: 20,
         help: 'Max 20 characters.'
       }),
-      text('samlSP', 'SAML service provider name', 'samlSP', { showIf: (v) => v.authMethods === 'saml-auth', help: 'Name of the SP metadata, or DEMO.' }),
-      text('idpEntityID', 'SAML identity provider entity ID', 'idpEntityID', { since: '2603', showIf: (v) => v.authMethods === 'saml-auth', wide: true }),
-      sel('idpBindingType', 'SAML binding', 'idpBindingType', ['POST', 'ARTIFACT'], { since: '2603', showIf: (v) => v.authMethods === 'saml-auth' }),
-      text('allowedAudiences', 'SAML audiences', 'allowedAudiences', { showIf: (v) => v.authMethods === 'saml-auth', wide: true }),
+      text('horizon_oidcConfigurationId', 'OIDC configuration ID', 'oidcConfigurationId', {
+        since: '2506',
+        showIf: (v) => v.authMethods === 'oidc-auth',
+        required: (v) => v.authMethods === 'oidc-auth',
+        help: 'Name of a configured OIDC provider.'
+      }),
+      text('samlSP', 'SAML service provider name', 'samlSP', { showIf: usesSaml, help: 'Name of the SP metadata, or DEMO.' }),
+      text('idpEntityID', 'SAML identity provider entity ID', 'idpEntityID', { since: '2603', showIf: usesSaml, wide: true }),
+      sel('idpBindingType', 'SAML binding', 'idpBindingType', ['POST', 'ARTIFACT'], { since: '2603', showIf: usesSaml }),
+      text('allowedAudiences', 'SAML audiences', 'allowedAudiences', { showIf: usesSaml, wide: true }),
+      text('samlUnauthUsernameAttribute', 'SAML unauthenticated username attribute', 'samlUnauthUsernameAttribute', {
+        since: '2506',
+        showIf: (v) => v.authMethods === 'saml-auth-and-unauthenticated'
+      }),
+      text('defaultUnauthUsername', 'Default unauthenticated username', 'defaultUnauthUsername', {
+        since: '2506',
+        showIf: (v) => String(v.authMethods).includes('unauthenticated')
+      }),
+      bool('udpTunnelServerEnabled', 'Enable UDP tunnel server', 'udpTunnelServerEnabled', true, {
+        since: '2506',
+        help: 'Disable when Connection Server must receive the client source IP instead of 127.0.0.1.'
+      }),
+      num('queryBrokerInterval', 'Connection Server query interval (s)', 'queryBrokerInterval', {
+        since: '2609',
+        default: 300,
+        min: 1
+      }),
+      text('proxyBlastPemCert', 'Blast proxy certificate (PEM path)', 'proxyBlastPemCert', {
+        since: '2506',
+        wide: true,
+        json: false
+      }),
+      text('proxyTunnelPemCert', 'Tunnel proxy certificate (PEM path)', 'proxyTunnelPemCert', {
+        since: '2506',
+        wide: true,
+        json: false
+      }),
+      text('endpointComplianceCheckProvider', 'Endpoint compliance provider', 'endpointComplianceCheckProvider', {
+        wide: true,
+        help: 'Exact name of a provider configured in Advanced Settings; blank means none.'
+      }),
+      bool('complianceCheckOnAuthentication', 'Check compliance on authentication', 'complianceCheckOnAuthentication', true, {
+        showIf: (v) => Boolean(v.endpointComplianceCheckProvider)
+      }),
+      bool('canonicalizationEnabled', 'Canonicalize paths before proxy-pattern match', 'canonicalizationEnabled', true, {
+        since: '2506'
+      }),
       text('healthCheckUrl', 'Health check URI', 'healthCheckUrl', { rule: 'path', placeholder: '/favicon.ico' }),
       text('proxyPattern', 'Proxy pattern (regex)', 'proxyPattern', {
         wide: true,
         placeholder: '(/|/view-client(.*)|/portal(.*)|/appblast(.*))',
         help: 'Leave empty for the Horizon default.'
-      })
+      }),
+      text('redirectHostPortMappingList', 'Host/port redirect mappings', 'redirectHostPortMappingList', {
+        since: '2506',
+        rule: 'redirectMappings',
+        wide: true,
+        help: 'Comma-separated source_host:port_redirect_host:port mappings; default port is 443.'
+      }),
+      text('securityHeaders', 'Response security headers', 'securityHeaders', {
+        since: '2506',
+        type: 'textarea',
+        wide: true,
+        json: false,
+        help: 'INI serialization copied from an appliance export. JSON object shape is not documented and is intentionally not exported.'
+      }),
+      ...Array.from({ length: 5 }, (_, i) => text(`hostEntry${i + 1}`, `Host entry ${i + 1}`, `hostEntry${i + 1}`, {
+        rule: 'hostEntry',
+        inferred: i > 0,
+        wide: true,
+        placeholder: '10.192.168.1 cs1.corp.local cs1',
+        help: 'IP address, hostname, and optional alias, separated by spaces.'
+      }))
     ]
   },
   {
@@ -1204,8 +1322,19 @@ export const VIRTUAL_DEFAULTS: Values = {
   securid_enabled: false,
   certauth_enabled: false,
   obp_enabled: false,
-  airwatch_enabled: false
+  airwatch_enabled: false,
+  run_noSSLVerify: false,
+  run_disableVerification: false
 };
+
+/** Legacy runtime-only INI fields retained for draft/import compatibility, but not rendered in the form or INI/JSON output. */
+export const RUNTIME_FIELDS: Field[] = [
+  bool('run_noSSLVerify', 'Skip SSL/TLS certificate verification (-noSSLVerify)', 'run_noSSLVerify', false, { json: false }),
+  bool('run_disableVerification', 'Skip OVA/OVF signature verification (-disableVerification)', 'run_disableVerification', false, {
+    json: false,
+    platforms: ['vsphere']
+  })
+];
 
 export function allGroupFields(): { group: GroupDef; field: Field }[] {
   return GROUPS.flatMap((group) => group.fields.map((field) => ({ group, field })));
