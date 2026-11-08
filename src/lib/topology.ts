@@ -53,6 +53,12 @@ export function buildTopology(c: Config): Topology {
     nodes.push({ id: 'idp', label: 'SAML IdP', sub: host(v.saml_entityID), kind: 'aux' });
     edges.push({ from: 'uag', to: 'idp', label: 'SAML' });
   }
+  if (v.airwatch_enabled === true) {
+    nodes.push({ id: 'tunnel-client', label: 'Tunnel clients', sub: String(v.airwatch_airwatchServerHostname || 'public hostname'), kind: 'client' });
+    nodes.push({ id: 'uem', label: 'Workspace ONE UEM', sub: host(v.airwatch_apiServerUrl), kind: 'aux' });
+    edges.push({ from: 'tunnel-client', to: 'uag', label: 'per-app VPN 8443' });
+    edges.push({ from: 'uag', to: 'uem', label: 'API / AWCM config' });
+  }
   c.syslog.forEach((item, i) => {
     nodes.push({ id: `sys${i}`, label: 'Syslog', sub: String(item.syslogUrl || item.hostname || '?'), kind: 'aux' });
     edges.push({ from: 'uag', to: `sys${i}`, label: String(item.sysLogType) });
@@ -87,8 +93,9 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     if (v.tunnelEnabled === true) L.push(`  - Tunnel: ${v.tunnelExternalUrl || 'default'}`);
     if (v.pcoipEnabled === true) L.push(`  - PCoIP: ${v.pcoipExternalUrl || 'default'}`);
   }
+  if (v.airwatch_enabled === true) L.push(`- **Workspace ONE Tunnel** → ${v.airwatch_airwatchServerHostname || '(not set)'}; UEM API ${v.airwatch_apiServerUrl || '(not set)'}`);
   for (const w of c.wrp) L.push(`- **Web reverse proxy \`${w.instanceId}\`** → ${w.proxyDestinationUrl} (auth: ${w.authMethods})`);
-  if (v.horizon_enabled !== true && cascadeRole(v) !== 'outer' && c.wrp.length === 0) L.push('- none');
+  if (v.horizon_enabled !== true && v.airwatch_enabled !== true && cascadeRole(v) !== 'outer' && c.wrp.length === 0) L.push('- none');
   L.push('', '## Authentication', '');
   L.push(v.radius_enabled === true ? `- RADIUS: ${v.radius_hostName}:${v.radius_authPort} (${v.radius_authType})${v.radius_enabledAux === true ? ` + secondary ${v.radius_hostName_2}` : ''}` : '- RADIUS: off');
   L.push(v.saml_enabled === true ? `- SAML IdP: ${v.saml_entityID}` : '- SAML: off');
@@ -97,6 +104,7 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   if (v.horizon_enabled === true && v.blastEnabled === true) ports.add('TCP+UDP 8443 (Blast)');
   if (cascadeRole(v) === 'outer') for (const f of FORWARD_FLAGS) if (v[f.id] === true) ports.add(`${f.proto.toUpperCase()} ${f.port} (forwarded to inner UAG)`);
   if (v.horizon_enabled === true && v.pcoipEnabled === true) ports.add('TCP+UDP 4172 (PCoIP)');
+  if (v.airwatch_enabled === true) ports.add('TCP+UDP 8443 (Workspace ONE Tunnel per-app VPN)');
   L.push(...[...ports].map((p) => `- ${p}`), '- TCP 9443 (admin UI/API - management network only)');
   L.push('', '## Monitoring', '');
   L.push(c.syslog.length ? c.syslog.map((s) => `- Syslog ${s.sysLogType}: ${s.syslogUrl || s.hostname}`).join('\n') : '- Syslog: none');
