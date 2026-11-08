@@ -7,6 +7,7 @@ import { generateDocs } from './topology';
 import { validateConfig } from './validate';
 
 const radiusMfa = () => TEMPLATES.find((t) => t.id === 'horizon-radius')!.build(defaultConfig());
+const SSH_PUBLIC_KEY = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7 test@workstation';
 
 describe('INI generation', () => {
   it('emits uagdeploy section and key names from the Omnissa reference', () => {
@@ -111,6 +112,25 @@ describe('INI generation', () => {
     expect(ini).toContain('communityName=comm');
   });
 
+  it('writes numbered SSH public-key file references for INI deployment', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: { sshEnabled: true, sshKeyAccessEnabled: true, sshPublicKeys: `${SSH_PUBLIC_KEY}\nC:\\keys\\second.pub` }
+    });
+    const ini = generateIni(c);
+    expect(ini).toContain('sshPublicKey1=ssh-public-key-1.pub');
+    expect(ini).toContain('sshPublicKey2=C:\\keys\\second.pub');
+    expect(ini).not.toContain(SSH_PUBLIC_KEY);
+  });
+
+  it('does not export SSH key material after key access is disabled', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: { sshEnabled: true, sshKeyAccessEnabled: false, sshPublicKeys: SSH_PUBLIC_KEY }
+    });
+    expect(generateIni(c)).not.toContain('sshPublicKey');
+    expect(generateJson(c)).not.toContain('sshPublicKeys');
+    expect(generatePowerShell(c)).not.toContain(SSH_PUBLIC_KEY);
+  });
+
   it('serializes DNS and NTP rows to space-separated INI values', () => {
     const c = applyPatch(defaultConfig(), {
       values: {
@@ -147,6 +167,15 @@ describe('JSON generation', () => {
     const c = applyPatch(radiusMfa(), { values: { cipherSuites: 'TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384' } });
     expect((generateJsonObject(c) as any).systemSettings.cipherSuites).toEqual(['TLS_AES_128_GCM_SHA256', 'TLS_AES_256_GCM_SHA384']);
   });
+
+  it('serialises pasted SSH public keys as the UAG name/data array', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: { sshEnabled: true, sshKeyAccessEnabled: true, sshPublicKeys: SSH_PUBLIC_KEY }
+    });
+    expect((generateJsonObject(c) as any).systemSettings.sshPublicKeys).toEqual([
+      { name: 'ssh-public-key-1.pub', data: SSH_PUBLIC_KEY }
+    ]);
+  });
 });
 
 describe('run-time options', () => {
@@ -167,6 +196,15 @@ describe('run-time options', () => {
     const az = generatePowerShell(applyPatch(radiusMfa(), { platform: 'azure', values: v }));
     expect(az).toContain('.\\uagdeployaz.ps1 .\\uag-dmz-01.ini -noSSLVerify');
     expect(az).not.toContain('-disableVerification');
+  });
+
+  it('materialises pasted SSH keys as companion files for deployment', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: { sshEnabled: true, sshKeyAccessEnabled: true, sshPublicKeys: SSH_PUBLIC_KEY }
+    });
+    const ps = generatePowerShell(c);
+    expect(ps).toContain(`Set-Content -Path .\\ssh-public-key-1.pub -Value $sshKey`);
+    expect(ps).toContain(SSH_PUBLIC_KEY);
   });
   it('is off by default and linted when enabled', () => {
     expect(generatePowerShell(radiusMfa())).not.toContain('-noSSLVerify');
