@@ -1,4 +1,4 @@
-import { GROUPS, LISTS, type Field, type Rule, type SectionId, type Values } from './schema';
+import { GROUPS, LISTS, deploymentNicCount, type Field, type Rule, type SectionId, type Values } from './schema';
 import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
 import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion } from './versions';
@@ -258,7 +258,7 @@ function lint(c: Config, push: Push): void {
   if (v.ceipEnabled === true) push({ level: 'info', section: 'general', fieldId: 'ceipEnabled', message: 'CEIP is enabled - the appliance sends telemetry to Omnissa.' });
 
   const sshInterface = String(v.sshInterface ?? '');
-  const nicCount = String(v.deploymentOption).startsWith('threenic') ? 3 : String(v.deploymentOption).startsWith('twonic') ? 2 : 1;
+  const nicCount = deploymentNicCount(v);
   if (v.sshEnabled === true && sshInterface && Number(sshInterface.slice(3)) >= nicCount) {
     push({ level: 'error', section: 'general', fieldId: 'sshInterface', message: `${sshInterface} is not present in the selected ${nicCount}-NIC deployment.` });
   }
@@ -266,11 +266,11 @@ function lint(c: Config, push: Push): void {
   if (staticIpv6 && !String(v.ipmode0 ?? '').includes('STATICV6')) {
     push({ level: 'warn', section: 'network', fieldId: 'ipmode0', message: 'NIC0 has a static IPv6 address but ipmode0 does not include STATICV6.' });
   }
-  if (String(v.deploymentOption).startsWith('onenic')) {
+  if (nicCount === 1) {
     for (const key of ['routes1', 'routes2', 'eth1CustomConfig', 'eth2CustomConfig']) {
       if (nonEmpty(key)) push({ level: 'error', section: 'network', fieldId: key, message: `${key} is configured but the selected deployment has only NIC0.` });
     }
-  } else if (String(v.deploymentOption).startsWith('twonic') && (nonEmpty('routes2') || nonEmpty('eth2CustomConfig'))) {
+  } else if (nicCount === 2 && (nonEmpty('routes2') || nonEmpty('eth2CustomConfig'))) {
     for (const key of ['routes2', 'eth2CustomConfig']) {
       if (nonEmpty(key)) push({ level: 'error', section: 'network', fieldId: key, message: `${key} is configured but the selected two-NIC deployment has no NIC2.` });
     }
@@ -282,9 +282,12 @@ function lint(c: Config, push: Push): void {
   if (String(v.deploymentOption).startsWith('onenic') && v.gatewayLocation === 'external' && horizon) push({ level: 'info', section: 'network', fieldId: 'deploymentOption', message: 'Single-NIC deployment: for DMZ use consider twonic/threenic to separate Internet, management and backend traffic.' });
 
   const ip0 = String(v.ip0 ?? '');
-  const ips = ['ip0', 'ip1', 'ip2'].map((k) => String(v[k] ?? '')).filter(Boolean);
-  if (new Set(ips).size !== ips.length) push({ level: 'error', section: 'network', message: 'Two NICs share the same IP address.' });
-  if (ip0 && nonEmpty('netmask0') && nonEmpty('defaultGateway')) {
+  const activeIpIds = ['ip0', 'ip1', 'ip2'].slice(0, deploymentNicCount(v));
+  const ips = activeIpIds.map((k) => String(v[k] ?? '')).filter(Boolean);
+  if ((c.platform === 'vsphere' || c.platform === 'hyperv') && new Set(ips).size !== ips.length) {
+    push({ level: 'error', section: 'network', message: 'Two applicable NICs share the same IP address.' });
+  }
+  if ((c.platform === 'vsphere' || c.platform === 'hyperv') && ip0 && nonEmpty('netmask0') && nonEmpty('defaultGateway')) {
     const a = netOf(ip0, String(v.netmask0));
     const b = netOf(String(v.defaultGateway), String(v.netmask0));
     if (a !== null && b !== null && a !== b) push({ level: 'warn', section: 'network', fieldId: 'defaultGateway', message: 'Default gateway is not in the NIC0 subnet.' });
