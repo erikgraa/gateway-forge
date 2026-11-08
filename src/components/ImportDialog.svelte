@@ -65,7 +65,7 @@
           <ul>{#each result.warnings as w (w)}<li>{w}</li>{/each}</ul>
         {/if}
         {#if result.unmapped.length}
-          <p class="help"><strong>{result.unmapped.length} unrecognised entr{result.unmapped.length === 1 ? 'y' : 'ies'}</strong> (kept out of the output - Gateway Forge v1 covers Horizon, web reverse proxy, RADIUS, SAML, TLS, syslog and SNMP)</p>
+          <p class="help"><strong>{result.unmapped.length} unrecognised entr{result.unmapped.length === 1 ? 'y' : 'ies'}</strong> (kept out of the output - unsupported keys are never guessed or emitted)</p>
           <ul class="mono" style="font-size:12px;max-height:140px;overflow:auto">
             {#each result.unmapped as u, i (i)}<li>{u.where} {u.key}{u.value !== undefined ? `=${u.value}` : ''}</li>{/each}
           </ul>

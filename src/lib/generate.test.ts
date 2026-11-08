@@ -7,6 +7,7 @@ import { generateDocs } from './topology';
 import { validateConfig } from './validate';
 
 const radiusMfa = () => TEMPLATES.find((t) => t.id === 'horizon-radius')!.build(defaultConfig());
+const tunnel = () => TEMPLATES.find((t) => t.id === 'workspace-one-tunnel')!.build(defaultConfig());
 const SSH_PUBLIC_KEY = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7 test@workstation';
 
 describe('INI generation', () => {
@@ -146,6 +147,68 @@ describe('INI generation', () => {
     expect(ini).toContain('communityName=comm');
   });
 
+  it('writes the documented Workspace ONE Tunnel [Airwatch] keys', () => {
+    const c = applyPatch(tunnel(), {
+      values: {
+        airwatch_apiServerPassword: 'uem-secret',
+        airwatch_outboundProxyHost: 'proxy.corp.local',
+        airwatch_outboundProxyPort: 3128,
+        airwatch_outboundProxyUsername: 'proxy-user',
+        airwatch_outboundProxyPassword: 'proxy-secret',
+        airwatch_ntlmAuthentication: true,
+        airwatch_hostEntry1: '10.0.0.20 api.corp.local api-alias',
+        airwatch_trustedCert1: 'C:\\certs\\uem-ca.pem',
+        airwatch_pacFilePath: 'C:\\pac\\tunnel.pac'
+      }
+    });
+    const ini = generateIni(c, { secrets: 'include' });
+    expect(ini).toMatch(/\[Airwatch\][\s\S]*tunnelGatewayEnabled=true/);
+    expect(ini).toContain('apiServerUrl=https://as1234.awmdm.com');
+    expect(ini).toContain('apiServerUsername=domain\\svc-uag-tunnel');
+    expect(ini).toContain('apiServerPassword=uem-secret');
+    expect(ini).toContain('organizationGroupCode=CORP');
+    expect(ini).toContain('tunnelConfigurationId=tunnel-production');
+    expect(ini).toContain('airwatchServerHostname=tunnel.example.com');
+    expect(ini).toContain('outboundProxyHost=proxy.corp.local');
+    expect(ini).toContain('outboundProxyPort=3128');
+    expect(ini).toContain('outboundProxyPassword=proxy-secret');
+    expect(ini).toContain('ntlmAuthentication=true');
+    expect(ini).toContain('pacFilePath=C:\\pac\\tunnel.pac');
+    expect(ini).toContain('hostEntry1=10.0.0.20 api.corp.local api-alias');
+    expect(ini).toContain('trustedCert1=C:\\certs\\uem-ca.pem');
+  });
+
+  it('does not emit Tunnel when disabled or on an unsupported platform', () => {
+    const c = tunnel();
+    expect(generateIni(applyPatch(c, { values: { airwatch_enabled: false } }))).not.toContain('[Airwatch]');
+    expect(generateIni(applyPatch(c, { platform: 'azure' }))).not.toContain('[Airwatch]');
+  });
+
+  it('gates Tunnel keys by documented historical samples', () => {
+    const c = applyPatch(tunnel(), {
+      values: {
+        airwatch_disableAutoConfigUpdate: true,
+        airwatch_tunnelConfigurationId: 'cfg-1',
+        airwatch_airwatchOutboundProxy: true,
+        airwatch_tunnelProxyEnabled: true
+      }
+    });
+    expect(generateIni(applyPatch(c, { version: '2212' }))).toContain('airwatchOutboundProxy=true');
+    expect(generateIni(applyPatch(c, { version: '2212' }))).not.toContain('tunnelConfigurationId');
+    expect(generateIni(applyPatch(c, { version: '2303' }))).toContain('disableAutoConfigUpdate=true');
+    expect(generateIni(applyPatch(c, { version: '2303' }))).not.toContain('tunnelConfigurationId');
+    expect(generateIni(applyPatch(c, { version: '2306' }))).toContain('tunnelConfigurationId=cfg-1');
+    expect(generateIni(applyPatch(c, { version: '2306' }))).not.toContain('tunnelProxyEnabled');
+  });
+
+  it('redacts both Workspace ONE UEM and outbound proxy credentials', () => {
+    const c = applyPatch(tunnel(), { values: { airwatch_apiServerPassword: 'uem-secret', airwatch_outboundProxyPassword: 'proxy-secret' } });
+    const ini = generateIni(c);
+    expect(ini).not.toMatch(/uem-secret|proxy-secret/);
+    expect(ini).toContain('apiServerPassword=<REDACTED>');
+    expect(ini).toContain('outboundProxyPassword=<REDACTED>');
+  });
+
   it('writes numbered SSH public-key file references for INI deployment', () => {
     const c = applyPatch(defaultConfig(), {
       values: { sshEnabled: true, sshKeyAccessEnabled: true, sshPublicKeys: `${SSH_PUBLIC_KEY}\nC:\\keys\\second.pub` }
@@ -200,6 +263,11 @@ describe('JSON generation', () => {
   it('serialises list-like settings as arrays', () => {
     const c = applyPatch(radiusMfa(), { values: { cipherSuites: 'TLS_AES_128_GCM_SHA256, TLS_AES_256_GCM_SHA384' } });
     expect((generateJsonObject(c) as any).systemSettings.cipherSuites).toEqual(['TLS_AES_128_GCM_SHA256', 'TLS_AES_256_GCM_SHA384']);
+  });
+
+  it('keeps the INI-only Airwatch mapping out of settings JSON', () => {
+    const json = generateJson(tunnel(), { secrets: 'include' });
+    expect(json).not.toMatch(/Airwatch|apiServerUrl|airwatchServerHostname|tunnelConfigurationId/);
   });
 
   it('serialises pasted SSH public keys as the UAG name/data array', () => {

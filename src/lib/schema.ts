@@ -19,15 +19,17 @@ export type Rule =
   | 'sshPublicKeys'
   | 'uagName'
   | 'ipv4Port'
+  | 'hostEntryList'
   | 'path'
   | 'int';
 
-export type SectionId = 'general' | 'network' | 'horizon' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
+export type SectionId = 'general' | 'network' | 'horizon' | 'tunnel' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
 
 export type Target =
   | 'system'
   | 'deploy'
   | 'horizon'
+  | 'airwatch'
   | 'wrp'
   | 'radius'
   | 'saml'
@@ -75,7 +77,7 @@ export interface Field {
   required?: boolean | ((v: Values) => boolean);
   showIf?: (v: Values) => boolean;
   platforms?: Platform[];
-  /** Key name is inferred from a documented pattern rather than copied from the docs. */
+  /** Key or semantics require verification against the official source. */
   inferred?: boolean;
   /** 1-based position in an ordered trustedCert1-trustedCert9 field family. */
   trustedCertIndex?: number;
@@ -127,6 +129,7 @@ export const SECTIONS: SectionDef[] = [
   { id: 'general', title: 'General', icon: '⚙' },
   { id: 'network', title: 'Network & deploy', icon: '🌐' },
   { id: 'horizon', title: 'Horizon', icon: '🖥' },
+  { id: 'tunnel', title: 'Workspace ONE Tunnel', icon: '🚇' },
   { id: 'wrp', title: 'Web reverse proxy', icon: '🔀' },
   { id: 'auth', title: 'Authentication', icon: '🔐' },
   { id: 'tls', title: 'TLS & certs', icon: '🔒' },
@@ -608,6 +611,137 @@ export const GROUPS: GroupDef[] = [
     ]
   },
   {
+    id: 'airwatch',
+    title: 'Workspace ONE Tunnel gateway',
+    section: 'tunnel',
+    target: 'airwatch',
+    iniSection: 'Airwatch',
+    enabledBy: 'airwatch_enabled',
+    platforms: ['vsphere', 'hyperv'],
+    help: 'Configures the Workspace ONE Tunnel edge service through its documented [Airwatch] PowerShell INI section. This edge service is supported for UAG deployed on vSphere or Hyper-V. The settings JSON mapping is not documented, so this section is INI-only.',
+    fields: [
+      bool('airwatch_tunnelGatewayEnabled', 'Enable Tunnel gateway', 'tunnelGatewayEnabled', true, { json: false }),
+      text('airwatch_apiServerUrl', 'Workspace ONE UEM API server URL', 'apiServerUrl', {
+        rule: 'httpsUrl',
+        required: true,
+        wide: true,
+        placeholder: 'https://as1234.awmdm.com',
+        json: false,
+        help: 'REST API URL from Groups & Settings > All Settings > Advanced > Site URLs in Workspace ONE UEM.'
+      }),
+      text('airwatch_apiServerUsername', 'Workspace ONE UEM API user', 'apiServerUsername', {
+        required: true,
+        placeholder: 'domain\\svc-uag',
+        json: false,
+        help: 'Console admin account used for initial configuration; Console Administrator privileges are required at minimum.'
+      }),
+      secret('airwatch_apiServerPassword', 'Workspace ONE UEM API password', 'apiServerPassword', {
+        required: true,
+        json: false,
+        help: 'Used to save the initial Tunnel service configuration. It is not retained in Gateway Forge drafts.'
+      }),
+      text('airwatch_organizationGroupCode', 'Organization Group ID', 'organizationGroupCode', {
+        placeholder: 'CORP',
+        json: false,
+        help: 'Optional when Workspace ONE UEM supports multiple Tunnel configurations.'
+      }),
+      text('airwatch_tunnelConfigurationId', 'Tunnel Configuration ID', 'tunnelConfigurationId', {
+        since: '2306',
+        json: false,
+        help: 'Optional. Use the ID configured in Workspace ONE UEM; when blank, UAG fetches the default configuration for the organization group.'
+      }),
+      text('airwatch_airwatchServerHostname', 'Tunnel server hostname', 'airwatchServerHostname', {
+        rule: 'hostOrIp',
+        required: true,
+        wide: true,
+        placeholder: 'tunnel.example.com',
+        json: false,
+        help: 'Must exactly match the external hostname in the Workspace ONE UEM Tunnel configuration.'
+      }),
+      bool('airwatch_disableAutoConfigUpdate', 'Lock configuration (disable UEM auto-update)', 'disableAutoConfigUpdate', false, {
+        since: '2303',
+        omitDefault: true,
+        json: false,
+        help: 'Prevents configuration, authentication, certificate and networking auto-updates from Workspace ONE UEM.'
+      }),
+      text('airwatch_outboundProxyHost', 'Outbound proxy host', 'outboundProxyHost', { rule: 'hostOrIp', json: false }),
+      num('airwatch_outboundProxyPort', 'Outbound proxy port', 'outboundProxyPort', {
+        rule: 'port',
+        required: (v) => String(v.airwatch_outboundProxyHost ?? '').trim() !== '',
+        json: false
+      }),
+      text('airwatch_outboundProxyUsername', 'Outbound proxy user', 'outboundProxyUsername', { json: false }),
+      secret('airwatch_outboundProxyPassword', 'Outbound proxy password', 'outboundProxyPassword', { json: false }),
+      bool('airwatch_ntlmAuthentication', 'Use NTLM for outbound proxy', 'ntlmAuthentication', false, { omitDefault: true, json: false }),
+      text('airwatch_hostEntry1', 'Host entries', 'hostEntry1', {
+        rule: 'hostEntryList',
+        wide: true,
+        placeholder: '10.0.0.15 api.corp.local',
+        json: false,
+        help: 'Optional /etc/hosts entries: IP, hostname, optional alias, separated by spaces; separate entries with commas.'
+      }),
+      text('airwatch_trustedCert1', 'Trusted CA certificate (PEM path)', 'trustedCert1', {
+        wide: true,
+        placeholder: 'C:\\certs\\workspace-one-ca.pem',
+        json: false,
+        help: 'PEM certificate file added to the UAG trust store by the deployment script.'
+      }),
+      bool('airwatch_reinitializeGatewayProcess', 'Reinitialize gateway process', 'reinitializeGatewayProcess', false, {
+        omitDefault: true,
+        json: false,
+        inferred: true,
+        help: 'Present in the official sample INI, but Omnissa does not describe its semantics on the reference page. Leave false unless an appliance export or support guidance requires it.'
+      }),
+      text('airwatch_healthCheckUrl', 'Health check path', 'healthCheckUrl', {
+        rule: 'path',
+        default: '/favicon.ico',
+        json: false,
+        inferred: true,
+        help: 'Present in the official sample INI; the reference page does not state how this path is used.'
+      }),
+      text('airwatch_proxyDestinationUrl', 'Proxy destination URL', 'proxyDestinationUrl', {
+        rule: 'url',
+        wide: true,
+        json: false,
+        inferred: true,
+        help: 'Present in the official sample INI; its role is not described in the 2609 reference. Leave empty unless required by an exported appliance configuration.'
+      }),
+      text('airwatch_pacFilePath', 'PAC file path', 'pacFilePath', {
+        wide: true,
+        json: false,
+        inferred: true,
+        help: 'Present in the official sample INI; expected file format and location are not documented there.'
+      }),
+      text('airwatch_pacFileURL', 'PAC file URL', 'pacFileURL', {
+        rule: 'url',
+        wide: true,
+        json: false,
+        inferred: true,
+        help: 'Present in the official sample INI; interaction with pacFilePath is not documented.'
+      }),
+      text('airwatch_credentialFilePath', 'Credential file path', 'credentialFilePath', {
+        wide: true,
+        json: false,
+        inferred: true,
+        help: 'Present in the official sample INI; contents and deployment behavior are not documented in the reference.'
+      }),
+      bool('airwatch_airwatchOutboundProxy', 'Use AirWatch outbound proxy (legacy)', 'airwatchOutboundProxy', false, {
+        until: '2303',
+        omitDefault: true,
+        json: false,
+        inferred: true,
+        help: 'Documented in the UAG 2212 sample and replaced in later samples. Verify against the target release export.'
+      }),
+      bool('airwatch_tunnelProxyEnabled', 'Enable Tunnel proxy (legacy)', 'tunnelProxyEnabled', false, {
+        until: '2303',
+        omitDefault: true,
+        json: false,
+        inferred: true,
+        help: 'Documented in the UAG 2212 sample and absent from the UAG 2303+ sample. Verify against the target release export.'
+      })
+    ]
+  },
+  {
     id: 'radius',
     title: 'RADIUS',
     section: 'auth',
@@ -878,7 +1012,8 @@ export const VIRTUAL_DEFAULTS: Values = {
   oidc_enabled: false,
   securid_enabled: false,
   certauth_enabled: false,
-  obp_enabled: false
+  obp_enabled: false,
+  airwatch_enabled: false
 };
 
 export function allGroupFields(): { group: GroupDef; field: Field }[] {

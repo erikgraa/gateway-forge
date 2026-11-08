@@ -185,6 +185,36 @@ describe('config validation', () => {
     expect(counts.horizon.error).toBeGreaterThan(0);
   });
 
+  it('validates required Workspace ONE Tunnel settings and proxy inputs', () => {
+    const c = applyPatch(defaultConfig(), { values: { airwatch_enabled: true, airwatch_tunnelGatewayEnabled: false, airwatch_outboundProxyHost: 'proxy.corp.local' } });
+    const m = messages(c).join('\n');
+    expect(m).toMatch(/Workspace ONE UEM API server URL is required/);
+    expect(m).toMatch(/Workspace ONE UEM API user is required/);
+    expect(m).toMatch(/Workspace ONE UEM API password is required/);
+    expect(m).toMatch(/Tunnel server hostname is required/);
+    expect(m).toMatch(/Tunnel gateway must be enabled/);
+    expect(m).toMatch(/Outbound proxy port is required/);
+  });
+
+  it('gates Workspace ONE Tunnel to vSphere and Hyper-V', () => {
+    const c = applyPatch(defaultConfig(), { platform: 'azure', values: { airwatch_enabled: true } });
+    expect(messages(c).join('\n')).toMatch(/not Azure/);
+  });
+
+  it('validates host entries and surfaces ambiguous PAC source configuration', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        airwatch_enabled: true,
+        airwatch_hostEntry1: 'not-an-ip api.corp.local',
+        airwatch_pacFilePath: 'C:\\pac\\tunnel.pac',
+        airwatch_pacFileURL: 'https://config.example.com/tunnel.pac'
+      }
+    });
+    const m = messages(c).join('\n');
+    expect(m).toMatch(/Host entries: Must contain comma-separated/);
+    expect(m).toMatch(/Both PAC file path and URL/);
+  });
+
   it('requires a valid SSH public key only while key access is enabled', () => {
     const appliance = GROUPS.find((g) => g.id === 'appliance')!;
     const keyField = appliance.fields.find((f) => f.id === 'sshPublicKeys')!;

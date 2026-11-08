@@ -94,6 +94,57 @@ describe('INI import', () => {
   it('disables Horizon when no [Horizon] section exists', () => {
     expect(importIni('[General]\nuagName=x').config.values.horizon_enabled).toBe(false);
   });
+  it('enables and maps every 2609 Airwatch sample key', () => {
+    const input = `[Airwatch]
+tunnelGatewayEnabled=true
+disableAutoConfigUpdate=true
+pacFilePath=C:\\pac\\tunnel.pac
+pacFileURL=https://config.example.com/tunnel.pac
+credentialFilePath=C:\\secrets\\tunnel.txt
+apiServerUsername=domain\\api
+apiServerPassword=*****
+proxyDestinationUrl=https://backend.corp.local
+ntlmAuthentication=true
+healthCheckUrl=/health
+organizationGroupCode=CORP
+apiServerUrl=https://as1234.awmdm.com
+outboundProxyHost=proxy.corp.local
+outboundProxyPort=3128
+outboundProxyUsername=proxy-user
+outboundProxyPassword=*****
+reinitializeGatewayProcess=false
+airwatchServerHostname=tunnel.example.com
+trustedCert1=C:\\certs\\uem.pem
+hostEntry1=10.0.0.20 api.corp.local
+tunnelConfigurationId=tunnel-production`;
+    const r = importIni(input);
+    expect(r.unmapped).toEqual([]);
+    expect(r.config.values).toMatchObject({
+      airwatch_enabled: true,
+      airwatch_tunnelGatewayEnabled: true,
+      airwatch_disableAutoConfigUpdate: true,
+      airwatch_pacFilePath: 'C:\\pac\\tunnel.pac',
+      airwatch_apiServerUsername: 'domain\\api',
+      airwatch_proxyDestinationUrl: 'https://backend.corp.local',
+      airwatch_ntlmAuthentication: true,
+      airwatch_organizationGroupCode: 'CORP',
+      airwatch_apiServerUrl: 'https://as1234.awmdm.com',
+      airwatch_outboundProxyHost: 'proxy.corp.local',
+      airwatch_outboundProxyPort: 3128,
+      airwatch_airwatchServerHostname: 'tunnel.example.com',
+      airwatch_tunnelConfigurationId: 'tunnel-production'
+    });
+    expect(r.config.values.airwatch_apiServerPassword).toBe('');
+    expect(r.config.values.airwatch_outboundProxyPassword).toBe('');
+  });
+  it('does not enable Airwatch when the section is absent', () => {
+    expect(importIni('[General]\nuagName=x').config.values.airwatch_enabled).toBe(false);
+  });
+  it('imports historical 2212 Tunnel proxy switches with version warnings', () => {
+    const r = importIni('[General]\nsource=euc-unified-access-gateway-22.12.0.0-1.ova\n[Airwatch]\ntunnelProxyEnabled=true\nairwatchOutboundProxy=true');
+    expect(r.config.values).toMatchObject({ airwatch_enabled: true, airwatch_tunnelProxyEnabled: true, airwatch_airwatchOutboundProxy: true });
+    expect(generateIni(r.config)).toContain('tunnelProxyEnabled=true');
+  });
   it('warns about keys newer than the detected version', () => {
     const w = importIni('[General]\nsource=euc-unified-access-gateway-22.12.0.0-1.ova\nheadersToBeLogged=host').warnings;
     expect(w.join('\n')).toMatch(/headersToBeLogged.*2312/);
