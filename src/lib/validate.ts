@@ -64,6 +64,21 @@ function validUrl(s: string, httpsOnly: boolean): boolean {
   }
 }
 
+function validHttpsOrigin(s: string): boolean {
+  try {
+    const u = new URL(s);
+    return u.protocol === 'https:'
+      && !!u.hostname
+      && !u.username
+      && !u.password
+      && u.pathname === '/'
+      && !u.search
+      && !u.hash;
+  } catch {
+    return false;
+  }
+}
+
 function validHostEntries(s: string): boolean {
   return s.split(',').map((entry) => entry.trim()).filter(Boolean).every((entry) => {
     const parts = entry.split(/\s+/);
@@ -114,6 +129,8 @@ export function checkRule(rule: Rule, raw: string): string | null {
       return validUrl(s, false) ? null : 'Not a valid http(s) URL';
     case 'httpsUrl':
       return validUrl(s, true) ? null : 'Must be a valid https:// URL';
+    case 'httpsOrigin':
+      return validHttpsOrigin(s) ? null : 'Must be an https:// origin with no path, query or fragment';
     case 'urlList':
       return s.split(',').map((x) => x.trim()).filter(Boolean).every((x) => validUrl(x, true)) ? null : 'Contains an invalid https:// URL';
     case 'port':
