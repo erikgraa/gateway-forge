@@ -314,7 +314,6 @@ function lint(c: Config, push: Push): void {
   }
 
   if (v.airwatch_enabled === true) {
-    if (c.platform === 'azure') push({ level: 'error', section: 'tunnel', message: 'Workspace ONE Tunnel on UAG is documented for vSphere and Hyper-V PowerShell deployments, not Azure.' });
     if (v.airwatch_tunnelGatewayEnabled !== true) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_tunnelGatewayEnabled', message: 'Tunnel gateway must be enabled for the [Airwatch] section to configure an active Tunnel service.' });
     if (v.airwatch_outboundProxyHost && isEmpty(v.airwatch_outboundProxyPort)) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_outboundProxyPort', message: 'Outbound proxy port is required when an outbound proxy host is set.' });
     if (!!v.airwatch_outboundProxyUsername !== !!v.airwatch_outboundProxyPassword) push({ level: 'warn', section: 'tunnel', fieldId: 'airwatch_outboundProxyPassword', message: 'Outbound proxy user and password should be configured together.' });
@@ -379,7 +378,7 @@ function lint(c: Config, push: Push): void {
 
   if (horizon) {
     const url = String(v.proxyDestinationUrl ?? '');
-    if (url && validUrl(url, true) && !nonEmpty('proxyDestinationUrlThumbprints') && !Array.from({ length: 9 }, (_, i) => `trustedCert${i + 1}`).some(nonEmpty)) push({ level: 'info', section: 'horizon', fieldId: 'trustedCert1', message: 'No Connection Server thumbprint or trusted CA certificate: one of them is required if its certificate is self-signed or from a private CA.' });
+    if (url && validUrl(url, true) && !nonEmpty('proxyDestinationUrlThumbprints') && !Array.from({ length: 9 }, (_, i) => `trustedCert${i + 1}`).some(nonEmpty)) push({ level: 'warn', section: 'horizon', fieldId: 'trustedCert1', message: 'No Connection Server thumbprint or trusted CA certificate: one of them is required if its certificate is self-signed or from a private CA.' });
     const tp = String(v.proxyDestinationUrlThumbprints ?? '');
     if (tp && tp.split(',').some((e) => parseThumbprint(e)?.alg === 'sha1')) push({ level: 'warn', section: 'horizon', fieldId: 'proxyDestinationUrlThumbprints', message: 'SHA-1 thumbprint in use - prefer SHA-256 or stronger.' });
     if (v.minSHAHashSize === 'SHA-1' && c.version >= '2312') push({ level: 'warn', section: 'horizon', fieldId: 'minSHAHashSize', message: 'Minimum SHA hash size is SHA-1, which is not recommended.' });

@@ -26,6 +26,7 @@ export function generatePowerShell(
   const script = platformScript(c);
   const def = platformDef(c.platform);
   const sw = runtimeSwitches(c);
+  const invocation = def.iniArgument === 'positional' ? `.\\${script} .\\${file}` : `.\\${script} -iniFile .\\${file}`;
   const out: string[] = [
     `# Gateway Forge - UAG ${c.version} on ${def.label}`,
     `# Prerequisites: extract the uagdeploy scripts from the Omnissa Customer Connect download`,
@@ -61,15 +62,15 @@ export function generatePowerShell(
   }
   if (deploymentMode === 'interactive') {
     out.push('# Interactive mode: the deployment script prompts for the root and Admin UI passwords.');
-    out.push((c.platform === 'azure' ? `.\\${script} .\\${file}` : `.\\${script} -iniFile .\\${file}`) + sw);
+    out.push(invocation + sw);
   } else {
     out.push('# Headless mode: passwords are read from the runtime environment and never written to this script or the INI.');
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running headless deployment.' }`);
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.' }`);
     if (def.nonInteractive === 'positional') {
-      out.push(`.\\${script} .\\${file} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no${sw}`);
+      out.push(`${invocation} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no${sw}`);
     } else {
-      out.push(`.\\${script} -iniFile .\\${file} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD${sw}`);
+      out.push(`${invocation} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD${sw}`);
     }
   }
   out.push('');
@@ -120,8 +121,8 @@ function generateOpenShiftPowerShell(c: Config, mode: SecretMode, deploymentMode
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running headless deployment.' }`);
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.' }`);
     if (mode === 'omit' || !String(c.values.ocp_bearerToken || '')) {
-      out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_OPENSHIFT_PASSWORD)) { throw 'Set UAG_OPENSHIFT_PASSWORD before running headless deployment.' }`);
-      out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no -openshiftPassword $env:UAG_OPENSHIFT_PASSWORD${sw}`);
+      out.push(`if ([string]::IsNullOrWhiteSpace($env:OPENSHIFT_PASSWORD)) { throw 'Set OPENSHIFT_PASSWORD before running headless OpenShift deployment.' }`);
+      out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no -openshiftPassword $env:OPENSHIFT_PASSWORD${sw}`);
     } else {
       out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no${sw}`);
     }

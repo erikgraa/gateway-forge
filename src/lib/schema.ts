@@ -1019,14 +1019,86 @@ export const GROUPS: GroupDef[] = [
     ]
   },
   {
+    id: 'nutanix',
+    title: 'Nutanix AHV deployment',
+    section: 'network',
+    target: 'deploy',
+    iniSection: 'Nutanix',
+    platforms: ['nutanix'],
+    since: '2606',
+    help: 'Deploys the UAG QCOW2 image with uagdeployntnx.ps1. Prism Central, the cluster, image, and subnets must already exist.',
+    fields: [
+      text('ntnx_prismCentralUserName', 'Prism Central user', 'prismCentralUserName', { required: true, json: false }),
+      text('ntnx_prismCentralAddress', 'Prism Central address', 'prismCentralAddress', { rule: 'hostOrIp', required: true, placeholder: 'prism.corp.local', json: false }),
+      text('ntnx_cluster', 'Cluster', 'cluster', { required: true, json: false }),
+      text('ntnx_image', 'Uploaded QCOW2 image', 'image', { required: true, placeholder: 'uag-2609', json: false }),
+      text('ntnx_subnet0', 'NIC0 subnet', 'subnet0', { required: true, json: false }),
+      text('ntnx_subnet1', 'NIC1 subnet', 'subnet1', {
+        required: (v) => deploymentNicCount(v) >= 2,
+        showIf: (v) => deploymentNicCount(v) >= 2,
+        json: false
+      }),
+      text('ntnx_subnet2', 'NIC2 subnet', 'subnet2', {
+        required: (v) => deploymentNicCount(v) >= 3,
+        showIf: (v) => deploymentNicCount(v) >= 3,
+        json: false
+      })
+    ]
+  },
+  {
+    id: 'openshift',
+    title: 'OpenShift Virtualization deployment',
+    section: 'network',
+    target: 'deploy',
+    iniSection: 'OpenShift',
+    platforms: ['openshift'],
+    since: '2609',
+    help: 'Limited-availability UAG deployment using uagdeployopenshift.ps1. The bootable volume and network attachments must already exist. Authenticate with either a username/password or bearer token.',
+    fields: [
+      text('ocp_openShiftUserName', 'OpenShift user / service account', 'openShiftUserName', {
+        required: (v) => !v.ocp_bearerToken,
+        json: false
+      }),
+      text('ocp_openShiftEndpoint', 'OpenShift API endpoint', 'openShiftEndpoint', {
+        rule: 'httpsOrigin',
+        required: true,
+        wide: true,
+        placeholder: 'https://cluster.example.com:6443',
+        json: false
+      }),
+      text('ocp_namespace', 'Namespace', 'namespace', { required: true, placeholder: 'uag-namespace', json: false }),
+      text('ocp_instanceType', 'Instance type', 'instanceType', { required: true, placeholder: 'uag-large', json: false }),
+      text('ocp_storageClass', 'Storage class', 'storageClass', { required: true, json: false }),
+      num('ocp_diskSizeGi', 'Disk size (GiB)', 'diskSizeGi', { default: 20, min: 20, required: true, json: false }),
+      text('ocp_volume', 'Bootable volume', 'volume', { required: true, json: false }),
+      text('ocp_nadName0', 'NIC0 NetworkAttachmentDefinition', 'nadName0', { required: true, json: false }),
+      text('ocp_nadName1', 'NIC1 NetworkAttachmentDefinition', 'nadName1', {
+        required: (v) => deploymentNicCount(v) >= 2,
+        showIf: (v) => deploymentNicCount(v) >= 2,
+        json: false
+      }),
+      text('ocp_nadName2', 'NIC2 NetworkAttachmentDefinition', 'nadName2', {
+        required: (v) => deploymentNicCount(v) >= 3,
+        showIf: (v) => deploymentNicCount(v) >= 3,
+        json: false
+      }),
+      text('ocp_networkPolicies', 'Network policies', 'networkPolicies', { wide: true, placeholder: 'uag-policy1,uag-policy2', json: false }),
+      text('ocp_labels', 'Resource labels', 'labels', { wide: true, placeholder: 'env=prod,app=uag', json: false }),
+      secret('ocp_bearerToken', 'OpenShift bearer token', 'bearerToken', {
+        wide: true,
+        json: false,
+        help: 'Alternative to username/password authentication. When omitted, the deployment script uses the username and prompts for the OpenShift password.'
+      })
+    ]
+  },
+  {
     id: 'airwatch',
     title: 'Workspace ONE Tunnel gateway',
     section: 'tunnel',
     target: 'airwatch',
     iniSection: 'Airwatch',
     enabledBy: 'airwatch_enabled',
-    platforms: ['vsphere', 'hyperv'],
-    help: 'Configures the Workspace ONE Tunnel edge service through its documented [Airwatch] PowerShell INI section. This edge service is supported for UAG deployed on vSphere or Hyper-V. The settings JSON mapping is not documented, so this section is INI-only.',
+    help: 'Configures the Workspace ONE Tunnel edge service through its documented [Airwatch] PowerShell INI section on any supported UAG deployment platform. The settings JSON mapping is not documented, so this section is INI-only.',
     fields: [
       bool('airwatch_tunnelGatewayEnabled', 'Enable Tunnel gateway', 'tunnelGatewayEnabled', true, { json: false }),
       text('airwatch_apiServerUrl', 'Workspace ONE UEM API server URL', 'apiServerUrl', {

@@ -327,10 +327,49 @@ describe('INI generation', () => {
     expect(ini).toContain('trustedCert1=C:\\certs\\uem-ca.pem');
   });
 
-  it('does not emit Tunnel when disabled or on an unsupported platform', () => {
+  it('emits Tunnel on every supported deployment platform and omits it when disabled', () => {
     const c = tunnel();
     expect(generateIni(applyPatch(c, { values: { airwatch_enabled: false } }))).not.toContain('[Airwatch]');
-    expect(generateIni(applyPatch(c, { platform: 'azure' }))).not.toContain('[Airwatch]');
+    for (const platform of ['vsphere', 'hyperv', 'azure', 'nutanix', 'openshift'] as const) {
+      expect(generateIni(applyPatch(c, { platform }))).toContain('[Airwatch]');
+    }
+  });
+
+  it('writes Nutanix and OpenShift platform sections from official deployment keys', () => {
+    const nutanix = applyPatch(tunnel(), {
+      platform: 'nutanix',
+      values: {
+        ntnx_prismCentralUserName: 'api-user',
+        ntnx_prismCentralAddress: 'prism.corp.local',
+        ntnx_cluster: 'cluster1',
+        ntnx_image: 'uag-2609',
+        ntnx_subnet0: 'dmz',
+        ntnx_subnet1: 'management'
+      }
+    });
+    const nutanixIni = generateIni(nutanix);
+    expect(nutanixIni).toContain('[Nutanix]\nprismCentralUserName=api-user');
+    expect(nutanixIni).toContain('image=uag-2609');
+    expect(nutanixIni).toContain('subnet1=management');
+
+    const openshift = applyPatch(tunnel(), {
+      platform: 'openshift',
+      values: {
+        ocp_openShiftUserName: 'admin',
+        ocp_openShiftEndpoint: 'https://cluster.example.com:6443',
+        ocp_namespace: 'uag-namespace',
+        ocp_instanceType: 'uag-large',
+        ocp_storageClass: 'ocs-storagecluster-ceph-rbd',
+        ocp_diskSizeGi: 20,
+        ocp_volume: 'uag-boot-volume',
+        ocp_nadName0: 'uag-external',
+        ocp_nadName1: 'uag-management'
+      }
+    });
+    const openshiftIni = generateIni(openshift);
+    expect(openshiftIni).toContain('[OpenShift]\nopenShiftUserName=admin');
+    expect(openshiftIni).toContain('openShiftEndpoint=https://cluster.example.com:6443');
+    expect(openshiftIni).toContain('nadName1=uag-management');
   });
 
   it('gates Tunnel keys by documented historical samples', () => {
@@ -610,5 +649,14 @@ describe('PowerShell output', () => {
     const undecided = applyPatch(openshift, { values: { ipMode0: '', ipMode1: '' } });
     expect(generateIni(undecided)).not.toMatch(/^(?:ip0|netmask0|ip1|netmask1|defaultGateway)=/m);
     expect(generateDocs(undecided, validateConfig(undecided))).not.toMatch(/\*\*NIC0\*\*|192\.0\.2\.99/);
+  });
+  it('uses the Nutanix and OpenShift deployment scripts', () => {
+    expect(generatePowerShell(applyPatch(tunnel(), { platform: 'nutanix' }))).toContain('.\\uagdeployntnx.ps1 .\\uag-tunnel-01.ini');
+    const openshift = generatePowerShell(applyPatch(tunnel(), { platform: 'openshift' }), 'placeholder', 'headless');
+    expect(openshift).toContain('.\\uagdeployopenshift.ps1 -iniFile .\\uag-tunnel-01.ini');
+    expect(openshift).toContain('-openshiftPassword $env:OPENSHIFT_PASSWORD');
+    const token = generatePowerShell(applyPatch(tunnel(), { platform: 'openshift', values: { ocp_bearerToken: 'sha256~token' } }), 'placeholder', 'headless');
+    expect(token).not.toContain('OPENSHIFT_PASSWORD');
+    expect(token).not.toContain('-openshiftPassword');
   });
 });
