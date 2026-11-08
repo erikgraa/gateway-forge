@@ -349,15 +349,53 @@ pre.code { flex: 1; margin: 0; padding: 14px 17px 28px; overflow: auto; color: v
 .hl-com { color: var(--subtle); }
 .hl-red { color: var(--warn); }
 
-.topo .card-head { padding-bottom: 10px; }
-.topo svg { display: block; width: 100%; height: auto; max-height: 250px; padding: 10px 12px 15px; }
-.topo .node rect { fill: var(--panel-raised); stroke: var(--line-strong); }
-.topo .node.uag rect { stroke: var(--acc); stroke-width: 2; }
-.topo .node.aux rect { stroke-dasharray: 4 3; }
-.topo text { fill: var(--tx); font-size: 12px; text-anchor: middle; }
-.topo text.sub { fill: var(--mut); font-size: 10px; }
-.topo .edge { stroke: var(--acc); stroke-width: 2; fill: none; }
-.topo .elabel { fill: var(--mut); font-size: 10px; }
+.topo { overflow: hidden; }
+.topo-head { align-items: center; padding-bottom: 11px; }
+.topo-head .eyebrow { margin: 0 0 2px; font-size: 8px; }
+.topo-head h3 { font-size: 14px; }
+.live-state { display: inline-flex; align-items: center; gap: 7px; padding: 4px 8px; border: 1px solid color-mix(in srgb, var(--ok) 32%, var(--line)); border-radius: 99px; color: var(--ok); background: color-mix(in srgb, var(--ok) 8%, transparent); font-size: 9px; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; }
+.live-state i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 14%, transparent); }
+.diagram-scroll { overflow: auto; padding: 10px; background: var(--input); scrollbar-color: var(--line-strong) transparent; scrollbar-width: thin; }
+.diagram-scroll:focus-visible { outline: 3px solid color-mix(in srgb, var(--acc) 50%, transparent); outline-offset: -3px; }
+.topo svg { display: block; width: 100%; min-width: 780px; height: auto; }
+.topo .diagram-bg { fill: var(--input); }
+.topo .grid-overlay { fill: url(#topology-grid); opacity: .5; }
+.topo .grid-line { fill: none; stroke: var(--line); stroke-width: .7; }
+.topo .zone-zone { stroke: var(--line); stroke-width: 1; }
+.topo .zone-zone.untrusted { fill: color-mix(in srgb, var(--warn) 4%, transparent); }
+.topo .zone-zone.dmz { fill: color-mix(in srgb, var(--acc) 7%, transparent); stroke: color-mix(in srgb, var(--acc) 32%, var(--line)); }
+.topo .zone-zone.internal { fill: color-mix(in srgb, var(--teal) 5%, transparent); }
+.topo .zone-label { fill: var(--subtle); font-size: 9px; font-weight: 800; letter-spacing: .1em; text-anchor: start; }
+.topo .edge { fill: none; stroke: var(--line-strong); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.topo .edge.access { stroke: var(--acc-strong); stroke-width: 2.6; }
+.topo .edge.cascade { stroke: var(--warn); stroke-dasharray: 7 4; stroke-width: 2.6; }
+.topo .edge.identity { stroke: var(--teal); stroke-dasharray: 4 4; }
+.topo .edge.monitoring { stroke: var(--subtle); stroke-dasharray: 2 5; opacity: .8; }
+.topo marker path { fill: var(--line-strong); }
+.topo .edge-caption rect { fill: var(--panel); stroke: var(--line); }
+.topo .edge-caption text { fill: var(--mut); font-size: 8.5px; font-weight: 650; text-anchor: middle; }
+.topo .topology-node { filter: url(#topology-shadow); }
+.topo .node-surface { fill: var(--panel-raised); stroke: var(--line-strong); stroke-width: 1.2; }
+.topo .topology-node.uag .node-surface { fill: color-mix(in srgb, var(--panel-raised) 78%, var(--acc) 22%); stroke: var(--acc); stroke-width: 2; }
+.topo .topology-node.identity .node-surface { stroke: color-mix(in srgb, var(--teal) 55%, var(--line)); }
+.topo .topology-node.monitoring .node-surface { stroke-dasharray: 5 4; }
+.topo .node-accent { fill: var(--line-strong); }
+.topo .topology-node.uag .node-accent, .topo .topology-node.client .node-accent { fill: var(--acc); }
+.topo .topology-node.identity .node-accent, .topo .topology-node.backend .node-accent { fill: var(--teal); }
+.topo .topology-node.monitoring .node-accent { fill: var(--subtle); }
+.topo .node-kicker, .topo .node-title, .topo .node-subtitle, .topo .node-detail { text-anchor: start; }
+.topo .node-kicker { fill: var(--subtle); font-size: 7.5px; font-weight: 850; letter-spacing: .08em; }
+.topo .node-title { fill: var(--tx); font-size: 13px; font-weight: 760; }
+.topo .node-subtitle { fill: var(--mut); font-size: 9.5px; }
+.topo .node-detail { fill: var(--subtle); font-size: 8px; }
+.topo .topology-node.uag .node-title { font-size: 16px; }
+.topo .topology-node.uag .node-detail { fill: var(--mut); font-size: 8.5px; }
+.topology-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); background: var(--panel); }
+.topology-fact { display: grid; grid-template-columns: auto 1fr; gap: 8px; min-width: 0; padding: 10px 13px; border-right: 1px solid var(--line); }
+.topology-fact:nth-child(3n) { border-right: 0; }
+.topology-fact:nth-child(n + 4) { border-top: 1px solid var(--line); }
+.topology-fact span { color: var(--acc); font: 700 8px/1.65 'Cascadia Code', Consolas, monospace; }
+.topology-fact p { min-width: 0; margin: 0; overflow-wrap: anywhere; color: var(--mut); font-size: 9.5px; line-height: 1.45; }
 
 .overlay { position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; background: #05080dcc; backdrop-filter: blur(3px); }
 .modal { width: min(720px, 100%); max-height: 84vh; overflow: auto; padding: 22px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel); box-shadow: var(--shadow); }
@@ -422,6 +460,12 @@ pre.code { flex: 1; margin: 0; padding: 14px 17px 28px; overflow: auto; color: v
   .version-policy > button, .version-policy > .version-pill { grid-column: 2; justify-self: start; }
   .grid { grid-template-columns: 1fr; }
   .field.wide { grid-column: auto; }
+  .topo svg { min-width: 720px; }
+  .topology-summary { grid-template-columns: 1fr; }
+  .topology-fact, .topology-fact:nth-child(3n) { border-right: 0; }
+  .topology-fact:nth-child(n + 2) { border-top: 1px solid var(--line); }
+  .topo-head { align-items: flex-start; }
+  .live-state { font-size: 8px; }
   aside.out { min-height: 520px; }
   .output-toolbar { align-items: flex-start; flex-direction: column; }
   .output-actions { position: absolute; right: 12px; margin-top: 1px; }
