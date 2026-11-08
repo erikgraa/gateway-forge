@@ -42,6 +42,13 @@ export type Target =
   | 'cascade'
   | 'runtime';
 
+export function deploymentNicCount(v: Values): 1 | 2 | 3 {
+  const option = String(v.deploymentOption);
+  if (option.startsWith('threenic')) return 3;
+  if (option.startsWith('twonic')) return 2;
+  return 1;
+}
+
 export interface Option {
   value: string;
   label?: string;
@@ -368,38 +375,57 @@ export const GROUPS: GroupDef[] = [
       }),
       text('folder', 'VM folder', 'folder', { platforms: ['vsphere'], help: 'VMs and Templates folder; must exist.' }),
       text('ds', 'Datastore', 'ds', { platforms: vsphereHyperv, required: true, placeholder: 'datastore1' }),
-      text('netInternet', 'Internet network', 'netInternet', { platforms: vsphereHyperv, required: true, placeholder: 'DMZ-Internet' }),
-      text('netManagementNetwork', 'Management network', 'netManagementNetwork', {
+      text('netInternet', 'Internet network (NIC0)', 'netInternet', {
         platforms: vsphereHyperv,
-        showIf: (v) => !String(v.deploymentOption).startsWith('onenic')
+        required: true,
+        placeholder: 'DMZ-Internet',
+        help: 'Connects the appliance Internet-facing interface.'
       }),
-      text('netBackendNetwork', 'Backend network', 'netBackendNetwork', {
+      text('netManagementNetwork', 'Management / Backend network (NIC1)', 'netManagementNetwork', {
         platforms: vsphereHyperv,
-        showIf: (v) => String(v.deploymentOption).startsWith('threenic')
+        required: true,
+        showIf: (v) => deploymentNicCount(v) >= 2,
+        help: 'NIC1 is the combined Backend + Management network for twonic; threenic uses it for Management traffic.'
       }),
-      text('ip0', 'NIC0 IPv4 address', 'ip0', { rule: 'ipv4', platforms: vsphereHyperv, placeholder: '192.0.2.21' }),
-      text('netmask0', 'NIC0 netmask', 'netmask0', { rule: 'ipv4', platforms: vsphereHyperv, placeholder: '255.255.255.0' }),
-      text('ip1', 'NIC1 IPv4 address', 'ip1', {
+      text('netBackendNetwork', 'Backend network (NIC2)', 'netBackendNetwork', {
+        platforms: vsphereHyperv,
+        required: true,
+        showIf: (v) => deploymentNicCount(v) === 3,
+        help: 'The dedicated Backend interface is available only with threenic.'
+      }),
+      text('ip0', 'NIC0 Internet IPv4 address', 'ip0', { rule: 'ipv4', platforms: vsphereHyperv, required: true, placeholder: '192.0.2.21' }),
+      text('netmask0', 'NIC0 Internet netmask', 'netmask0', { rule: 'ipv4', platforms: vsphereHyperv, required: true, placeholder: '255.255.255.0' }),
+      text('ip1', 'NIC1 Management / Backend IPv4 address', 'ip1', {
         rule: 'ipv4',
         platforms: vsphereHyperv,
-        showIf: (v) => !String(v.deploymentOption).startsWith('onenic')
+        required: true,
+        showIf: (v) => deploymentNicCount(v) >= 2
       }),
-      text('netmask1', 'NIC1 netmask', 'netmask1', {
+      text('netmask1', 'NIC1 Management / Backend netmask', 'netmask1', {
         rule: 'ipv4',
         platforms: vsphereHyperv,
-        showIf: (v) => !String(v.deploymentOption).startsWith('onenic')
+        required: true,
+        showIf: (v) => deploymentNicCount(v) >= 2
       }),
-      text('ip2', 'NIC2 IPv4 address', 'ip2', {
+      text('ip2', 'NIC2 Backend IPv4 address', 'ip2', {
         rule: 'ipv4',
         platforms: vsphereHyperv,
-        showIf: (v) => String(v.deploymentOption).startsWith('threenic')
+        required: true,
+        showIf: (v) => deploymentNicCount(v) === 3
       }),
-      text('netmask2', 'NIC2 netmask', 'netmask2', {
+      text('netmask2', 'NIC2 Backend netmask', 'netmask2', {
         rule: 'ipv4',
         platforms: vsphereHyperv,
-        showIf: (v) => String(v.deploymentOption).startsWith('threenic')
+        required: true,
+        showIf: (v) => deploymentNicCount(v) === 3
       }),
-      text('defaultGateway', 'Default gateway', 'defaultGateway', { rule: 'ipv4', platforms: vsphereHyperv, placeholder: '192.0.2.1' })
+      text('defaultGateway', 'Default gateway', 'defaultGateway', {
+        rule: 'ipv4',
+        platforms: vsphereHyperv,
+        required: true,
+        placeholder: '192.0.2.1',
+        help: 'IPv4 gateway on the NIC0 Internet network.'
+      })
     ]
   },
   {

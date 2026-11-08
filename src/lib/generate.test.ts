@@ -94,6 +94,40 @@ describe('INI generation', () => {
     expect(ini).toContain('source=C:\\a.ova');
   });
 
+  it('emits only the applicable network fields for every deployment option family', () => {
+    const options = [
+      ['onenic', 1], ['twonic', 2], ['threenic', 3],
+      ['onenic-large', 1], ['twonic-large', 2], ['threenic-large', 3],
+      ['onenic-XL', 1], ['twonic-XL', 2], ['threenic-XL', 3]
+    ] as const;
+    const values = {
+      netInternet: 'DMZ-Internet',
+      netManagementNetwork: 'DMZ-Management',
+      netBackendNetwork: 'Internal-Backend',
+      ip0: '192.0.2.21',
+      netmask0: '255.255.255.0',
+      ip1: '192.0.3.21',
+      netmask1: '255.255.255.0',
+      ip2: '192.0.4.21',
+      netmask2: '255.255.255.0',
+      defaultGateway: '192.0.2.1'
+    };
+
+    for (const [deploymentOption, nicCount] of options) {
+      const ini = generateIni(applyPatch(defaultConfig(), { values: { ...values, deploymentOption } }));
+      expect(ini).toContain('netInternet=DMZ-Internet');
+      expect(ini).toContain('ip0=192.0.2.21');
+      expect(ini).toContain('netmask0=255.255.255.0');
+      expect(ini).toContain('defaultGateway=192.0.2.1');
+      expect(ini.includes('netManagementNetwork=')).toBe(nicCount >= 2);
+      expect(ini.includes('ip1=')).toBe(nicCount >= 2);
+      expect(ini.includes('netmask1=')).toBe(nicCount >= 2);
+      expect(ini.includes('netBackendNetwork=')).toBe(nicCount === 3);
+      expect(ini.includes('ip2=')).toBe(nicCount === 3);
+      expect(ini.includes('netmask2=')).toBe(nicCount === 3);
+    }
+  });
+
   it('writes numbered web reverse proxy sections', () => {
     const c = TEMPLATES.find((t) => t.id === 'wrp-intranet')!.build(defaultConfig());
     c.wrp.push({ ...c.wrp[0], instanceId: 'wiki', proxyDestinationUrl: 'https://wiki.corp.local' });
