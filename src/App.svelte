@@ -208,9 +208,6 @@
           <span>Current section</span>
           <strong>{currentIssues.length ? `${currentIssues.length} finding${currentIssues.length === 1 ? '' : 's'} to review` : 'No findings in this section'}</strong>
         </div>
-        {#if app.section === 'tunnel' && app.config.platform === 'azure'}
-          <section class="notice">Workspace ONE Tunnel on UAG is documented for vSphere and Hyper-V PowerShell deployments. Select one of those platforms to configure the [Airwatch] section.</section>
-        {/if}
         {#each groups as g (g.id)}<GroupCard group={g} {issues} />{/each}
         {#each lists as l (l.id)}<ListEditor list={l} {issues} />{/each}
         {#if app.section === 'horizon'}<ThumbprintTool />{/if}

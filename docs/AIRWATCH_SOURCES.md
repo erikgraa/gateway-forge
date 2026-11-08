@@ -5,8 +5,10 @@ Gateway Forge models the complete `[Airwatch]` sample in the UAG 2609 PowerShell
 - [Run PowerShell script to deploy — UAG 2609](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy)
 - [Configure Workspace ONE Tunnel Settings for Workspace ONE UEM](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/ConfigureTunnelSettingsforWorkspaceONEUEM)
 - [Omnissa Workspace ONE Tunnel: Deploying with Unified Access Gateway](https://docs.omnissa.com/bundle/Workspace_ONE_TunnelVSaaS/page/TunnelGateway-DeployUAG.html)
+- [PowerShell deployment to Nutanix AHV](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/PowerShelldeploymenttoNutanix)
+- [Limited Availability: PowerShell deployment to OpenShift](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/OpenShiftDeployment)
 
-The Tunnel deployment guide supports UAG-hosted Tunnel on vSphere and Hyper-V. Gateway Forge therefore hides the group on Azure. Historical PowerShell samples are present in all supported UAG releases checked (2212 through 2609); `tunnelConfigurationId` first appears in 2306, and `disableAutoConfigUpdate` first appears in 2303.
+The Tunnel edge-service settings are platform-independent after the UAG appliance is deployed, and Gateway Forge exposes the `[Airwatch]` group for vSphere, Hyper-V, Azure, Nutanix AHV, and Red Hat OpenShift Virtualization. The platform-specific scripts are `uagdeploy.ps1`, `uagdeployhv.ps1`, `uagdeployaz.ps1`, `uagdeployntnx.ps1`, and `uagdeployopenshift.ps1`, respectively. Historical PowerShell samples are present in all supported UAG releases checked (2212 through 2609); `tunnelConfigurationId` first appears in 2306, and `disableAutoConfigUpdate` first appears in 2303.
 
 ## Official semantics
 

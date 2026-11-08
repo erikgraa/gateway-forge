@@ -119,6 +119,8 @@ export function importIni(text: string, base?: Config): ImportResult {
     result.versionDetected = true;
   }
   if (doc.some((s) => s.section.toLowerCase() === 'azure')) c.platform = 'azure';
+  else if (doc.some((s) => s.section.toLowerCase() === 'nutanix')) c.platform = 'nutanix';
+  else if (doc.some((s) => s.section.toLowerCase() === 'openshift')) c.platform = 'openshift';
   else if (source && /\.vhdx?$/i.test(source)) c.platform = 'hyperv';
 
   const listItems: Record<string, Map<number, Values>> = { wrp: new Map(), syslog: new Map() };

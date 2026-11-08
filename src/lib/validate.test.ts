@@ -246,9 +246,11 @@ describe('config validation', () => {
     expect(messages(c).join('\n')).toMatch(/Workspace ONE UEM API server URL: Must be an https:\/\/ origin with no path, query or fragment/);
   });
 
-  it('gates Workspace ONE Tunnel to vSphere and Hyper-V', () => {
-    const c = applyPatch(defaultConfig(), { platform: 'azure', values: { airwatch_enabled: true } });
-    expect(messages(c).join('\n')).toMatch(/not Azure/);
+  it('allows Workspace ONE Tunnel on Azure, Nutanix and OpenShift', () => {
+    for (const platform of ['azure', 'nutanix', 'openshift'] as const) {
+      const c = applyPatch(defaultConfig(), { platform, values: { airwatch_enabled: true } });
+      expect(messages(c).join('\n')).not.toMatch(/not Azure|vSphere and Hyper-V|unsupported platform/i);
+    }
   });
 
   it('validates host entries and surfaces ambiguous PAC source configuration', () => {

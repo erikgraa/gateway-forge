@@ -1,4 +1,4 @@
-export type Platform = 'vsphere' | 'hyperv' | 'azure';
+export type Platform = 'vsphere' | 'hyperv' | 'azure' | 'nutanix' | 'openshift';
 
 export interface UagVersion {
   id: string;
@@ -41,13 +41,16 @@ export interface PlatformDef {
   id: Platform;
   label: string;
   script: string;
+  iniArgument: 'named' | 'positional';
   nonInteractive: 'named' | 'positional';
 }
 
 export const PLATFORMS: PlatformDef[] = [
-  { id: 'vsphere', label: 'vSphere', script: 'uagdeploy.ps1', nonInteractive: 'named' },
-  { id: 'hyperv', label: 'Hyper-V', script: 'uagdeployhv.ps1', nonInteractive: 'named' },
-  { id: 'azure', label: 'Azure', script: 'uagdeployaz.ps1', nonInteractive: 'positional' }
+  { id: 'vsphere', label: 'vSphere', script: 'uagdeploy.ps1', iniArgument: 'named', nonInteractive: 'named' },
+  { id: 'hyperv', label: 'Hyper-V', script: 'uagdeployhv.ps1', iniArgument: 'named', nonInteractive: 'named' },
+  { id: 'azure', label: 'Azure', script: 'uagdeployaz.ps1', iniArgument: 'positional', nonInteractive: 'positional' },
+  { id: 'nutanix', label: 'Nutanix AHV', script: 'uagdeployntnx.ps1', iniArgument: 'positional', nonInteractive: 'named' },
+  { id: 'openshift', label: 'Red Hat OpenShift Virtualization', script: 'uagdeployopenshift.ps1', iniArgument: 'named', nonInteractive: 'named' }
 ];
 
 export function platformDef(id: Platform): PlatformDef {

@@ -37,7 +37,7 @@ export interface GenerateOptions {
   secrets: SecretMode;
 }
 
-const SECTION_ORDER = ['General', 'Azure', 'Horizon', 'Airwatch', 'WebReverseProxy', 'RADIUSAuth', 'SecurIDAuth', 'CertificateAuth', 'OidcProviderSetting', 'IDPExternalMetadata1', 'OutboundProxySettings', 'SSLCert', 'SnmpSettings', 'SyslogServerSettings'];
+const SECTION_ORDER = ['General', 'Azure', 'Nutanix', 'OpenShift', 'Horizon', 'Airwatch', 'WebReverseProxy', 'RADIUSAuth', 'SecurIDAuth', 'CertificateAuth', 'OidcProviderSetting', 'IDPExternalMetadata1', 'OutboundProxySettings', 'SSLCert', 'SnmpSettings', 'SyslogServerSettings'];
 
 function sectionRank(name: string): number {
   const i = SECTION_ORDER.findIndex((s) => name.startsWith(s));

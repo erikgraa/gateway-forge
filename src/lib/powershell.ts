@@ -1,4 +1,4 @@
-import type { Config } from './model';
+import { isEmpty, type Config } from './model';
 import { generateIni, generateJson, iniFileName, jsonFileName, platformScript, type SecretMode } from './generate';
 import { platformDef } from './versions';
 import { sshPublicKeys } from './ssh';
@@ -20,6 +20,7 @@ export function generatePowerShell(c: Config, mode: SecretMode = 'placeholder'):
   const script = platformScript(c);
   const def = platformDef(c.platform);
   const sw = runtimeSwitches(c);
+  const invocation = def.iniArgument === 'positional' ? `.\\${script} .\\${file}` : `.\\${script} -iniFile .\\${file}`;
   const out: string[] = [
     `# Gateway Forge - UAG ${c.version} on ${def.label}`,
     `# Prerequisites: extract the uagdeploy scripts from the Omnissa Customer Connect download`,
@@ -52,15 +53,19 @@ export function generatePowerShell(c: Config, mode: SecretMode = 'placeholder'):
   out.push(`# deployment artifacts in an approved secrets-managed location outside Gateway Forge and the exported script.`);
   out.push('');
   out.push(`# 2a. Interactive deployment (the deployment script prompts for credentials)`);
-  out.push((c.platform === 'azure' ? `.\\${script} .\\${file}` : `.\\${script} -iniFile .\\${file}`) + sw, '');
+  out.push(invocation + sw, '');
   out.push(`# 2b. Non-interactive deployment: -rootPwd / -adminPwd are read at deploy time and are never stored in the INI (min 8 characters; 14 for FIPS)`);
   out.push(`$rootPwd  = Read-Host 'UAG root password'  -AsSecureString`);
   out.push(`$adminPwd = Read-Host 'UAG admin password' -AsSecureString`);
   out.push(`$plain = { param($s) [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s)) }`);
+  if (c.platform === 'openshift' && isEmpty(c.values.ocp_bearerToken)) {
+    out.push(`$openshiftPwd = Read-Host 'OpenShift password' -AsSecureString`);
+  }
+  const openshiftPassword = c.platform === 'openshift' && isEmpty(c.values.ocp_bearerToken) ? ' -openshiftPassword (& $plain $openshiftPwd)' : '';
   if (def.nonInteractive === 'positional') {
     out.push(`.\\${script} .\\${file} (& $plain $rootPwd) (& $plain $adminPwd) no${sw}   # <ceip-yes-no> follows the passwords`);
   } else {
-    out.push(`.\\${script} -iniFile .\\${file} -rootPwd (& $plain $rootPwd) -adminPwd (& $plain $adminPwd)${sw}`);
+    out.push(`${invocation} -rootPwd (& $plain $rootPwd) -adminPwd (& $plain $adminPwd)${sw}${openshiftPassword}`);
   }
   out.push('');
   return out.join('\n');
