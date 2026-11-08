@@ -42,15 +42,17 @@ export interface PlatformDef {
   label: string;
   script: string;
   iniArgument: 'named' | 'positional';
-  nonInteractive: 'named' | 'positional';
+  nonInteractive: 'named' | 'positional' | 'none';
+  since?: string;
+  limitedAvailability?: boolean;
 }
 
 export const PLATFORMS: PlatformDef[] = [
   { id: 'vsphere', label: 'vSphere', script: 'uagdeploy.ps1', iniArgument: 'named', nonInteractive: 'named' },
   { id: 'hyperv', label: 'Hyper-V', script: 'uagdeployhv.ps1', iniArgument: 'named', nonInteractive: 'named' },
   { id: 'azure', label: 'Azure', script: 'uagdeployaz.ps1', iniArgument: 'positional', nonInteractive: 'positional' },
-  { id: 'nutanix', label: 'Nutanix AHV', script: 'uagdeployntnx.ps1', iniArgument: 'positional', nonInteractive: 'named' },
-  { id: 'openshift', label: 'Red Hat OpenShift Virtualization', script: 'uagdeployopenshift.ps1', iniArgument: 'named', nonInteractive: 'named' }
+  { id: 'nutanix', label: 'Nutanix AHV', script: 'uagdeployntnx.ps1', iniArgument: 'positional', nonInteractive: 'none', since: '2606' },
+  { id: 'openshift', label: 'Red Hat OpenShift Virtualization', script: 'uagdeployopenshift.ps1', iniArgument: 'named', nonInteractive: 'named', since: '2609', limitedAvailability: true }
 ];
 
 export function platformDef(id: Platform): PlatformDef {
@@ -69,6 +71,10 @@ export function cmpVersion(a: string, b: string): number {
 
 export function isSupportedVersion(id: string): boolean {
   return VERSIONS.some((v) => v.id === id);
+}
+
+export function platformAvailable(platform: Platform, version: string): boolean {
+  return inVersion(version, platformDef(platform).since);
 }
 
 /** True when a feature with the given since/until bounds exists in `version`. */

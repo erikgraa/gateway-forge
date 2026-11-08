@@ -213,6 +213,32 @@ describe('config validation', () => {
     expect(messages(c).join('\n')).not.toMatch(/vCenter target/);
     expect(messages(c).join('\n')).toMatch(/Subscription ID is required/);
   });
+  it('validates Nutanix and OpenShift platform requirements and NIC modes', () => {
+    const nutanix = applyPatch(TEMPLATES.find((t) => t.id === 'nutanix-ahv')!.build(defaultConfig()), {
+      values: { ntnx_cluster: '', ntnx_subnet1: '', ntnx_image: 'uag.ova', ipMode0: 'STATICV4', ip0: '', netmask0: '' }
+    });
+    const nutanixMessages = messages(nutanix).join('\n');
+    expect(nutanixMessages).toMatch(/Cluster is required/);
+    expect(nutanixMessages).toMatch(/NIC1 \/ eth1 subnet is required/);
+    expect(nutanixMessages).toMatch(/NIC0 \/ eth0 IPv4 address is required/);
+    expect(nutanixMessages).toMatch(/NIC0 \/ eth0 netmask is required/);
+    expect(nutanixMessages).toMatch(/native .qcow2 artifact/);
+
+    const openshift = applyPatch(TEMPLATES.find((t) => t.id === 'openshift-virtualization')!.build(defaultConfig()), {
+      values: { ocp_diskSizeGi: 19, ocp_namespace: 'Invalid.Namespace', ocp_nadName1: '', ocp_labels: 'missing-value', ocp_qcow2Url: 'https://images.corp.local/uag.ova' }
+    });
+    const openshiftMessages = messages(openshift).join('\n');
+    expect(openshiftMessages).toMatch(/Root disk size.*20/);
+    expect(openshiftMessages).toMatch(/Namespace \/ project: Must be a lowercase DNS label/);
+    expect(openshiftMessages).toMatch(/NIC1 \/ eth1 NAD is required/);
+    expect(openshiftMessages).toMatch(/labels must be comma-separated key=value/);
+    expect(openshiftMessages).toMatch(/Limited Availability/);
+    expect(openshiftMessages).toMatch(/image URL must point to a .qcow2 artifact/);
+  });
+  it('rejects Nutanix and OpenShift output on unsupported UAG versions', () => {
+    expect(messages(applyPatch(defaultConfig(), { version: '2603', platform: 'nutanix' })).join('\n')).toMatch(/Nutanix AHV deployment output.*2606/);
+    expect(messages(applyPatch(defaultConfig(), { version: '2606', platform: 'openshift' })).join('\n')).toMatch(/OpenShift.*2609/);
+  });
 
   it('requires the network fields for every one-, two- and three-NIC size option', () => {
     const options = [

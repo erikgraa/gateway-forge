@@ -1,7 +1,7 @@
-import type { Config } from './model';
+import { nicUsesStaticIpv4, type Config } from './model';
 import { deploymentNicCount } from './schema';
 import { FORWARD_FLAGS, cascadeRole } from './cascade';
-import { collectBlocks, platformScript } from './generate';
+import { collectBlocks, deploymentCommand } from './generate';
 import { runtimeSwitches } from './powershell';
 import type { Issue } from './validate';
 import { platformDef } from './versions';
@@ -62,7 +62,7 @@ export function buildTopology(c: Config): Topology {
     });
   }
   const edges: Topology['edges'] = [];
-  const ips = [v.ip0, v.ip1, v.ip2].slice(0, nicCount).filter(Boolean).join(' · ');
+  const ips = ([0, 1, 2] as const).slice(0, nicCount).filter((nic) => nicUsesStaticIpv4(c, nic)).map((nic) => v[`ip${nic}`]).filter(Boolean).join(' · ');
   nodes.push({
     id: 'uag',
     label: String(v.uagName || 'UAG'),
@@ -220,11 +220,28 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     if (deploymentNicCount(v) === 3) L.push(`- **NIC2 / Backend:** ${v.netBackendNetwork || '(not set)'} - ${v.ip2 || '(no IP)'}${v.netmask2 ? ' / ' + v.netmask2 : ''}`);
     L.push(`- **Default gateway (NIC0):** ${v.defaultGateway || '(not set)'}`);
     if (deploymentNicCount(v) === 2) L.push('- **Two-NIC mapping:** Internet (NIC0) + combined Backend and Management (NIC1); no dedicated third Backend NIC.');
+  } else {
+    for (const nic of [0, 1, 2] as const) {
+      if (nicUsesStaticIpv4(c, nic) && v[`ip${nic}`]) L.push(`- **NIC${nic}:** ${v[`ip${nic}`]}${v[`netmask${nic}`] ? ' / ' + v[`netmask${nic}`] : ''}`);
+    }
   }
   if (v.dns) L.push(`- **DNS:** ${v.dns}`);
   if (v.ntpServers) L.push(`- **NTP:** ${v.ntpServers}`);
   L.push('', '## Deployment', '');
-  L.push(`- Run: \`${platformScript(c)} -iniFile <file>.ini${runtimeSwitches(c)}\``);
+  L.push(`- Run: \`${deploymentCommand(c, runtimeSwitches(c))}\``);
+  if (c.platform === 'nutanix') {
+    L.push('- Upload the UAG QCOW2 image to Prism Central; the cluster and subnet names referenced by the INI must already exist.');
+    L.push('- The official script deletes and recreates a VM with the configured name and prompts for the root, admin and Prism Central passwords.');
+  }
+  if (c.platform === 'openshift') {
+    L.push('- **Limited Availability:** vendor access, the target namespace, StorageClass, NADs, RBAC and NetworkPolicies must be prepared first.');
+    if (v.ocp_volumeSourceMode === 'console') {
+      L.push('- **Runbook mode:** upload the local QCOW2 through the OpenShift web console; no YAML is emitted for a browser-local file.');
+    } else {
+      L.push('- Apply the generated CDI `DataVolume`/`DataSource` YAML and wait for the volume import to reach Succeeded/100% before running the UAG script.');
+    }
+    L.push('- Verify the deployed VirtualMachine is Running/Ready and check its assigned NICs and IP addresses.');
+  }
   L.push('- Gateway Forge never asks for or stores the UAG root or Admin UI passwords. Omnissa marks `-rootPwd` and `-adminPwd` as mandatory for headless deployment; the generated PowerShell reads them only at deploy time when supplied.');
   L.push('- **Immutable / replace-on-failure option:** Omnissa documents that an appliance may be deployed without an Admin UI password when no post-deployment changes are needed. The Admin UI and API are then unavailable, no user can be added later, and the appliance must be redeployed to restore administrative access. This does not remove or disable the root account.');
   L.push('- Before choosing this workflow, complete and test the INI as the recovery baseline; retain deployment artifacts in an approved secrets-managed system; and assess console access, break-glass recovery, monitoring, password rotation, change control, backup, and compliance requirements. Redeploy rather than attempting in-place administration.');

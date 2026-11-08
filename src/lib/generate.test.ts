@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfig, applyPatch, stripSecrets } from './model';
-import { collectBlocks, generateIni, generateJson, generateJsonObject, SECRET_PLACEHOLDER } from './generate';
+import { collectBlocks, generateBootableVolumeManifest, generateIni, generateJson, generateJsonObject, manifestFileName, SECRET_PLACEHOLDER } from './generate';
 import { TEMPLATES } from './templates';
 import { generatePowerShell } from './powershell';
 import { generateDocs } from './topology';
@@ -570,7 +570,86 @@ describe('PowerShell output', () => {
     const az = generatePowerShell(applyPatch(radiusMfa(), { platform: 'azure' }), 'placeholder', 'headless');
     expect(az).toContain('uagdeployaz.ps1 .\\uag-dmz-01.ini $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no');
   });
-
+  it('uses the Nutanix script without vSphere/Azure-only fields', () => {
+    const c = TEMPLATES.find((t) => t.id === 'nutanix-ahv')!.build(defaultConfig());
+    const ini = generateIni(c);
+    expect(ini).toContain('[Nutanix]');
+    expect(ini).toContain('prismCentralAddress=prism.corp.local');
+    expect(ini).toContain('image=euc-unified-access-gateway-26.09.0.0-system.qcow2');
+    expect(ini).toContain('subnet0=uag-external');
+    expect(ini).toContain('subnet1=uag-management');
+    expect(ini).not.toMatch(/\[Azure\]|^(?:source|target|netInternet|netManagementNetwork|ds)=/m);
+    expect(generatePowerShell(c)).toContain('.\\uagdeployntnx.ps1 .\\uag-nutanix-01.ini');
+    expect(generatePowerShell(c)).not.toContain('-iniFile');
+    expect(generatePowerShell(c)).toContain('deletes and recreates a VM with the same name');
+  });
+  it('emits the OpenShift manifest, preparation commands and platform INI only', () => {
+    const c = TEMPLATES.find((t) => t.id === 'openshift-virtualization')!.build(defaultConfig());
+    c.values.ocp_bearerToken = 'sha256~secret';
+    const ini = generateIni(c);
+    const yaml = generateBootableVolumeManifest(c);
+    const ps = generatePowerShell(c);
+    expect(ini).toContain('[OpenShift]');
+    expect(ini).toContain('nadName0=uag-external-network');
+    expect(ini).toContain('nadName1=uag-management-network');
+    expect(ini).not.toContain('qcow2Url=');
+    expect(ini).not.toMatch(/\[Azure\]|\[Nutanix\]|source=|target=|netInternet=/);
+    expect(ini).toContain('bearerToken=<REDACTED>');
+    expect(ini).not.toContain('sha256~secret');
+    expect(yaml).toContain('kind: DataVolume');
+    expect(yaml).toContain('kind: DataSource');
+    expect(yaml).toContain('apiVersion: cdi.kubevirt.io/v1beta1');
+    expect(yaml).toContain('storage: "20Gi"');
+    expect(yaml).toContain('url: "https://images.corp.local/uag-2609.qcow2"');
+    expect(yaml).toContain('accessModes:\n      - ReadWriteMany');
+    expect(yaml).not.toContain('sha256~secret');
+    expect(manifestFileName(c)).toBe('uag-bootable-volume.yaml');
+    expect(ps).toContain('oc apply -f .\\uag-bootable-volume.yaml');
+    expect(ps).toContain('.\\uagdeployopenshift.ps1 -iniFile .\\uag-openshift-01.ini');
+    expect(ps).not.toContain('-openshiftPassword');
+    expect(ps).toContain('Clear-History');
+    expect(generatePowerShell(c, 'omit')).toContain('-openshiftPassword');
+  });
+  it('uses explicit runbook mode for an OpenShift console upload', () => {
+    const c = applyPatch(TEMPLATES.find((t) => t.id === 'openshift-virtualization')!.build(defaultConfig()), {
+      values: { ocp_volumeSourceMode: 'console', ocp_qcow2Url: '' }
+    });
+    const prep = generateBootableVolumeManifest(c);
+    expect(prep).toContain('OpenShift bootable-volume preparation runbook');
+    expect(prep).toContain('emits no Kubernetes manifest');
+    expect(prep).not.toContain('kind: DataVolume');
+    expect(manifestFileName(c)).toMatch(/\.md$/);
+    expect(generatePowerShell(c)).toContain('runbook mode');
+    expect(generatePowerShell(c)).not.toContain('oc apply -f');
+    expect(generatePowerShell(applyPatch(c, { values: { run_noSSLVerify: true } }))).not.toContain('-noSSLVerify');
+  });
+  it('does not leak a previously selected platform into new-platform output', () => {
+    const nutanix = applyPatch(TEMPLATES.find((t) => t.id === 'nutanix-ahv')!.build(defaultConfig()), {
+      values: {
+        source: 'C:\\old.ova',
+        target: 'vi://old',
+        ds: 'old-datastore',
+        netInternet: 'old-internet',
+        az_subscriptionID: 'old-subscription'
+      }
+    });
+    expect(generateIni(nutanix)).not.toMatch(/^(?:source|target|ds|netInternet|subscriptionID)=/m);
+    const openshift = applyPatch(TEMPLATES.find((t) => t.id === 'openshift-virtualization')!.build(defaultConfig()), {
+      values: {
+        ntnx_cluster: 'old-cluster',
+        az_location: 'old-location',
+        ipMode0: 'DHCPV4',
+        ip0: '192.0.2.99',
+        netmask0: '255.255.255.0',
+        defaultGateway: '192.0.2.1'
+      }
+    });
+    const ini = generateIni(openshift);
+    expect(ini).not.toMatch(/cluster=|location=|ip0=|netmask0=|defaultGateway=/);
+    const undecided = applyPatch(openshift, { values: { ipMode0: '', ipMode1: '' } });
+    expect(generateIni(undecided)).not.toMatch(/^(?:ip0|netmask0|ip1|netmask1|defaultGateway)=/m);
+    expect(generateDocs(undecided, validateConfig(undecided))).not.toMatch(/\*\*NIC0\*\*|192\.0\.2\.99/);
+  });
   it('uses the Nutanix and OpenShift deployment scripts', () => {
     expect(generatePowerShell(applyPatch(tunnel(), { platform: 'nutanix' }))).toContain('.\\uagdeployntnx.ps1 .\\uag-tunnel-01.ini');
     const openshift = generatePowerShell(applyPatch(tunnel(), { platform: 'openshift' }), 'placeholder', 'headless');

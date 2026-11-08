@@ -25,7 +25,7 @@ function migrateLegacyKeys(): void {
 }
 migrateLegacyKeys();
 
-export type OutputTab = 'ini' | 'json' | 'ps' | 'docs';
+export type OutputTab = 'ini' | 'json' | 'ps' | 'docs' | 'manifest';
 
 function loadDraft(): Config {
   try {

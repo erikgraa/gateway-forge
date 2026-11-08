@@ -18,9 +18,10 @@ references, the project evidence labels, and the source-review policy.
 ## ✨ Features
 
 - 📄 **INI for `uagdeploy.ps1`** (the primary deploy path - the script takes an INI via `-iniFile`, not JSON) **and settings JSON** for the admin UI *Import settings* / `PUT /rest/v1/config/settings`.
-- 💻 **PowerShell output** that writes the INI and runs `uagdeploy.ps1` (vSphere), `uagdeployhv.ps1` (Hyper-V) or `uagdeployaz.ps1` (Azure), interactive or non-interactive.
+- 💻 **Platform-aware deployment output** for vSphere, Hyper-V, Azure and Nutanix AHV. Nutanix generates the documented `[Nutanix]` INI and `uagdeployntnx.ps1` invocation for a QCOW2 image uploaded to Prism Central.
+- ☸️ **Red Hat OpenShift Virtualization (Limited Availability):** generates the documented CDI `DataVolume` + `DataSource` YAML for a cluster-reachable QCOW2 URL, the `[OpenShift]` INI, `oc` preparation/verification commands and `uagdeployopenshift.ps1` invocation. A local QCOW2 uses explicit console-upload runbook mode rather than an invalid fake manifest.
 - 🧬 **Version-aware form** driven by a data-driven schema ([`src/lib/schema.ts`](src/lib/schema.ts)): fields appear/disappear per UAG version and platform.
-- 🎯 **Scope:** Horizon and Web Reverse Proxy edge services; RADIUS, SAML, OpenID Connect, RSA SecurID and certificate authentication; TLS protocols/ciphers/certificates, outbound proxy, syslog (UDP/TCP/TLS/MQTT) and SNMP (v1/v2c/v3). Platforms: vSphere, Hyper-V, Azure. OIDC, SecurID, certificate auth and outbound proxy are emitted to the INI only (their JSON shape is not documented).
+- 🎯 **Scope:** Horizon and Web Reverse Proxy edge services; RADIUS, SAML, OpenID Connect, RSA SecurID and certificate authentication; TLS protocols/ciphers/certificates, outbound proxy, syslog (UDP/TCP/TLS/MQTT) and SNMP (v1/v2c/v3). Platforms: vSphere, Hyper-V, Azure, Nutanix AHV and Red Hat OpenShift Virtualization. OIDC, SecurID, certificate auth and outbound proxy are emitted to the INI only (their JSON shape is not documented).
 - 🪜 **Cascading (double DMZ):** pick *Outer UAG* or *Inner UAG* under Horizon. The outer UAG is generated as a Horizon-WRP reverse proxy (documented proxy pattern, inner UAG URL/thumbprint) plus optional orwardrules for Blast/UDP tunnel/PCoIP; the inner UAG is a standard Horizon edge. Two ready-made templates are included. (Workspace ONE Tunnel cascade mode is not covered.)
 - 📥 **Import** an existing INI or settings JSON (paste or file) with a preview of what was recognised/ignored; the UAG version is detected from the image file name.
 - ✅ **Validation + best-practice lint** (required fields, IPv4/URL/port/thumbprint formats, RADIUS timing, duplicate IPs, TLS 1.0/1.1, SSH, missing syslog/NTP, no MFA on an external gateway, SHA-1 thumbprints …). Click a finding to jump to the field.
@@ -50,10 +51,20 @@ The completed [UAG 2609 Horizon schema audit](docs/horizon-2609-schema-audit.md)
 
 ## 🧭 Using it
 
-1. Pick the **UAG version** and **platform** (vSphere, Hyper-V, Azure) in the header - or start from a **template**, or **Import** an existing INI/JSON.
+1. Pick the **UAG version** and **platform** (vSphere, Hyper-V, Azure, Nutanix AHV or OpenShift Virtualization) in the header - or start from a **template**, or **Import** an existing INI/JSON. Nutanix output is available from UAG 2606; OpenShift output is UAG 2609 and Limited Availability.
 2. Fill in the sections. Required fields and lint findings are flagged inline and in the *Validation & lint* panel.
 3. Take the result from the right-hand panel: **INI**, **JSON**, **PowerShell** or **Docs**; *Copy* or *Download* (also in **Export**).
-4. Deploy: `.\uagdeploy.ps1 -iniFile .\uag-dmz-01.ini` for interactive prompting, or select **Headless** in the PowerShell tab and provide `UAG_ROOT_PASSWORD` / `UAG_ADMIN_PASSWORD` through the runtime environment.
+4. Deploy with the command shown for the selected platform. Examples: vSphere uses `.\uagdeploy.ps1 -iniFile ...`; Nutanix uses `.\uagdeployntnx.ps1 ...`; OpenShift first prepares the bootable volume and then uses `.\uagdeployopenshift.ps1 -iniFile ...`.
+
+   vSphere, Hyper-V and Azure also support **Headless** mode in the PowerShell tab, using `UAG_ROOT_PASSWORD` / `UAG_ADMIN_PASSWORD` from the runtime environment. Nutanix uses the verified interactive script flow.
+
+### Nutanix and OpenShift support boundaries
+
+- **Nutanix AHV:** UAG 2606+ uses the native QCOW2 image format. Upload the image to Prism Central before deployment and provide existing cluster/subnet names. The official script creates the VM directly and **deletes/recreates** an existing VM with the same name. It prompts for root, admin and Prism Central passwords; Gateway Forge intentionally does not invent an unverified non-interactive command.
+- **OpenShift Virtualization:** Limited Availability and requires Omnissa-granted access. Gateway Forge targets the official two-stage flow: a CDI bootable-volume preparation followed by the `uagdeployopenshift.ps1` VM deployment. The namespace, RWX-capable StorageClass, `NetworkAttachmentDefinition` resources, RBAC, capacity and any referenced NetworkPolicies must pre-exist. NAD mapping is numeric (`nadName0` = NIC0/eth0, `nadName1` = NIC1/eth1, `nadName2` = NIC2/eth2).
+- **OpenShift local image:** the official web-console upload path is represented as an explicit Markdown runbook mode. Gateway Forge cannot upload a local browser file to the cluster and does not emit a misleading YAML reference to a local path.
+- **Sizing:** OpenShift accepts an external `instanceType` name; the reference only states a minimum of 2 vCPU and 4 GB RAM and does not enumerate valid profile names. Disk size is enforced at 20 GiB or larger. The generated volume manifest uses `ReadWriteMany` and `Filesystem`.
+- **NIC configuration boundary:** Nutanix and OpenShift generation currently models the documented IPv4 `DHCPV4` and `STATICV4` modes and numeric eth0/eth1/eth2 mapping. IPv6 modes, per-interface `routesN`, and `CustomConfig`/`ethNCustomConfig` inputs are intentionally not offered because they need additional source-backed validation.
 
 ### 📚 Where do the key names come from?
 
@@ -64,6 +75,8 @@ INI section and key names (`[General]`, `[Horizon]`, `[RADIUSAuth]`, `[SnmpSetti
 The [source map](SOURCES.md#uag-ini-keys-and-deployment) records the exact
 evidence hierarchy for these keys and distinguishes Omnissa documentation from
 release-artifact observations and Gateway Forge assumptions.
+
+The `[Nutanix]` and `[OpenShift]` sections, QCOW2 constraints, NIC mappings and OpenShift CDI manifest come from the official UAG 2609 platform pages. See [SOURCES.md](SOURCES.md) for the exact references, verified facts and documented non-goals.
 
 ### 🧾 Settings JSON - read this
 

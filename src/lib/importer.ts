@@ -75,16 +75,19 @@ export function versionFromSource(source: string): string | undefined {
   return isSupportedVersion(id) ? id : undefined;
 }
 
-type IniIndex = Map<string, { field: Field }>;
+type IniIndex = Map<string, { group?: GroupDef; field: Field }[]>;
 const iniIndex: IniIndex = new Map();
 for (const g of GROUPS) for (const f of g.fields) {
-  if (f.customOutput) continue;
+  if (f.customOutput || f.ini === false) continue;
   for (const key of [f.key, ...(f.aliases ?? [])]) {
-    iniIndex.set(`${g.iniSection}|${key}`.toLowerCase(), { field: f });
+    const indexKey = `${g.iniSection}|${key}`.toLowerCase();
+    const hits = iniIndex.get(indexKey) ?? [];
+    hits.push({ group: g, field: f });
+    iniIndex.set(indexKey, hits);
   }
 }
 for (const field of RUNTIME_FIELDS) {
-  iniIndex.set(`runtime|${field.key}`.toLowerCase(), { field });
+  iniIndex.set(`runtime|${field.key}`.toLowerCase(), [{ field }]);
 }
 
 const listRe = (l: ListDef) => new RegExp(`^${l.iniSection(0).replace(/0$/, '')}(\\d+)$`, 'i');
@@ -119,7 +122,8 @@ export function importIni(text: string, base?: Config): ImportResult {
 
   const general = doc.filter((s) => s.section.toLowerCase() === 'general').flatMap((s) => s.entries);
   const source = general.find((e) => e.key.toLowerCase() === 'source')?.value;
-  const detected = source ? versionFromSource(source) : undefined;
+  const nutanixImage = doc.filter((s) => s.section.toLowerCase() === 'nutanix').flatMap((s) => s.entries).find((e) => e.key.toLowerCase() === 'image')?.value;
+  const detected = versionFromSource(source || nutanixImage || '');
   if (detected) {
     c.version = detected;
     result.versionDetected = true;
@@ -182,7 +186,7 @@ export function importIni(text: string, base?: Config): ImportResult {
         continue;
       }
       if (lower === 'general' && e.key.toLowerCase() === 'uagname') {
-        const f = iniIndex.get('general|uagname')!.field;
+        const f = iniIndex.get('general|uagname')![0].field;
         setField(c, c.values, f, e.value, result, `[${sec.section}]`);
         continue;
       }
@@ -193,8 +197,11 @@ export function importIni(text: string, base?: Config): ImportResult {
         result.mapped++;
         continue;
       }
-      if (lower === 'horizon' && e.key.toLowerCase() === 'originheaderdetailslist') continue;
-      const hit = iniIndex.get(`${sec.section}|${e.key}`.toLowerCase());
+      const candidates = iniIndex.get(`${sec.section}|${e.key}`.toLowerCase());
+      const hit = candidates?.find((candidate) =>
+        (!candidate.group?.platforms || candidate.group.platforms.includes(c.platform)) &&
+        (!candidate.field.platforms || candidate.field.platforms.includes(c.platform))
+      ) ?? candidates?.find((candidate) => !candidate.group?.platforms && !candidate.field.platforms) ?? candidates?.[0];
       if (!hit) result.unmapped.push({ where: `[${sec.section}]`, key: e.key, value: e.value });
       else setField(c, c.values, hit.field, e.value, result, `[${sec.section}]`);
     }

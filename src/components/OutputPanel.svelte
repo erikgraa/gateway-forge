@@ -3,18 +3,25 @@
   import { render, download, copy, highlight } from '../lib/render';
   import { VERSIONS } from '../lib/versions';
 
-  const tabs: { id: OutputTab; label: string }[] = [
+  const tabs = $derived.by((): { id: OutputTab; label: string }[] => [
     { id: 'ini', label: 'INI' },
     { id: 'json', label: 'JSON' },
     { id: 'ps', label: 'PowerShell' },
+    ...(app.config.platform === 'openshift' ? [{ id: 'manifest' as const, label: app.config.values.ocp_volumeSourceMode === 'console' ? 'Prep' : 'YAML' }] : []),
     { id: 'docs', label: 'Docs' }
-  ];
+  ]);
   const hints: Record<OutputTab, string> = {
-    ini: 'uagdeploy.ps1 -iniFile (deploy path)',
+    ini: 'Platform-specific uagdeploy input',
     json: 'Admin UI import / PUT /rest/v1/config/settings',
-    ps: 'Writes the INI and runs the deploy script',
-    docs: 'Markdown summary for runbooks'
+    ps: 'Writes the platform artifacts and runs the documented workflow',
+    docs: 'Markdown summary for runbooks',
+    manifest: 'CDI DataVolume + DataSource; apply before deployment'
   };
+
+  $effect(() => {
+    if (app.tab === 'manifest' && app.config.platform !== 'openshift') app.tab = 'ini';
+    if (app.deploymentMode === 'headless' && app.config.platform === 'nutanix') app.deploymentMode = 'interactive';
+  });
 
   const rendered = $derived(render(app.config, app.tab, app.secretMode, app.deploymentMode));
   const html = $derived(highlight(rendered.text, app.tab));
@@ -44,7 +51,7 @@
     </div>
   </div>
   <div class="output-file">
-    <span class="file-type">{app.tab === 'ps' ? 'PS1' : app.tab.toUpperCase()}</span>
+    <span class="file-type">{app.tab === 'ps' ? 'PS1' : app.tab === 'manifest' ? (rendered.mime === 'text/markdown' ? 'RUNBOOK' : 'YAML') : app.tab.toUpperCase()}</span>
     <span><strong>{rendered.filename}</strong><small>{hints[app.tab]}</small></span>
   </div>
   {#if app.tab === 'ps'}
@@ -57,8 +64,8 @@
             <input type="radio" name="deployment-mode" value="interactive" bind:group={app.deploymentMode} />
             <span><strong>Interactive</strong><small>Prompt for passwords</small></span>
           </label>
-          <label class:active={app.deploymentMode === 'headless'}>
-            <input type="radio" name="deployment-mode" value="headless" bind:group={app.deploymentMode} />
+          <label class:active={app.deploymentMode === 'headless'} class:disabled={app.config.platform === 'nutanix'}>
+            <input type="radio" name="deployment-mode" value="headless" bind:group={app.deploymentMode} disabled={app.config.platform === 'nutanix'} />
             <span><strong>Headless</strong><small>Use runtime environment</small></span>
           </label>
         </div>
@@ -67,15 +74,17 @@
         <p class="runtime-note">Set <code>UAG_ROOT_PASSWORD</code> and <code>UAG_ADMIN_PASSWORD</code> in the deployment process environment. The generated script fails before invoking uagdeploy if either is absent.</p>
       {/if}
       <div class="runtime-switches">
-        <label>
-          <input
-            id="f-run_noSSLVerify"
-            type="checkbox"
-            checked={app.config.values.run_noSSLVerify === true}
-            onchange={(e) => (app.config.values.run_noSSLVerify = e.currentTarget.checked)}
-          />
-          <span><strong>Skip SSL/TLS verification</strong><small>Adds <code>-noSSLVerify</code></small></span>
-        </label>
+        {#if app.config.platform !== 'openshift'}
+          <label>
+            <input
+              id="f-run_noSSLVerify"
+              type="checkbox"
+              checked={app.config.values.run_noSSLVerify === true}
+              onchange={(e) => (app.config.values.run_noSSLVerify = e.currentTarget.checked)}
+            />
+            <span><strong>Skip SSL/TLS verification</strong><small>Adds <code>-noSSLVerify</code></small></span>
+          </label>
+        {/if}
         {#if app.config.platform === 'vsphere'}
           <label>
             <input

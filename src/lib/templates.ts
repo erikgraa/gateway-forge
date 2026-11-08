@@ -232,5 +232,70 @@ export const TEMPLATES: Template[] = [
         },
         { syslog: [syslogTls] }
       )
+  },
+  {
+    id: 'nutanix-ahv',
+    title: 'Nutanix AHV (QCOW2 / PowerShell)',
+    description: 'UAG 2609 on Nutanix AHV. Generates the [Nutanix] INI section and uagdeployntnx.ps1 command; the QCOW2 image, cluster and subnets must already exist in Prism Central.',
+    tags: ['Nutanix', 'QCOW2', 'PowerShell'],
+    build: (b) =>
+      fresh(
+        b,
+        {
+          horizon_enabled: true,
+          proxyDestinationUrl: 'https://cs01.corp.local',
+          authMethods: 'passthrough',
+          gatewayLocation: 'external',
+          blastEnabled: true,
+          tunnelEnabled: true,
+          uagName: 'uag-nutanix-01',
+          name: 'uag-nutanix-01',
+          deploymentOption: 'twonic',
+          ipMode0: 'DHCPV4',
+          ipMode1: 'DHCPV4',
+          ntnx_prismCentralUserName: 'uag-deployer',
+          ntnx_prismCentralAddress: 'prism.corp.local',
+          ntnx_cluster: 'cluster1',
+          ntnx_image: 'euc-unified-access-gateway-26.09.0.0-system.qcow2',
+          ntnx_subnet0: 'uag-external',
+          ntnx_subnet1: 'uag-management'
+        },
+        { version: '2609', platform: 'nutanix' }
+      )
+  },
+  {
+    id: 'openshift-virtualization',
+    title: 'Red Hat OpenShift Virtualization (Limited Availability)',
+    description: 'UAG 2609 two-stage OpenShift workflow. Generates a CDI bootable-volume YAML, [OpenShift] INI section, oc preparation commands and uagdeployopenshift.ps1 invocation.',
+    tags: ['OpenShift', 'Limited Availability', 'YAML'],
+    build: (b) =>
+      fresh(
+        b,
+        {
+          horizon_enabled: true,
+          proxyDestinationUrl: 'https://cs01.corp.local',
+          authMethods: 'passthrough',
+          gatewayLocation: 'external',
+          blastEnabled: true,
+          tunnelEnabled: true,
+          uagName: 'uag-openshift-01',
+          name: 'uag-openshift-01',
+          deploymentOption: 'twonic',
+          ipMode0: 'DHCPV4',
+          ipMode1: 'DHCPV4',
+          ocp_openShiftUserName: 'uag-deployer',
+          ocp_openShiftEndpoint: 'https://api.cluster.example.com:6443',
+          ocp_namespace: 'uag-dmz',
+          ocp_instanceType: 'uag-medium',
+          ocp_storageClass: 'uag-rwx',
+          ocp_diskSizeGi: 20,
+          ocp_volume: 'uag-bootable-volume',
+          ocp_qcow2Url: 'https://images.corp.local/uag-2609.qcow2',
+          ocp_nadName0: 'uag-external-network',
+          ocp_nadName1: 'uag-management-network',
+          ocp_labels: 'env=prod,app=uag'
+        },
+        { version: '2609', platform: 'openshift' }
+      )
   }
 ];

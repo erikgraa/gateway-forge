@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app } from '../lib/store.svelte';
   import { GROUPS, LISTS, RUNTIME_FIELDS, SECTIONS, type SectionId } from '../lib/schema';
-  import { VERSIONS, PLATFORMS } from '../lib/versions';
+  import { VERSIONS, PLATFORMS, platformAvailable } from '../lib/versions';
   import { render, download, copy } from '../lib/render';
   import { fieldAvailable } from '../lib/model';
 
@@ -32,9 +32,12 @@
       },
       { kind: 'Action', label: 'Reset to blank configuration', run: () => app.clearDraft() }
     );
-    for (const t of ['ini', 'json', 'ps', 'docs'] as const) out.push({ kind: 'Output', label: `Show ${t.toUpperCase()} tab`, run: () => (app.tab = t) });
+    const outputTabs = app.config.platform === 'openshift'
+      ? (['ini', 'json', 'ps', 'manifest', 'docs'] as const)
+      : (['ini', 'json', 'ps', 'docs'] as const);
+    for (const t of outputTabs) out.push({ kind: 'Output', label: `Show ${t.toUpperCase()} tab`, run: () => (app.tab = t) });
     for (const v of VERSIONS) out.push({ kind: 'Version', label: `Target UAG ${v.id}`, run: () => (app.config.version = v.id) });
-    for (const p of PLATFORMS) out.push({ kind: 'Platform', label: `Platform: ${p.label}`, run: () => (app.config.platform = p.id) });
+    for (const p of PLATFORMS.filter((p) => platformAvailable(p.id, app.config.version))) out.push({ kind: 'Platform', label: `Platform: ${p.label}`, run: () => (app.config.platform = p.id) });
     for (const g of GROUPS)
       for (const f of g.fields)
         if (fieldAvailable({ ...f, showIf: undefined }, app.config.version, app.config.platform, app.config.values) && (!g.platforms || g.platforms.includes(app.config.platform)))
