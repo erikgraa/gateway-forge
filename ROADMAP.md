@@ -11,6 +11,7 @@ This roadmap highlights current priorities and longer-running work. It is direct
 - **Planned — expose the SSH public key when SSH key access is enabled.** Confirm the supported UAG key and format, then show a contextual public-key input with validation and import/export coverage. ([#49](https://github.com/erikgraa/gateway-forge/issues/49))
 - **Planned — verify and enforce required topology networks.** Validate the required networks and NIC-role mapping for one-, two-, and three-NIC deployments, including the unresolved two-NIC role mapping. ([#51](https://github.com/erikgraa/gateway-forge/issues/51))
 - **Planned — publish authoritative sources and reference guidance.** Document the authoritative product and tooling sources, distinguish verified guidance from inference, and define how references are maintained. ([#50](https://github.com/erikgraa/gateway-forge/issues/50))
+- **Done — Nutanix AHV and OpenShift Virtualization deployment support.** Generate Nutanix QCOW2 deployment INI/PowerShell and OpenShift bootable-volume YAML or console-upload runbook, platform INI and PowerShell with source-backed validation and NIC gating. OpenShift remains Limited Availability. ([#55](https://github.com/erikgraa/gateway-forge/issues/55))
 
 ## Ongoing
 

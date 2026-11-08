@@ -1,4 +1,4 @@
-import { generateIni, generateJson, iniFileName, jsonFileName, type SecretMode } from './generate';
+import { generateBootableVolumeManifest, generateIni, generateJson, iniFileName, jsonFileName, manifestFileName, type SecretMode } from './generate';
 import { generatePowerShell, generateRestPowerShell } from './powershell';
 import { generateDocs } from './topology';
 import { validateConfig } from './validate';
@@ -24,6 +24,8 @@ export function render(c: Config, tab: OutputTab, mode: SecretMode): Rendered {
     }
     case 'docs':
       return { text: generateDocs(c, validateConfig(c)), filename: iniFileName(c).replace(/\.ini$/, '.md'), mime: 'text/markdown' };
+    case 'manifest':
+      return { text: generateBootableVolumeManifest(c), filename: manifestFileName(c), mime: c.values.ocp_volumeSourceMode === 'console' ? 'text/markdown' : 'text/yaml' };
   }
 }
 
@@ -63,7 +65,7 @@ export function highlight(text: string, tab: OutputTab): string {
       return e.replace(/(\[[A-Za-z0-9]+\])(?=\r?$)/, '<span class="hl-sec">$1</span>').replace(/&lt;REDACTED&gt;/g, '<span class="hl-red">&lt;REDACTED&gt;</span>');
     } else if (tab === 'json') {
       return e.replace(/^(\s*)(&quot;|")([^"]+?)(&quot;|")(:)/, '$1<span class="hl-key">"$3"</span>$5').replace(/&lt;REDACTED&gt;/g, '<span class="hl-red">&lt;REDACTED&gt;</span>');
-    } else if (tab === 'docs') {
+    } else if (tab === 'manifest' || tab === 'docs') {
       if (/^#/.test(e)) return `<span class="hl-sec">${e}</span>`;
     }
     return e;

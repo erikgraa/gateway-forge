@@ -45,6 +45,7 @@ export function cloneConfig(c: Config): Config {
 export function fieldAvailable(f: Field, version: string, platform: Platform, v: Values): boolean {
   if (!inVersion(version, f.since, f.until)) return false;
   if (f.platforms && !f.platforms.includes(platform)) return false;
+  if (f.ipMode !== undefined && (platform === 'nutanix' || platform === 'openshift') && v[`ipMode${f.ipMode}`] !== 'STATICV4') return false;
   if (f.showIf && !f.showIf(v)) return false;
   return true;
 }
@@ -59,6 +60,12 @@ export function groupEnabled(g: GroupDef, c: Config): boolean {
   if (g.target === 'horizon' && c.values.cascade_role === 'outer') return false;
   if (g.enabledBy) return c.values[g.enabledBy] === true;
   return true;
+}
+
+export function nicUsesStaticIpv4(c: Config, nic: 0 | 1 | 2): boolean {
+  if (c.platform === 'vsphere' || c.platform === 'hyperv') return true;
+  if (c.platform === 'nutanix' || c.platform === 'openshift') return c.values[`ipMode${nic}`] === 'STATICV4';
+  return false;
 }
 
 export function isEmpty(x: unknown): boolean {

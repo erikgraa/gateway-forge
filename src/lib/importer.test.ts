@@ -100,6 +100,28 @@ describe('INI import', () => {
   it('detects Azure from the [Azure] section', () => {
     expect(importIni('[General]\nuagName=x\n[Azure]\nsubscriptionID=1\nlocation=uksouth').config.platform).toBe('azure');
   });
+  it('detects and round-trips Nutanix and OpenShift INI sections', () => {
+    const nutanix = TEMPLATES.find((t) => t.id === 'nutanix-ahv')!.build(defaultConfig());
+    const nutanixIni = generateIni(nutanix, { secrets: 'include' });
+    const nutanixBack = importIni(nutanixIni, nutanix).config;
+    expect(nutanixBack.platform).toBe('nutanix');
+    expect(nutanixBack.version).toBe('2609');
+    expect(nutanixBack.values.ntnx_image).toBe(nutanix.values.ntnx_image);
+    expect(generateIni(nutanixBack, { secrets: 'include' })).toBe(nutanixIni);
+
+    const openshift = TEMPLATES.find((t) => t.id === 'openshift-virtualization')!.build(defaultConfig());
+    const openshiftIni = generateIni(openshift, { secrets: 'include' });
+    const openshiftBack = importIni(openshiftIni, openshift).config;
+    expect(openshiftBack.platform).toBe('openshift');
+    expect(openshiftBack.values.ocp_nadName1).toBe(openshift.values.ocp_nadName1);
+    expect(generateIni(openshiftBack, { secrets: 'include' })).toBe(openshiftIni);
+  });
+  it('detects the UAG version from a Nutanix image name', () => {
+    const r = importIni('[Nutanix]\nimage=euc-unified-access-gateway-26.06.0.0-system.qcow2');
+    expect(r.config.platform).toBe('nutanix');
+    expect(r.config.version).toBe('2606');
+    expect(r.versionDetected).toBe(true);
+  });
 });
 
 describe('round trip', () => {

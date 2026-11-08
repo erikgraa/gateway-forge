@@ -74,7 +74,7 @@ export function versionFromSource(source: string): string | undefined {
 
 type IniIndex = Map<string, { group: GroupDef; field: Field }>;
 const iniIndex: IniIndex = new Map();
-for (const g of GROUPS) for (const f of g.fields) iniIndex.set(`${g.iniSection}|${f.key}`.toLowerCase(), { group: g, field: f });
+for (const g of GROUPS) for (const f of g.fields) if (f.ini !== false) iniIndex.set(`${g.iniSection}|${f.key}`.toLowerCase(), { group: g, field: f });
 
 const listRe = (l: ListDef) => new RegExp(`^${l.iniSection(0).replace(/0$/, '')}(\\d+)$`, 'i');
 
@@ -106,12 +106,15 @@ export function importIni(text: string, base?: Config): ImportResult {
 
   const general = doc.filter((s) => s.section.toLowerCase() === 'general').flatMap((s) => s.entries);
   const source = general.find((e) => e.key.toLowerCase() === 'source')?.value;
-  const detected = source ? versionFromSource(source) : undefined;
+  const nutanixImage = doc.filter((s) => s.section.toLowerCase() === 'nutanix').flatMap((s) => s.entries).find((e) => e.key.toLowerCase() === 'image')?.value;
+  const detected = versionFromSource(source || nutanixImage || '');
   if (detected) {
     c.version = detected;
     result.versionDetected = true;
   }
   if (doc.some((s) => s.section.toLowerCase() === 'azure')) c.platform = 'azure';
+  else if (doc.some((s) => s.section.toLowerCase() === 'nutanix')) c.platform = 'nutanix';
+  else if (doc.some((s) => s.section.toLowerCase() === 'openshift')) c.platform = 'openshift';
   else if (source && /\.vhdx?$/i.test(source)) c.platform = 'hyperv';
 
   const listItems: Record<string, Map<number, Values>> = { wrp: new Map(), syslog: new Map() };

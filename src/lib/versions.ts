@@ -1,4 +1,4 @@
-export type Platform = 'vsphere' | 'hyperv' | 'azure';
+export type Platform = 'vsphere' | 'hyperv' | 'azure' | 'nutanix' | 'openshift';
 
 export interface UagVersion {
   id: string;
@@ -41,13 +41,17 @@ export interface PlatformDef {
   id: Platform;
   label: string;
   script: string;
-  nonInteractive: 'named' | 'positional';
+  nonInteractive: 'named' | 'positional' | 'none';
+  since?: string;
+  limitedAvailability?: boolean;
 }
 
 export const PLATFORMS: PlatformDef[] = [
   { id: 'vsphere', label: 'vSphere', script: 'uagdeploy.ps1', nonInteractive: 'named' },
   { id: 'hyperv', label: 'Hyper-V', script: 'uagdeployhv.ps1', nonInteractive: 'named' },
-  { id: 'azure', label: 'Azure', script: 'uagdeployaz.ps1', nonInteractive: 'positional' }
+  { id: 'azure', label: 'Azure', script: 'uagdeployaz.ps1', nonInteractive: 'positional' },
+  { id: 'nutanix', label: 'Nutanix AHV', script: 'uagdeployntnx.ps1', nonInteractive: 'none', since: '2606' },
+  { id: 'openshift', label: 'Red Hat OpenShift Virtualization', script: 'uagdeployopenshift.ps1', nonInteractive: 'positional', since: '2609', limitedAvailability: true }
 ];
 
 export function platformDef(id: Platform): PlatformDef {
@@ -66,6 +70,10 @@ export function cmpVersion(a: string, b: string): number {
 
 export function isSupportedVersion(id: string): boolean {
   return VERSIONS.some((v) => v.id === id);
+}
+
+export function platformAvailable(platform: Platform, version: string): boolean {
+  return inVersion(version, platformDef(platform).since);
 }
 
 /** True when a feature with the given since/until bounds exists in `version`. */

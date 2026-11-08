@@ -3,18 +3,24 @@
   import { render, download, copy, highlight } from '../lib/render';
   import { VERSIONS } from '../lib/versions';
 
-  const tabs: { id: OutputTab; label: string }[] = [
+  const tabs = $derived.by((): { id: OutputTab; label: string }[] => [
     { id: 'ini', label: 'INI' },
     { id: 'json', label: 'JSON' },
     { id: 'ps', label: 'PowerShell' },
+    ...(app.config.platform === 'openshift' ? [{ id: 'manifest' as const, label: app.config.values.ocp_volumeSourceMode === 'console' ? 'Prep' : 'YAML' }] : []),
     { id: 'docs', label: 'Docs' }
-  ];
+  ]);
   const hints: Record<OutputTab, string> = {
-    ini: 'uagdeploy.ps1 -iniFile (deploy path)',
+    ini: 'Platform-specific uagdeploy input',
     json: 'Admin UI import / PUT /rest/v1/config/settings',
-    ps: 'Writes the INI and runs the deploy script',
-    docs: 'Markdown summary for runbooks'
+    ps: 'Writes the platform artifacts and runs the documented workflow',
+    docs: 'Markdown summary for runbooks',
+    manifest: 'CDI DataVolume + DataSource; apply before deployment'
   };
+
+  $effect(() => {
+    if (app.tab === 'manifest' && app.config.platform !== 'openshift') app.tab = 'ini';
+  });
 
   const rendered = $derived(render(app.config, app.tab, app.secretMode));
   const html = $derived(highlight(rendered.text, app.tab));
@@ -44,7 +50,7 @@
     </div>
   </div>
   <div class="output-file">
-    <span class="file-type">{app.tab === 'ps' ? 'PS1' : app.tab.toUpperCase()}</span>
+    <span class="file-type">{app.tab === 'ps' ? 'PS1' : app.tab === 'manifest' ? (rendered.mime === 'text/markdown' ? 'RUNBOOK' : 'YAML') : app.tab.toUpperCase()}</span>
     <span><strong>{rendered.filename}</strong><small>{hints[app.tab]}</small></span>
   </div>
   {#if olderVersion}

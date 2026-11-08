@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { app } from './lib/store.svelte';
   import { GROUPS, LISTS, SECTIONS, type SectionId } from './lib/schema';
-  import { VERSIONS, PLATFORMS, LIFECYCLE_SNAPSHOT } from './lib/versions';
+  import { VERSIONS, PLATFORMS, LIFECYCLE_SNAPSHOT, platformAvailable } from './lib/versions';
   import { validateConfig, countBySection } from './lib/validate';
   import { render, download } from './lib/render';
   import Topology from './components/Topology.svelte';
@@ -74,7 +74,7 @@
     }
   }
 
-  function exportAs(tab: 'ini' | 'json' | 'ps' | 'docs') {
+  function exportAs(tab: 'ini' | 'json' | 'ps' | 'docs' | 'manifest') {
     exportOpen = false;
     download(render(app.config, tab, app.secretMode));
   }
@@ -114,6 +114,7 @@
             <button role="menuitem" onclick={() => exportAs('ini')}><strong>Deployment INI</strong><small>uagdeploy.ps1 input</small></button>
             <button role="menuitem" onclick={() => exportAs('json')}><strong>Settings JSON</strong><small>Admin UI / REST import</small></button>
             <button role="menuitem" onclick={() => exportAs('ps')}><strong>PowerShell script</strong><small>Deploy-ready workflow</small></button>
+            {#if app.config.platform === 'openshift'}<button role="menuitem" onclick={() => exportAs('manifest')}><strong>{app.config.values.ocp_volumeSourceMode === 'console' ? 'Bootable-volume runbook' : 'Bootable-volume YAML'}</strong><small>OpenShift CDI DataVolume / DataSource preparation</small></button>{/if}
             <button role="menuitem" onclick={() => exportAs('docs')}><strong>Markdown runbook</strong><small>Handoff documentation</small></button>
           </div>
         {/if}
@@ -171,13 +172,26 @@
           <span class="environment-label">Platform</span>
           <label class="sr-only" for="platform">Deployment platform</label>
           <select id="platform" bind:value={app.config.platform}>
-            {#each PLATFORMS as p (p.id)}<option value={p.id}>{p.label}</option>{/each}
+            {#each PLATFORMS as p (p.id)}<option value={p.id} disabled={!platformAvailable(p.id, app.config.version)}>{p.label}{p.limitedAvailability ? ' · Limited Availability' : ''}</option>{/each}
           </select>
         </div>
         <div class="environment-summary">
           <span>Artifact</span><strong>{app.config.values.uagName || 'Unnamed appliance'}</strong>
         </div>
       </section>
+
+      {#if app.config.platform === 'openshift'}
+        <section class="artifact-version-warning" role="note">
+          <strong>Limited Availability</strong>
+          <span>OpenShift deployment requires Omnissa-granted access and the prerequisites documented in the Network & deploy section. Gateway Forge generates preparation YAML and the official script workflow; it does not bypass that access requirement.</span>
+        </section>
+      {/if}
+      {#if app.config.platform === 'nutanix'}
+        <section class="artifact-version-warning" role="note">
+          <strong>Nutanix QCOW2 and VM replacement</strong>
+          <span>Upload the UAG QCOW2 image to Prism Central first. The official deployment script deletes and recreates an existing VM with the configured name.</span>
+        </section>
+      {/if}
 
       <section class:older-version={!usingLatestVersion} class="version-policy" aria-live="polite">
         <span class="version-shield" aria-hidden="true">{usingLatestVersion ? '✓' : '!'}</span>

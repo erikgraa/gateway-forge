@@ -12,7 +12,7 @@
   let { group, issues }: Props = $props();
 
   const c = $derived(app.config);
-  const available = $derived(groupAvailable(group, c.version, c.platform));
+  const available = $derived(groupAvailable(group, c.version, c.platform) && group.fields.some((f) => fieldAvailable(f, c.version, c.platform, c.values)));
   const enabled = $derived(groupEnabled(group, c));
   const visible = $derived(group.fields.filter((f) => fieldAvailable(f, c.version, c.platform, c.values)));
   const hiddenByVersion = $derived(group.fields.filter((f) => f.since && c.version < f.since).length);

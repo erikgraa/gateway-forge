@@ -1,6 +1,6 @@
-import type { Config } from './model';
+import { nicUsesStaticIpv4, type Config } from './model';
 import { FORWARD_FLAGS, cascadeRole } from './cascade';
-import { collectBlocks, platformScript } from './generate';
+import { collectBlocks, deploymentCommand } from './generate';
 import { runtimeSwitches } from './powershell';
 import type { Issue } from './validate';
 import { platformDef } from './versions';
@@ -30,7 +30,7 @@ export function buildTopology(c: Config): Topology {
   const v = c.values;
   const nodes: TopologyNode[] = [{ id: 'client', label: 'Internet', sub: 'Horizon / web clients', kind: 'client' }];
   const edges: Topology['edges'] = [];
-  const ext = [v.ip0, v.ip1].filter(Boolean).join(' · ');
+  const ext = ([0, 1] as const).filter((nic) => nicUsesStaticIpv4(c, nic)).map((nic) => v[`ip${nic}`]).filter(Boolean).join(' · ');
   nodes.push({ id: 'uag', label: String(v.uagName || 'uag'), sub: ext || `UAG ${c.version}`, kind: 'uag' });
   edges.push({ from: 'client', to: 'uag', label: v.blastEnabled === true && v.horizon_enabled === true ? '443 / 8443' : '443' });
 
@@ -71,12 +71,25 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   const L: string[] = [];
   L.push(`# ${v.uagName || 'UAG'} - configuration summary`, '');
   L.push(`- **UAG version:** ${c.version}`, `- **Platform:** ${def.label} (\`${def.script}\`)`, `- **Deployment:** ${v.deploymentOption}`);
-  if (v.ip0) L.push(`- **NIC0:** ${v.ip0}${v.netmask0 ? ' / ' + v.netmask0 : ''}`);
-  if (v.ip1) L.push(`- **NIC1:** ${v.ip1}`);
+  if (nicUsesStaticIpv4(c, 0) && v.ip0) L.push(`- **NIC0:** ${v.ip0}${v.netmask0 ? ' / ' + v.netmask0 : ''}`);
+  if (nicUsesStaticIpv4(c, 1) && v.ip1) L.push(`- **NIC1:** ${v.ip1}`);
   if (v.dns) L.push(`- **DNS:** ${v.dns}`);
   if (v.ntpServers) L.push(`- **NTP:** ${v.ntpServers}`);
   L.push('', '## Deployment', '');
-  L.push(`- Run: \`${platformScript(c)} -iniFile <file>.ini${runtimeSwitches(c)}\``);
+  L.push(`- Run: \`${deploymentCommand(c, runtimeSwitches(c))}\``);
+  if (c.platform === 'nutanix') {
+    L.push('- Upload the UAG QCOW2 image to Prism Central; the cluster and subnet names referenced by the INI must already exist.');
+    L.push('- The official script deletes and recreates a VM with the configured name and prompts for the root, admin and Prism Central passwords.');
+  }
+  if (c.platform === 'openshift') {
+    L.push('- **Limited Availability:** vendor access, the target namespace, StorageClass, NADs, RBAC and NetworkPolicies must be prepared first.');
+    if (v.ocp_volumeSourceMode === 'console') {
+      L.push('- **Runbook mode:** upload the local QCOW2 through the OpenShift web console; no YAML is emitted for a browser-local file.');
+    } else {
+      L.push('- Apply the generated CDI `DataVolume`/`DataSource` YAML and wait for the volume import to reach Succeeded/100% before running the UAG script.');
+    }
+    L.push('- Verify the deployed VirtualMachine is Running/Ready and check its assigned NICs and IP addresses.');
+  }
   L.push('- Root and admin passwords are read at deploy time (prompt, or `-rootPwd` / `-adminPwd`); they are not part of the INI.');
   L.push('', '## Edge services', '');
   if (cascadeRole(v) === 'outer') L.push(`- **Cascade - outer UAG (DMZ 1)** reverse proxy → ${v.cascade_innerUrl || '(not set)'}`);

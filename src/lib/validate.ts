@@ -1,7 +1,7 @@
 import { GROUPS, LISTS, type Field, type Rule, type SectionId, type Values } from './schema';
 import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
-import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion } from './versions';
+import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion, platformAvailable, platformDef } from './versions';
 
 export type Level = 'error' | 'warn' | 'info';
 
@@ -96,6 +96,10 @@ export function checkRule(rule: Rule, raw: string): string | null {
       return s.startsWith('/') ? null : 'Must start with "/"';
     case 'int':
       return /^-?\d+$/.test(s) ? null : 'Must be an integer';
+    case 'kubeName':
+      return /^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]*[a-z0-9])?)*$/.test(s) && s.length <= 253 ? null : 'Must be a lowercase DNS-style name (letters, numbers, "-" and ".")';
+    case 'kubeNamespace':
+      return /^[a-z0-9](?:[-a-z0-9]*[a-z0-9])?$/.test(s) && s.length <= 63 ? null : 'Must be a lowercase DNS label of at most 63 characters (letters, numbers and "-")';
   }
 }
 
@@ -164,6 +168,31 @@ function lint(c: Config, push: Push): void {
   const role = cascadeRole(v);
   const horizon = v.horizon_enabled === true && role !== 'outer';
   const nonEmpty = (k: string) => !isEmpty(v[k]);
+  const def = platformDef(c.platform);
+
+  if (!platformAvailable(c.platform, c.version)) {
+    push({ level: 'error', section: 'network', message: `${def.label} deployment output is supported by Gateway Forge from UAG ${def.since}; select UAG ${def.since} or newer.` });
+  }
+  if (c.platform === 'nutanix') {
+    push({ level: 'info', section: 'network', message: 'Nutanix: the uploaded QCOW2 image and the Prism Central subnets and cluster must already exist.' });
+    push({ level: 'info', section: 'network', message: 'Nutanix minimum versions: Prism Central 2024.3, AOS 7.0 and AHV 10.0.' });
+    push({ level: 'warn', section: 'network', fieldId: 'name', message: 'The official Nutanix script deletes and recreates an existing VM with the same name.' });
+    if (v.ntnx_image && !/\.qcow2$/i.test(String(v.ntnx_image))) push({ level: 'error', section: 'network', fieldId: 'ntnx_image', message: 'The Nutanix UAG 2606+ image name must reference the native .qcow2 artifact.' });
+  }
+  if (c.platform === 'openshift') {
+    push({ level: 'info', section: 'network', message: 'OpenShift virtualization deployment is Limited Availability and requires Omnissa-granted access.' });
+    push({ level: 'info', section: 'network', message: 'OpenShift prerequisites are external: namespace, RWX-capable StorageClass, NADs, RBAC, cluster capacity and any referenced NetworkPolicies.' });
+    if (v.ocp_volumeSourceMode === 'url' && v.ocp_qcow2Url) {
+      try {
+        if (!/\.qcow2$/i.test(new URL(String(v.ocp_qcow2Url)).pathname)) push({ level: 'error', section: 'network', fieldId: 'ocp_qcow2Url', message: 'The OpenShift image URL must point to a .qcow2 artifact.' });
+      } catch {
+        // The field rule reports malformed URLs.
+      }
+    }
+    if (v.ocp_labels && !String(v.ocp_labels).split(',').every((x) => /^[^=,\s]+=[^,\s]+$/.test(x.trim()))) {
+      push({ level: 'error', section: 'network', fieldId: 'ocp_labels', message: 'OpenShift labels must be comma-separated key=value entries.' });
+    }
+  }
 
   if (role === 'outer') {
     push({ level: 'info', section: 'horizon', fieldId: 'cascade_role', message: 'Outer UAG: Horizon edge service is replaced by a "Horizon-WRP" reverse proxy to the inner UAG. Set Blast/tunnel external URLs on the INNER UAG to this UAG\'s public FQDN.' });
@@ -187,7 +216,7 @@ function lint(c: Config, push: Push): void {
     push({ level: 'warn', section: 'general', fieldId: 'sshEnabled', message: 'SSH is enabled - restrict TCP/22 to admin source IPs or use console access.' });
     if (v.sshPasswordAccessEnabled === true) push({ level: 'warn', section: 'general', fieldId: 'sshPasswordAccessEnabled', message: 'SSH password authentication is enabled - prefer key-based access.' });
   }
-  if (v.run_noSSLVerify === true) push({ level: 'warn', section: 'network', fieldId: 'run_noSSLVerify', message: '-noSSLVerify is on: the deployment script will not verify SSL/TLS certificates. Avoid in production.' });
+  if (c.platform !== 'openshift' && v.run_noSSLVerify === true) push({ level: 'warn', section: 'network', fieldId: 'run_noSSLVerify', message: '-noSSLVerify is on: the deployment script will not verify SSL/TLS certificates. Avoid in production.' });
   if (c.platform === 'vsphere' && v.run_disableVerification === true) push({ level: 'warn', section: 'network', fieldId: 'run_disableVerification', message: '-disableVerification is on: the OVA/OVF signature and certificate chain are not validated. Only use with an image you downloaded from Omnissa and verified yourself.' });
   if (v.ceipEnabled === true) push({ level: 'info', section: 'general', fieldId: 'ceipEnabled', message: 'CEIP is enabled - the appliance sends telemetry to Omnissa.' });
 
@@ -196,8 +225,11 @@ function lint(c: Config, push: Push): void {
 
   if (String(v.deploymentOption).startsWith('onenic') && v.gatewayLocation === 'external' && horizon) push({ level: 'info', section: 'network', fieldId: 'deploymentOption', message: 'Single-NIC deployment: for DMZ use consider twonic/threenic to separate Internet, management and backend traffic.' });
 
-  const ip0 = String(v.ip0 ?? '');
-  const ips = ['ip0', 'ip1', 'ip2'].map((k) => String(v[k] ?? '')).filter(Boolean);
+  const ip0 = !v.ipMode0 || v.ipMode0 === 'STATICV4' ? String(v.ip0 ?? '') : '';
+  const ips = ['ip0', 'ip1', 'ip2'].filter((k) => {
+    const mode = v[`ipMode${k.slice(-1)}`];
+    return !mode || mode === 'STATICV4';
+  }).map((k) => String(v[k] ?? '')).filter(Boolean);
   if (new Set(ips).size !== ips.length) push({ level: 'error', section: 'network', message: 'Two NICs share the same IP address.' });
   if (ip0 && nonEmpty('netmask0') && nonEmpty('defaultGateway')) {
     const a = netOf(ip0, String(v.netmask0));

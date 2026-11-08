@@ -18,7 +18,9 @@ export type Rule =
   | 'uagName'
   | 'ipv4Port'
   | 'path'
-  | 'int';
+  | 'int'
+  | 'kubeName'
+  | 'kubeNamespace';
 
 export type SectionId = 'general' | 'network' | 'horizon' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
 
@@ -71,6 +73,10 @@ export interface Field {
   wide?: boolean;
   /** Emit to INI only when the user sets it (not when equal to the documented default). */
   omitDefault?: boolean;
+  /** A virtual deployment input that is used to build another artifact, not the INI. */
+  ini?: false;
+  /** For DHCP-capable platforms, emit this IPv4 input only when its NIC is STATICV4. */
+  ipMode?: 0 | 1 | 2;
 }
 
 export interface GroupDef {
@@ -165,6 +171,7 @@ export const AUTH_METHODS: Option[] = [
 ];
 
 const vsphereHyperv: Platform[] = ['vsphere', 'hyperv'];
+const allNicPlatforms: Platform[] = ['vsphere', 'hyperv', 'nutanix', 'openshift'];
 
 export const GROUPS: GroupDef[] = [
   {
@@ -339,34 +346,74 @@ export const GROUPS: GroupDef[] = [
         platforms: vsphereHyperv,
         showIf: (v) => String(v.deploymentOption).startsWith('threenic')
       }),
-      text('ip0', 'NIC0 IPv4 address', 'ip0', { rule: 'ipv4', platforms: vsphereHyperv, placeholder: '192.0.2.21' }),
-      text('netmask0', 'NIC0 netmask', 'netmask0', { rule: 'ipv4', platforms: vsphereHyperv, placeholder: '255.255.255.0' }),
+      text('ip0', 'NIC0 IPv4 address', 'ip0', {
+        rule: 'ipv4',
+        platforms: allNicPlatforms,
+        placeholder: '192.0.2.21',
+        ipMode: 0,
+        required: (v) => v.ipMode0 === 'STATICV4'
+      }),
+      text('netmask0', 'NIC0 netmask', 'netmask0', {
+        rule: 'ipv4',
+        platforms: allNicPlatforms,
+        placeholder: '255.255.255.0',
+        ipMode: 0,
+        required: (v) => v.ipMode0 === 'STATICV4'
+      }),
+      sel('ipMode0', 'NIC0 IP mode', 'ipMode0', ['', 'DHCPV4', 'STATICV4'], {
+        platforms: ['nutanix', 'openshift'],
+        required: true,
+        help: 'The documented IPv4 modes supported by the generated workflow.'
+      }),
       text('ip1', 'NIC1 IPv4 address', 'ip1', {
         rule: 'ipv4',
-        platforms: vsphereHyperv,
-        showIf: (v) => !String(v.deploymentOption).startsWith('onenic')
+        platforms: allNicPlatforms,
+        showIf: (v) => !String(v.deploymentOption).startsWith('onenic'),
+        ipMode: 1,
+        required: (v) => v.ipMode1 === 'STATICV4'
       }),
       text('netmask1', 'NIC1 netmask', 'netmask1', {
         rule: 'ipv4',
-        platforms: vsphereHyperv,
-        showIf: (v) => !String(v.deploymentOption).startsWith('onenic')
+        platforms: allNicPlatforms,
+        showIf: (v) => !String(v.deploymentOption).startsWith('onenic'),
+        ipMode: 1,
+        required: (v) => v.ipMode1 === 'STATICV4'
+      }),
+      sel('ipMode1', 'NIC1 IP mode', 'ipMode1', ['', 'DHCPV4', 'STATICV4'], {
+        platforms: ['nutanix', 'openshift'],
+        showIf: (v) => !String(v.deploymentOption).startsWith('onenic'),
+        required: (v) => !String(v.deploymentOption).startsWith('onenic')
       }),
       text('ip2', 'NIC2 IPv4 address', 'ip2', {
         rule: 'ipv4',
-        platforms: vsphereHyperv,
-        showIf: (v) => String(v.deploymentOption).startsWith('threenic')
+        platforms: allNicPlatforms,
+        showIf: (v) => String(v.deploymentOption).startsWith('threenic'),
+        ipMode: 2,
+        required: (v) => v.ipMode2 === 'STATICV4'
       }),
       text('netmask2', 'NIC2 netmask', 'netmask2', {
         rule: 'ipv4',
-        platforms: vsphereHyperv,
-        showIf: (v) => String(v.deploymentOption).startsWith('threenic')
+        platforms: allNicPlatforms,
+        showIf: (v) => String(v.deploymentOption).startsWith('threenic'),
+        ipMode: 2,
+        required: (v) => v.ipMode2 === 'STATICV4'
       }),
-      text('defaultGateway', 'Default gateway', 'defaultGateway', { rule: 'ipv4', platforms: vsphereHyperv, placeholder: '192.0.2.1' })
+      sel('ipMode2', 'NIC2 IP mode', 'ipMode2', ['', 'DHCPV4', 'STATICV4'], {
+        platforms: ['nutanix', 'openshift'],
+        showIf: (v) => String(v.deploymentOption).startsWith('threenic'),
+        required: (v) => String(v.deploymentOption).startsWith('threenic')
+      }),
+      text('defaultGateway', 'Default gateway', 'defaultGateway', {
+        rule: 'ipv4',
+        platforms: allNicPlatforms,
+        placeholder: '192.0.2.1',
+        ipMode: 0
+      })
     ]
   },
   {
     id: 'runtime',
-    title: 'Run-time options (uagdeploy.ps1)',
+    title: 'Run-time options (deployment script)',
     section: 'network',
     target: 'runtime',
     iniSection: 'Runtime',
@@ -375,6 +422,7 @@ export const GROUPS: GroupDef[] = [
       bool('run_noSSLVerify', 'Skip SSL/TLS certificate verification (-noSSLVerify)', 'run_noSSLVerify', false, {
         wide: true,
         json: false,
+        platforms: ['vsphere', 'hyperv', 'azure', 'nutanix'],
         help: 'Disables SSL/TLS certificate verification in the deployment script. Use only in labs or with self-signed endpoints you trust.'
       }),
       bool('run_disableVerification', 'Skip OVA/OVF signature verification (-disableVerification)', 'run_disableVerification', false, {
@@ -396,6 +444,96 @@ export const GROUPS: GroupDef[] = [
             text('dnsSearch', 'DNS search domains', 'dnsSearch', { placeholder: 'corp.local', json: false }),
       text('ntpServers', 'NTP servers', 'ntpServers', { rule: 'hostList', placeholder: 'pool.ntp.org', help: 'Space-separated hostnames/IPs.' }),
       text('fallBackNtpServers', 'Fallback NTP servers', 'fallBackNtpServers', { rule: 'hostList' })
+    ]
+  },
+  {
+    id: 'nutanix',
+    title: 'Nutanix AHV deployment',
+    section: 'network',
+    target: 'deploy',
+    iniSection: 'Nutanix',
+    platforms: ['nutanix'],
+    help: 'The QCOW2 image must already be uploaded to Prism Central. Subnets and the target cluster must already exist. A VM with the same name is deleted and recreated by the official script.',
+    fields: [
+      text('ntnx_prismCentralUserName', 'Prism Central username', 'prismCentralUserName', { required: true, placeholder: 'user@domain.example', json: false }),
+      text('ntnx_prismCentralAddress', 'Prism Central address', 'prismCentralAddress', { required: true, rule: 'hostOrIp', placeholder: 'prism.corp.local', json: false }),
+      text('ntnx_cluster', 'Cluster', 'cluster', { required: true, placeholder: 'cluster1', json: false }),
+      text('ntnx_image', 'Uploaded QCOW2 image name', 'image', { required: true, wide: true, placeholder: 'uag-2609.qcow2', json: false, help: 'Name of the image uploaded in Prism Central, not a local file path.' }),
+      text('ntnx_subnet0', 'NIC0 / eth0 subnet', 'subnet0', { required: true, placeholder: 'dmz-internet', json: false }),
+      text('ntnx_subnet1', 'NIC1 / eth1 subnet', 'subnet1', {
+        required: (v) => !String(v.deploymentOption).startsWith('onenic'),
+        showIf: (v) => !String(v.deploymentOption).startsWith('onenic'),
+        placeholder: 'dmz-management',
+        json: false
+      }),
+      text('ntnx_subnet2', 'NIC2 / eth2 subnet', 'subnet2', {
+        required: (v) => String(v.deploymentOption).startsWith('threenic'),
+        showIf: (v) => String(v.deploymentOption).startsWith('threenic'),
+        placeholder: 'dmz-backend',
+        json: false
+      })
+    ]
+  },
+  {
+    id: 'openshift',
+    title: 'Red Hat OpenShift Virtualization deployment',
+    section: 'network',
+    target: 'deploy',
+    iniSection: 'OpenShift',
+    platforms: ['openshift'],
+    help: 'Limited Availability: request access from Omnissa. The target namespace, storage class, NADs and RBAC permissions must already exist. Gateway Forge generates the bootable-volume manifest and deployment INI; local QCOW2 uploads must be prepared through the OpenShift console.',
+    fields: [
+      text('ocp_openShiftUserName', 'OpenShift user / service account', 'openShiftUserName', { required: true, placeholder: 'admin', json: false }),
+      text('ocp_openShiftEndpoint', 'OpenShift API endpoint', 'openShiftEndpoint', { required: true, rule: 'httpsUrl', wide: true, placeholder: 'https://api.cluster.example.com:6443', json: false }),
+      text('ocp_namespace', 'Namespace / project', 'namespace', { required: true, rule: 'kubeNamespace', placeholder: 'uag-dmz', json: false }),
+      text('ocp_instanceType', 'Instance type / profile', 'instanceType', { required: true, placeholder: 'uag-medium', help: 'Must provide at least 2 vCPU and 4 GB RAM; Omnissa does not enumerate accepted profile names.' , json: false }),
+      text('ocp_storageClass', 'Storage class', 'storageClass', { required: true, rule: 'kubeName', placeholder: 'uag-rwx', json: false }),
+      num('ocp_diskSizeGi', 'Root disk size (GiB)', 'diskSizeGi', { required: true, default: 20, min: 20, json: false }),
+      text('ocp_volume', 'Bootable volume name', 'volume', { required: true, rule: 'kubeName', placeholder: 'uag-bootable-volume', json: false }),
+      sel('ocp_volumeSourceMode', 'Bootable volume preparation', 'volumeSourceMode', [
+        { value: 'url', label: 'Generate a manifest for a cluster-reachable HTTP(S) QCOW2 URL' },
+        { value: 'console', label: 'Manual console upload for a local QCOW2 file (runbook mode)' }
+      ], {
+        default: 'url',
+        required: true,
+        json: false,
+        ini: false,
+        wide: true,
+        help: 'The official console upload path is intentionally runbook-only because Gateway Forge cannot upload a local file to your cluster.'
+      }),
+      text('ocp_qcow2Url', 'Cluster-reachable QCOW2 URL', 'qcow2Url', {
+        required: (v) => v.ocp_volumeSourceMode === 'url',
+        rule: 'url',
+        wide: true,
+        placeholder: 'https://images.corp.local/uag-2609.qcow2',
+        showIf: (v) => v.ocp_volumeSourceMode === 'url',
+        json: false,
+        ini: false,
+        help: 'HTTP(S) URL reachable from the OpenShift cluster.'
+      }),
+      text('ocp_nadName0', 'NIC0 / eth0 NAD', 'nadName0', { required: true, rule: 'kubeName', placeholder: 'uag-external-network', json: false }),
+      text('ocp_nadName1', 'NIC1 / eth1 NAD', 'nadName1', {
+        required: (v) => !String(v.deploymentOption).startsWith('onenic'),
+        rule: 'kubeName',
+        showIf: (v) => !String(v.deploymentOption).startsWith('onenic'),
+        placeholder: 'uag-management-network',
+        json: false
+      }),
+      text('ocp_nadName2', 'NIC2 / eth2 NAD', 'nadName2', {
+        required: (v) => String(v.deploymentOption).startsWith('threenic'),
+        rule: 'kubeName',
+        showIf: (v) => String(v.deploymentOption).startsWith('threenic'),
+        placeholder: 'uag-backend-network',
+        json: false
+      }),
+      text('ocp_networkPolicies', 'NetworkPolicy names', 'networkPolicies', { placeholder: 'uag-ingress,uag-egress', help: 'Comma-separated existing NetworkPolicy names.' , json: false }),
+      text('ocp_labels', 'VM and pod labels', 'labels', { wide: true, placeholder: 'env=prod,app=uag', help: 'Comma-separated key=value labels; NetworkPolicies match these through podSelector.', json: false }),
+      secret('ocp_bearerToken', 'OpenShift bearer token (optional)', 'bearerToken', {
+        wide: true,
+        placeholder: 'not stored',
+        json: false,
+        help: 'When set, the official script uses token authentication instead of an OpenShift password.'
+      })
     ]
   },
   {
