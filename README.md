@@ -131,6 +131,10 @@ Add a `Field` to a group in `schema.ts` (key, type, optional `since`/`until`, `r
 
 The demo is deployed to GitHub Pages by [`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to `main`. The build is a plain static site with a relative base path, so `dist/` can be hosted anywhere. A weekly workflow checks the Omnissa Lifecycle Matrix and opens an issue when the supported UAG versions change.
 
+## 📋 Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for notable user-facing improvements and fixes.
+
 ## 📄 License
 
 [MIT](LICENSE)
