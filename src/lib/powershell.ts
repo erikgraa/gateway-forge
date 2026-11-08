@@ -1,6 +1,7 @@
 import type { Config } from './model';
 import { generateIni, generateJson, iniFileName, jsonFileName, platformScript, type SecretMode } from './generate';
 import { platformDef } from './versions';
+import { sshPublicKeys } from './ssh';
 
 const psq = (s: string) => `'${s.replace(/'/g, "''")}'`;
 
@@ -31,6 +32,13 @@ export function generatePowerShell(c: Config, mode: SecretMode = 'placeholder'):
     `Set-Content -Path .\\${file} -Value $ini -Encoding ASCII`,
     ''
   ];
+  const keys = sshPublicKeys(c.values.sshPublicKeys, c.values.sshPublicKeyNames).filter((key) => key.data);
+  if (c.values.sshEnabled === true && c.values.sshKeyAccessEnabled === true && keys.length) {
+    out.push('# Write SSH public key files referenced by sshPublicKeyN in the INI');
+    for (const key of keys) {
+      out.push(`$sshKey = @'`, key.data!, `'@`, `Set-Content -Path .\\${key.fileName} -Value $sshKey -Encoding ASCII`, '');
+    }
+  }
   if (mode === 'placeholder' && ini.includes('<REDACTED>')) out.push('# Replace every <REDACTED> value in the INI before deploying.', '');
   out.push(`# 2a. Interactive deployment (prompts for the root and admin passwords)`);
   out.push((c.platform === 'azure' ? `.\\${script} .\\${file}` : `.\\${script} -iniFile .\\${file}`) + sw, '');

@@ -2,6 +2,7 @@ import { GROUPS, LISTS, type Field, type Rule, type SectionId, type Values } fro
 import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
 import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion } from './versions';
+import { sshPublicKeyValidationError } from './ssh';
 import { parseListValue } from './listValue';
 
 export type Level = 'error' | 'warn' | 'info';
@@ -89,6 +90,8 @@ export function checkRule(rule: Rule, raw: string): string | null {
       return /^\d+$/.test(s) && Number(s) >= 1 && Number(s) <= 65535 ? null : 'Port must be 1-65535';
     case 'thumbprints':
       return validThumbprints(s);
+    case 'sshPublicKeys':
+      return sshPublicKeyValidationError(s);
     case 'uagName':
       return /^[A-Za-z0-9.-]{1,24}$/.test(s) ? null : 'Up to 24 characters: A-Z, 0-9, "-" and "."; no spaces';
     case 'ipv4Port': {

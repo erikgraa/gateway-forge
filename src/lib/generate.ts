@@ -9,6 +9,7 @@ import {
 import { fieldAvailable, groupEnabled, isDefault, isEmpty, type Config } from './model';
 import { CASCADE_INSTANCE_ID, CASCADE_PATTERN, CASCADE_PATTERN_OPSWAT, cascadeRole, forwardRules } from './cascade';
 import { platformDef } from './versions';
+import { sshPublicKeys } from './ssh';
 import { serializeListValue } from './listValue';
 
 export type SecretMode = 'placeholder' | 'omit' | 'include';
@@ -43,6 +44,7 @@ function sectionRank(name: string): number {
 }
 
 function entryFor(f: Field, values: Values, mode: SecretMode): Entry | null {
+  if (f.customOutput) return null;
   const raw = values[f.id];
   const normalized = f.rows ? serializeListValue([raw]) : raw;
   if (isEmpty(normalized)) return null;
@@ -76,6 +78,18 @@ export function collectBlocks(c: Config, opts: GenerateOptions = { secrets: 'pla
       if (!fieldAvailable(f, c.version, c.platform, c.values)) continue;
       const e = entryFor(f, c.values, opts.secrets);
       if (e) entries.push(g.target === 'deploy' ? { ...e, jsonKey: false } : e);
+    }
+    if (g.id === 'appliance' && c.values.sshEnabled === true && c.values.sshKeyAccessEnabled === true) {
+      const field = g.fields.find((f) => f.id === 'sshPublicKeys');
+      if (field) {
+        sshPublicKeys(c.values.sshPublicKeys, c.values.sshPublicKeyNames).forEach((key, index) => entries.push({
+          key: `sshPublicKey${index + 1}`,
+          jsonKey: false,
+          value: key.path ?? key.fileName,
+          field,
+          secret: false
+        }));
+      }
     }
     if (g.target === 'snmp' && c.values.snmp_enabled === true) {
       const sys = get('General', 'system');
@@ -201,6 +215,12 @@ export function generateJsonObject(c: Config, opts: GenerateOptions = { secrets:
 
   const system: Record<string, unknown> = {};
   for (const b of blocks.filter((x) => x.section === 'General')) Object.assign(system, objectFrom(b.entries));
+  if (c.values.sshEnabled === true && c.values.sshKeyAccessEnabled === true) {
+    const keys = sshPublicKeys(c.values.sshPublicKeys, c.values.sshPublicKeyNames)
+      .filter((key) => key.data)
+      .map(({ name, data }) => ({ name, data }));
+    if (keys.length) system.sshPublicKeys = keys;
+  }
   if (Object.keys(system).length) doc.systemSettings = system;
 
   const edge: Record<string, unknown>[] = [];
