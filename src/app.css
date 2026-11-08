@@ -103,6 +103,19 @@ input:focus, select:focus, textarea:focus {
 }
 input.bad, select.bad, textarea.bad { border-color: var(--bad); }
 select { cursor: pointer; }
+select, select option, select optgroup {
+  color: var(--tx);
+  background-color: var(--input);
+}
+:root[data-theme='dark'] select,
+:root[data-theme='dark'] select option,
+:root[data-theme='dark'] select optgroup,
+:root[data-theme='light'] select,
+:root[data-theme='light'] select option,
+:root[data-theme='light'] select optgroup {
+  color: var(--tx);
+  background-color: var(--input);
+}
 select.t { width: auto; padding: 7px 9px; }
 code, pre, .mono { font-family: 'Cascadia Code', Consolas, 'SFMono-Regular', monospace; }
 .sr-only {
@@ -203,7 +216,7 @@ h1 { margin: 0; font-size: clamp(24px, 2.3vw, 32px); font-weight: 680; letter-sp
 }
 .environment-item { display: flex; align-items: center; gap: 9px; }
 .environment-label { color: var(--mut); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.environment-item select { width: auto; min-width: 110px; border: 0; background: transparent; padding: 3px 22px 3px 3px; font-weight: 650; }
+.environment-item select { width: auto; min-width: 110px; border: 0; background: var(--input); padding: 3px 22px 3px 3px; font-weight: 650; }
 .environment-divider { align-self: stretch; width: 1px; background: var(--line); }
 .environment-summary { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; }
 .environment-summary span { color: var(--mut); font-size: 10px; }
