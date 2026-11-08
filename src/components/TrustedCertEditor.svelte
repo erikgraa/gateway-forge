@@ -50,7 +50,7 @@
   </div>
   <div class="trusted-cert-rows">
     {#each orderedFields.slice(0, rowCount) as field, index (field.id)}
-      {@const id = `${uid}-${index + 1}`}
+      {@const id = list ? `${uid}-${index + 1}` : `f-${field.id}`}
       {@const message = error(field)}
       <div class="trusted-cert-row">
         <label class="field" for={id}>

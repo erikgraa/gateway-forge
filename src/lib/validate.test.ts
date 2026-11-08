@@ -100,6 +100,34 @@ describe('config validation', () => {
     expect(m).toMatch(/Blast is enabled without an external URL/);
   });
 
+  it('warns about missing Horizon trust configuration and accepts every supported trust source', () => {
+    const base = applyPatch(defaultConfig(), {
+      values: {
+        horizon_enabled: true,
+        proxyDestinationUrl: 'https://cs.example.com',
+        proxyDestinationUrlThumbprints: '',
+        ...Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`trustedCert${index + 1}`, '']))
+      }
+    });
+    const trustWarning = (config: ReturnType<typeof defaultConfig>) => validateConfig(config)
+      .find((issue) => issue.message.startsWith('No Connection Server thumbprint'));
+
+    expect(trustWarning(base)).toMatchObject({
+      level: 'warn',
+      section: 'horizon',
+      fieldId: 'trustedCert1'
+    });
+    expect(trustWarning(applyPatch(base, {
+      values: { proxyDestinationUrlThumbprints: 'sha256=ad:5c:f1:48:47:94:7e:80:82:73:13:6c:83:52:0b:78:ed:ff:50:23:56:a8:42:8a:d9:30:fc:3a:33:d6:c6:db' }
+    }))).toBeUndefined();
+    expect(trustWarning(applyPatch(base, {
+      values: { trustedCert1: 'C:\\certs\\corp-root-ca.pem' }
+    }))).toBeUndefined();
+    expect(trustWarning(applyPatch(base, {
+      values: { trustedCert9: 'C:\\certs\\issuer-ca.pem' }
+    }))).toBeUndefined();
+  });
+
   it('catches RADIUS timing and missing-method mismatches', () => {
     const c = applyPatch(defaultConfig(), { values: { authMethods: 'radius-auth', radius_enabled: false } });
     expect(messages(c).join('\n')).toMatch(/error:Horizon uses RADIUS/);
