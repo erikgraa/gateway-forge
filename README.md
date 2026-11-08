@@ -46,6 +46,8 @@ Gateway Forge supports every Omnissa UAG release that is **not end-of-life** acc
 
 Per-version field availability (`since` in the schema) was derived by diffing the published *Deploying and Configuring UAG* INI/Horizon reference pages of each release (2212 → 2609), e.g. `headersToBeLogged`/`minSHAHashSize` (2312), `enableAuthOnRedirectedSite`/`unrecognizedSessionsMonitoringEnabled` (2406), additional Blast/Tunnel external URLs and `disableWebClient` (2412), `originCheckEnabled` (2503), SAML IdP binding keys (2603). Treat gating as best-effort: Omnissa's pages reorganised over time, so a key may exist slightly earlier than the page first lists it.
 
+The completed [UAG 2609 Horizon schema audit](docs/horizon-2609-schema-audit.md) records every documented Horizon row, the schema decision, exact type/default/version gate where known, and explicit exclusions or uncertainty. It was audited on **2026-11-08**.
+
 ## 🧭 Using it
 
 1. Pick the **UAG version** and **platform** (vSphere, Hyper-V, Azure) in the header - or start from a **template**, or **Import** an existing INI/JSON.
