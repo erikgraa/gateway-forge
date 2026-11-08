@@ -12,12 +12,14 @@ npm test         # Vitest
 ## Adding or changing a setting
 
 All form fields, INI/JSON output, import mapping, validation and the command palette are driven by `src/lib/schema.ts`.
+Start with [SOURCES.md](SOURCES.md) to distinguish versioned Omnissa documentation and deployment tooling from project conventions and community inference.
 
 1. Add a `Field` to the right group (or add a new `GroupDef`). Use the INI key exactly as documented by Omnissa.
 2. Set `since`/`until` (UAG release id, e.g. `'2412'`) when the key only exists in some versions. Check the *Deploying and Configuring UAG* docs for each release.
 3. Use `json: false` for anything that is not part of the admin-UI settings JSON (deploy-time values, file paths, and settings whose JSON shape is not documented).
 4. Mark secrets with `secret(...)`; they are masked and excluded from exports unless the user opts in.
 5. Add a unit test in `src/lib/*.test.ts` and run `npm run check && npm test`.
+6. When behavior or a source link changes, update `SOURCES.md` and its version snapshot.
 
 ## Updating supported UAG versions
 

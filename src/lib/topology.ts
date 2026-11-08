@@ -1,4 +1,5 @@
 import type { Config } from './model';
+import { deploymentNicCount } from './schema';
 import { FORWARD_FLAGS, cascadeRole } from './cascade';
 import { collectBlocks, platformScript } from './generate';
 import { runtimeSwitches } from './powershell';
@@ -71,8 +72,13 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   const L: string[] = [];
   L.push(`# ${v.uagName || 'UAG'} - configuration summary`, '');
   L.push(`- **UAG version:** ${c.version}`, `- **Platform:** ${def.label} (\`${def.script}\`)`, `- **Deployment:** ${v.deploymentOption}`);
-  if (v.ip0) L.push(`- **NIC0:** ${v.ip0}${v.netmask0 ? ' / ' + v.netmask0 : ''}`);
-  if (v.ip1) L.push(`- **NIC1:** ${v.ip1}`);
+  if (c.platform === 'vsphere' || c.platform === 'hyperv') {
+    L.push(`- **NIC0 / Internet:** ${v.netInternet || '(not set)'} - ${v.ip0 || '(no IP)'}${v.netmask0 ? ' / ' + v.netmask0 : ''}`);
+    if (deploymentNicCount(v) >= 2) L.push(`- **NIC1 / ${deploymentNicCount(v) === 2 ? 'Backend + Management' : 'Management'}:** ${v.netManagementNetwork || '(not set)'} - ${v.ip1 || '(no IP)'}${v.netmask1 ? ' / ' + v.netmask1 : ''}`);
+    if (deploymentNicCount(v) === 3) L.push(`- **NIC2 / Backend:** ${v.netBackendNetwork || '(not set)'} - ${v.ip2 || '(no IP)'}${v.netmask2 ? ' / ' + v.netmask2 : ''}`);
+    L.push(`- **Default gateway (NIC0):** ${v.defaultGateway || '(not set)'}`);
+    if (deploymentNicCount(v) === 2) L.push('- **Two-NIC mapping:** Internet (NIC0) + combined Backend and Management (NIC1); no dedicated third Backend NIC.');
+  }
   if (v.dns) L.push(`- **DNS:** ${v.dns}`);
   if (v.ntpServers) L.push(`- **NTP:** ${v.ntpServers}`);
   L.push('', '## Deployment', '');

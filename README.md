@@ -12,6 +12,7 @@
 A live demo is available at **[gateway-forge.graa.dev](https://gateway-forge.graa.dev)** - everything runs in your browser, nothing is uploaded.
 
 See the **[project roadmap](ROADMAP.md)** for planned work and ongoing priorities.
+See **[authoritative sources](SOURCES.md)** for the Omnissa documentation and deployment-tooling references behind supported UAG behavior.
 
 ## ✨ Features
 

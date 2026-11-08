@@ -44,7 +44,19 @@ describe('config validation', () => {
 
   it('accepts the RADIUS template without errors', () => {
     const c = applyPatch(TEMPLATES[0].build(defaultConfig()), {
-      values: { source: 'C:\\a.ova', target: 'vi://a@vc/DC/host/C', ds: 'ds1', netInternet: 'a', netManagementNetwork: 'b', radius_sharedSecret: 'x' }
+      values: {
+        source: 'C:\\a.ova',
+        target: 'vi://a@vc/DC/host/C',
+        ds: 'ds1',
+        netInternet: 'a',
+        netManagementNetwork: 'b',
+        ip0: '192.0.2.21',
+        netmask0: '255.255.255.0',
+        ip1: '192.0.3.21',
+        netmask1: '255.255.255.0',
+        defaultGateway: '192.0.2.1',
+        radius_sharedSecret: 'x'
+      }
     });
     expect(validateConfig(c).filter((i) => i.level === 'error')).toEqual([]);
   });
@@ -85,6 +97,69 @@ describe('config validation', () => {
     const c = applyPatch(defaultConfig(), { platform: 'azure' });
     expect(messages(c).join('\n')).not.toMatch(/vCenter target/);
     expect(messages(c).join('\n')).toMatch(/Subscription ID is required/);
+  });
+
+  it('requires the network fields for every one-, two- and three-NIC size option', () => {
+    const options = [
+      ['onenic', 1], ['twonic', 2], ['threenic', 3],
+      ['onenic-large', 1], ['twonic-large', 2], ['threenic-large', 3],
+      ['onenic-XL', 1], ['twonic-XL', 2], ['threenic-XL', 3]
+    ] as const;
+    const topologyIds = ['netInternet', 'netManagementNetwork', 'netBackendNetwork', 'ip0', 'netmask0', 'ip1', 'netmask1', 'ip2', 'netmask2', 'defaultGateway'];
+    const networkValues = {
+      netInternet: 'DMZ-Internet',
+      netManagementNetwork: 'DMZ-Management',
+      netBackendNetwork: 'Internal-Backend',
+      ip0: '192.0.2.21',
+      netmask0: '255.255.255.0',
+      ip1: '192.0.3.21',
+      netmask1: '255.255.255.0',
+      ip2: '192.0.4.21',
+      netmask2: '255.255.255.0',
+      defaultGateway: '192.0.2.1'
+    };
+
+    for (const [deploymentOption, nicCount] of options) {
+      const blank = applyPatch(defaultConfig(), {
+        values: { ...Object.fromEntries(topologyIds.map((id) => [id, ''])), deploymentOption }
+      });
+      const missing = validateConfig(blank)
+        .filter((i) => i.level === 'error' && i.fieldId && topologyIds.includes(i.fieldId))
+        .map((i) => i.fieldId);
+      expect(missing).toContain('netInternet');
+      expect(missing).toContain('ip0');
+      expect(missing).toContain('netmask0');
+      expect(missing).toContain('defaultGateway');
+      expect(missing.includes('netManagementNetwork')).toBe(nicCount >= 2);
+      expect(missing.includes('ip1')).toBe(nicCount >= 2);
+      expect(missing.includes('netmask1')).toBe(nicCount >= 2);
+      expect(missing.includes('netBackendNetwork')).toBe(nicCount === 3);
+      expect(missing.includes('ip2')).toBe(nicCount === 3);
+      expect(missing.includes('netmask2')).toBe(nicCount === 3);
+
+      const complete = applyPatch(blank, { values: networkValues });
+      const errors = validateConfig(complete).filter((i) => i.level === 'error' && i.fieldId && topologyIds.includes(i.fieldId));
+      expect(errors).toEqual([]);
+    }
+  });
+
+  it('ignores network values for NICs hidden by the deployment option', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        deploymentOption: 'onenic',
+        netInternet: 'DMZ',
+        ip0: '192.0.2.21',
+        netmask0: '255.255.255.0',
+        defaultGateway: '192.0.2.1',
+        ip1: 'not-an-ip',
+        netmask1: 'invalid',
+        netManagementNetwork: '',
+        ip2: '192.0.2.21'
+      }
+    });
+    const issues = validateConfig(c);
+    expect(issues.some((i) => i.fieldId === 'ip1' || i.fieldId === 'ip2')).toBe(false);
+    expect(issues.some((i) => /applicable NICs share/.test(i.message))).toBe(false);
   });
 
   it('summarises counts per section', () => {
