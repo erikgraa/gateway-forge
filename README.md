@@ -94,12 +94,20 @@ Tags: `nightly` / `latest` (newest build), `nightly-YYYYMMDD` and `sha-<commit>`
 
 ## 🛠️ Develop
 
+Run locally with Node.js 20+:
+
 ```bash
 npm install
-npm run dev       # http://localhost:5173
+npm run dev       # open http://localhost:5173
+```
+
+Validate a change before shipping:
+
+```bash
 npm test          # Vitest: generation, import/parsing, validation, thumbprints
 npm run check     # svelte-check / TypeScript
 npm run build     # static site in dist/ (relative base - host it anywhere)
+npm run preview   # serve the production build locally
 ```
 
 Stack: Vite + Svelte 5 + TypeScript. Layout:

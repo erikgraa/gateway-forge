@@ -38,7 +38,68 @@ function loadDraft(): Config {
   } catch {
     /* corrupt draft - start fresh */
   }
-  return defaultConfig();
+  return sampleConfig();
+}
+
+function sampleConfig(): Config {
+  return applyPatch(defaultConfig(), {
+    values: {
+      uagName: 'uag-dmz-01',
+      name: 'uag-dmz-01',
+      source: 'C:\\images\\euc-unified-access-gateway-26.09.0.0_OVF10.ova',
+      target: 'vi://administrator@vsphere.local@vcsa.corp.local/DC1/host/Cluster1',
+      folder: 'DMZ Gateways',
+      ds: 'vsanDatastore',
+      netInternet: 'DMZ-Internet',
+      netManagementNetwork: 'DMZ-Management',
+      deploymentOption: 'twonic-large',
+      ip0: '192.0.2.21',
+      netmask0: '255.255.255.0',
+      ip1: '10.20.10.21',
+      netmask1: '255.255.255.0',
+      defaultGateway: '192.0.2.1',
+      dns: '10.20.0.10 10.20.0.11',
+      dnsSearch: 'corp.local',
+      ntpServers: 'ntp1.corp.local ntp2.corp.local',
+      horizon_enabled: true,
+      proxyDestinationUrl: 'https://horizon-cs.corp.local',
+      authMethods: 'radius-auth',
+      gatewayLocation: 'external',
+      tunnelEnabled: true,
+      tunnelExternalUrl: 'https://horizon.example.com:443',
+      blastEnabled: true,
+      blastExternalUrl: 'https://horizon.example.com:443',
+      minSHAHashSize: 'SHA-256',
+      clientEncryptionMode: 'REQUIRED',
+      originCheckEnabled: true,
+      healthCheckUrl: '/favicon.ico',
+      radius_enabled: true,
+      radius_hostName: 'radius01.corp.local',
+      radius_authPort: 1812,
+      radius_authType: 'PAP',
+      radius_sharedSecret: '',
+      radius_numAttempts: 3,
+      radius_serverTimeout: 5,
+      radius_radiusDisplayHint: 'MFA passcode',
+      tls12Enabled: true,
+      tls13Enabled: true,
+      tls11Enabled: false,
+      tls10Enabled: false,
+      sshEnabled: false,
+      ceipEnabled: false
+    },
+    syslog: [
+      {
+        sysLogType: 'TLS',
+        syslogCategory: 'ALL',
+        syslogFormat: 'TEXT',
+        hostname: 'siem.corp.local',
+        port: 6514,
+        syslogSystemMessagesEnabledV2: true,
+        syslogSettingName: 'siem-primary'
+      }
+    ]
+  });
 }
 
 function initialTheme(): 'dark' | 'light' {

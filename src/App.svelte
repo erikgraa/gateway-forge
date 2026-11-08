@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { app } from './lib/store.svelte';
-  import { GROUPS, LISTS, SECTIONS } from './lib/schema';
+  import { GROUPS, LISTS, SECTIONS, type SectionId } from './lib/schema';
   import { VERSIONS, PLATFORMS, LIFECYCLE_SNAPSHOT } from './lib/versions';
   import { validateConfig, countBySection } from './lib/validate';
   import { render, download } from './lib/render';
@@ -15,16 +15,35 @@
   import ThumbprintTool from './components/ThumbprintTool.svelte';
   import Templates from './components/Templates.svelte';
 
+  const descriptions: Record<SectionId, { eyebrow: string; description: string }> = {
+    general: { eyebrow: 'Appliance profile', description: 'Define the appliance identity and administrative hardening baseline.' },
+    network: { eyebrow: 'Platform & connectivity', description: 'Set deployment targets, addressing, DNS, and time synchronization.' },
+    horizon: { eyebrow: 'Edge service', description: 'Publish Horizon securely through the UAG with client protocol endpoints.' },
+    wrp: { eyebrow: 'Application publishing', description: 'Add web reverse proxy instances for internal applications and portals.' },
+    auth: { eyebrow: 'Identity & MFA', description: 'Configure the authentication providers selected by your published services.' },
+    tls: { eyebrow: 'Transport security', description: 'Control appliance certificates and permitted TLS protocols.' },
+    monitoring: { eyebrow: 'Operations', description: 'Send appliance and edge-service events to your operations tooling.' },
+    templates: { eyebrow: 'Starting points', description: 'Load a validated design, then tailor it to your environment.' }
+  };
+
+  const glyphs: Record<SectionId, string> = {
+    general: 'AG', network: 'NW', horizon: 'HZ', wrp: 'WP', auth: 'ID', tls: 'TS', monitoring: 'OP', templates: 'TP'
+  };
   const issues = $derived(validateConfig(app.config));
   const counts = $derived(countBySection(issues));
   const groups = $derived(GROUPS.filter((g) => g.section === app.section));
   const lists = $derived(LISTS.filter((l) => l.section === app.section));
+  const current = $derived(SECTIONS.find((s) => s.id === app.section)!);
+  const currentMeta = $derived(descriptions[app.section]);
+  const currentIssues = $derived(issues.filter((i) => i.section === app.section));
+  const totalErrors = $derived(issues.filter((i) => i.level === 'error').length);
+  const totalWarnings = $derived(issues.filter((i) => i.level === 'warn').length);
+  const ready = $derived(totalErrors === 0);
 
   let exportOpen = $state(false);
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
   $effect(() => {
-    // Track the whole config so any edit schedules a (secret-free) draft save.
     JSON.stringify(app.config);
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => app.saveDraft(), 400);
@@ -58,60 +77,101 @@
 
 <div class="app">
   <header class="top">
-    <div class="brand"><img src="./logo.png" alt="" width="30" height="30" /><span>Gateway Forge</span><small class="tag">for Omnissa UAG</small></div>
-    <button class="cmdk" onclick={(e) => { e.stopPropagation(); app.showPalette = true; }} aria-label="Open command palette">
-      <span>Search settings, jump to section…</span><kbd>{isMac ? '⌘' : 'Ctrl'} K</kbd>
+    <a class="brand" href="." aria-label="Gateway Forge home">
+      <img src="./logo.png" alt="" width="32" height="32" />
+      <span class="brand-name">Gateway Forge<small>UAG configuration workspace</small></span>
+    </a>
+    <button class="cmdk" onclick={(e) => { e.stopPropagation(); app.showPalette = true; }} aria-label="Search settings or jump to a section">
+      <span class="search-icon" aria-hidden="true"></span><span>Search settings…</span><kbd>{isMac ? '⌘' : 'Ctrl'} K</kbd>
     </button>
-    <span class="spacer"></span>
-    <label class="sel-group">UAG
-      <select class="t" bind:value={app.config.version} aria-label="UAG version" title={`Supported releases per the Omnissa Lifecycle Matrix (${LIFECYCLE_SNAPSHOT})`}>
-        {#each [...VERSIONS].reverse() as v (v.id)}
-          <option value={v.id}>{v.id}{v.latest ? ' (latest)' : ''}</option>
-        {/each}
-      </select>
-    </label>
-    <label class="sel-group">Platform
-      <select class="t" bind:value={app.config.platform} aria-label="Deployment platform">
-        {#each PLATFORMS as p (p.id)}<option value={p.id}>{p.label}</option>{/each}
-      </select>
-    </label>
-    <button onclick={() => app.toggleTheme()} aria-label="Toggle light/dark theme" title="Toggle theme">{app.theme === 'dark' ? '☀ Light' : '🌙 Dark'}</button>
-    <button onclick={() => (app.showImport = true)}>Import</button>
-    <div class="menu">
-      <button class="primary" aria-haspopup="menu" aria-expanded={exportOpen} onclick={(e) => { e.stopPropagation(); exportOpen = !exportOpen; }}>Export ▾</button>
-      {#if exportOpen}
-        <div class="pop" role="menu">
-          <button role="menuitem" onclick={() => exportAs('ini')}>INI (uagdeploy)</button>
-          <button role="menuitem" onclick={() => exportAs('json')}>Settings JSON</button>
-          <button role="menuitem" onclick={() => exportAs('ps')}>PowerShell script</button>
-          <button role="menuitem" onclick={() => exportAs('docs')}>Docs (Markdown)</button>
-        </div>
-      {/if}
+    <div class="top-actions">
+      <button class="icon-button" onclick={() => app.toggleTheme()} aria-label="Toggle color theme" title="Toggle color theme">
+        <span aria-hidden="true">{app.theme === 'dark' ? '☀' : '◐'}</span>
+      </button>
+      <button class="secondary-button" onclick={() => (app.showImport = true)}>
+        <span aria-hidden="true">↓</span> Import
+      </button>
+      <div class="menu">
+        <button class="primary" aria-haspopup="menu" aria-expanded={exportOpen} onclick={(e) => { e.stopPropagation(); exportOpen = !exportOpen; }}>
+          Export <span aria-hidden="true">⌄</span>
+        </button>
+        {#if exportOpen}
+          <div class="pop" role="menu" aria-label="Export format">
+            <button role="menuitem" onclick={() => exportAs('ini')}><strong>Deployment INI</strong><small>uagdeploy.ps1 input</small></button>
+            <button role="menuitem" onclick={() => exportAs('json')}><strong>Settings JSON</strong><small>Admin UI / REST import</small></button>
+            <button role="menuitem" onclick={() => exportAs('ps')}><strong>PowerShell script</strong><small>Deploy-ready workflow</small></button>
+            <button role="menuitem" onclick={() => exportAs('docs')}><strong>Markdown runbook</strong><small>Handoff documentation</small></button>
+          </div>
+        {/if}
+      </div>
     </div>
   </header>
 
   <main class="layout">
-    <nav class="side" aria-label="Sections">
-      {#each SECTIONS as s (s.id)}
-        {@const n = counts[s.id]}
-        <button class:on={app.section === s.id} aria-current={app.section === s.id ? 'page' : undefined} onclick={() => app.goTo(s.id)}>
-          <span>{s.icon} {s.title}</span>
-          {#if n.error}<i class="badge error">{n.error}</i>
-          {:else if n.warn}<i class="badge warn">{n.warn}</i>
-          {:else if s.id !== 'templates'}<i class="badge ok">✓</i>{/if}
-        </button>
-      {/each}
-      <p class="footer">
-        <strong>Private by design.</strong> Everything runs in your browser. No telemetry. Secrets are never saved and are masked in exports unless you opt in.
-        <br /><button class="small danger" onclick={() => confirm('Reset all settings?') && app.clearDraft()}>Reset</button>
-      </p>
+    <nav class="side" aria-label="Configuration sections">
+      <div class="nav-heading"><span>Setup</span><small>{SECTIONS.filter((s) => s.id !== 'templates' && !counts[s.id].error).length}/{SECTIONS.length - 1} sections clear</small></div>
+      <div class="nav-list">
+        {#each SECTIONS as s, index (s.id)}
+          {@const n = counts[s.id]}
+          <button class:on={app.section === s.id} aria-current={app.section === s.id ? 'page' : undefined} onclick={() => app.goTo(s.id)}>
+            <span class="nav-glyph" aria-hidden="true">{glyphs[s.id]}</span>
+            <span class="nav-label"><strong>{s.title}</strong><small>{s.id === 'templates' ? 'Common configurations' : `Step ${index + 1}`}</small></span>
+            {#if n.error}<i class="badge error" aria-label={`${n.error} errors`}>{n.error}</i>
+            {:else if n.warn}<i class="badge warn" aria-label={`${n.warn} warnings`}>{n.warn}</i>
+            {:else if s.id !== 'templates'}<span class="nav-check" aria-label="No findings">✓</span>{/if}
+          </button>
+        {/each}
+      </div>
+      <div class="nav-assurance">
+        <span class="lock-mark" aria-hidden="true"></span>
+        <div><strong>Browser-only workspace</strong><p>No telemetry. Drafts are saved locally with secrets stripped.</p></div>
+        <button class="text-button" onclick={() => confirm('Reset all settings? This clears the local draft.') && app.clearDraft()}>Reset configuration</button>
+      </div>
     </nav>
 
     <div class="center">
-      <Topology />
+      <header class="workspace-head">
+        <div>
+          <p class="eyebrow">{currentMeta.eyebrow}</p>
+          <h1>{current.title}</h1>
+          <p class="section-description">{currentMeta.description}</p>
+        </div>
+        <div class:ready class:blocked={!ready} class="readiness" role="status" aria-live="polite">
+          <span class="status-dot"></span>
+          <div><strong>{ready ? 'Ready to review' : 'Needs attention'}</strong><small>{ready ? `${totalWarnings} advisory finding${totalWarnings === 1 ? '' : 's'}` : `${totalErrors} blocking error${totalErrors === 1 ? '' : 's'}`}</small></div>
+        </div>
+      </header>
+
+      <section class="environment-bar" aria-label="Target environment">
+        <div class="environment-item">
+          <span class="environment-label">Release</span>
+          <label class="sr-only" for="uag-version">Target UAG release</label>
+          <select id="uag-version" bind:value={app.config.version} title={`Supported releases per the Omnissa Lifecycle Matrix (${LIFECYCLE_SNAPSHOT})`}>
+            {#each [...VERSIONS].reverse() as v (v.id)}<option value={v.id}>UAG {v.id}{v.latest ? ' · latest' : ''}</option>{/each}
+          </select>
+        </div>
+        <div class="environment-divider"></div>
+        <div class="environment-item">
+          <span class="environment-label">Platform</span>
+          <label class="sr-only" for="platform">Deployment platform</label>
+          <select id="platform" bind:value={app.config.platform}>
+            {#each PLATFORMS as p (p.id)}<option value={p.id}>{p.label}</option>{/each}
+          </select>
+        </div>
+        <div class="environment-summary">
+          <span>Artifact</span><strong>{app.config.values.uagName || 'Unnamed appliance'}</strong>
+        </div>
+      </section>
+
+      {#if app.section === 'horizon'}<Topology />{/if}
+
       {#if app.section === 'templates'}
         <Templates />
       {:else}
+        <div class="section-context">
+          <span>Current section</span>
+          <strong>{currentIssues.length ? `${currentIssues.length} finding${currentIssues.length === 1 ? '' : 's'} to review` : 'No findings in this section'}</strong>
+        </div>
         {#each groups as g (g.id)}<GroupCard group={g} {issues} />{/each}
         {#each lists as l (l.id)}<ListEditor list={l} {issues} />{/each}
         {#if app.section === 'horizon'}<ThumbprintTool />{/if}
@@ -122,10 +182,10 @@
     <OutputPanel />
   </main>
 
-  <footer class="site-footer" role="contentinfo">
-    <strong>Gateway Forge is a community-driven, unofficial tool.</strong>
-    It is <strong>not affiliated with, endorsed by, or supported by Omnissa</strong>. Omnissa, Unified Access Gateway, UAG and Horizon are trademarks of their respective owners. Always review generated configuration before deploying it, and refer to the official Omnissa documentation.
-    <a href="https://github.com/erikgraa/gateway-forge" target="_blank" rel="noopener noreferrer">Source on GitHub</a> · MIT license
+  <footer class="site-footer">
+    <span><strong>Community tool.</strong> Not affiliated with Omnissa. Review generated artifacts before production deployment.</span>
+    <a href="https://github.com/erikgraa/gateway-forge" target="_blank" rel="noopener noreferrer">Source</a>
+    <span>· MIT</span>
   </footer>
 </div>
 
