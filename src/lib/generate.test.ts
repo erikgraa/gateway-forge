@@ -289,12 +289,14 @@ describe('INI generation', () => {
     const c = applyPatch(defaultConfig(), {
       values: {
         dns: '10.0.0.1   10.0.0.2',
+        dnsSearch: 'corp.local\nexample.local',
         ntpServers: 'ntp1.corp.local\nntp2.corp.local',
         fallBackNtpServers: ' pool.ntp.org '
       }
     });
     const ini = generateIni(c);
     expect(ini).toContain('dns=10.0.0.1 10.0.0.2');
+    expect(ini).toContain('dnsSearch=corp.local example.local');
     expect(ini).toContain('ntpServers=ntp1.corp.local ntp2.corp.local');
     expect(ini).toContain('fallBackNtpServers=pool.ntp.org');
   });

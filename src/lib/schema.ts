@@ -7,6 +7,7 @@ export type FieldType = 'text' | 'number' | 'bool' | 'select' | 'secret' | 'text
 
 export type Rule =
   | 'ipv4'
+  | 'dnsDomain'
   | 'hostOrIp'
   | 'hostList'
   | 'ipList'
@@ -95,7 +96,7 @@ export interface Field {
   /** Edit a string-backed, space-separated value as individually validated rows. */
   rows?: {
     itemLabel: string;
-    rule: 'ipv4' | 'hostOrIp';
+    rule: 'ipv4' | 'dnsDomain' | 'hostOrIp';
   };
 }
 
@@ -586,7 +587,12 @@ export const GROUPS: GroupDef[] = [
         json: false,
         help: 'Add each IPv4 address on its own row.'
       }),
-      text('dnsSearch', 'DNS search domains', 'dnsSearch', { placeholder: 'corp.local', json: false }),
+      text('dnsSearch', 'DNS search domains', 'dnsSearch', {
+        rows: { itemLabel: 'DNS search domain', rule: 'dnsDomain' },
+        placeholder: 'corp.local',
+        json: false,
+        help: 'Add each DNS search domain on its own row.'
+      }),
       text('ntpServers', 'NTP servers', 'ntpServers', {
         rule: 'hostList',
         rows: { itemLabel: 'NTP server', rule: 'hostOrIp' },

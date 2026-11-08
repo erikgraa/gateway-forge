@@ -186,8 +186,9 @@ adminpasswordExpirationDays=60
   });
 
   it('normalizes imported DNS and NTP values for row editors', () => {
-    const c = importIni('[General]\ndns=192.0.2.1   192.0.2.2\nntpServers=ntp1.corp.local  ntp2.corp.local\nfallBackNtpServers=pool.ntp.org').config;
+    const c = importIni('[General]\ndns=192.0.2.1   192.0.2.2\ndnsSearch=corp.local  example.local\nntpServers=ntp1.corp.local  ntp2.corp.local\nfallBackNtpServers=pool.ntp.org').config;
     expect(c.values.dns).toBe('192.0.2.1 192.0.2.2');
+    expect(c.values.dnsSearch).toBe('corp.local example.local');
     expect(c.values.ntpServers).toBe('ntp1.corp.local ntp2.corp.local');
     expect(c.values.fallBackNtpServers).toBe('pool.ntp.org');
   });

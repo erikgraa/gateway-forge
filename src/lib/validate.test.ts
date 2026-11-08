@@ -132,10 +132,11 @@ describe('config validation', () => {
     expect(messages(c).join('\n')).toMatch(/Duplicate web reverse proxy/);
   });
 
-  it('validates DNS and NTP values independently per row', () => {
+  it('validates DNS, search domain and NTP values independently per row', () => {
     const c = applyPatch(defaultConfig(), {
       values: {
         dns: '10.0.0.1 999.0.0.1',
+        dnsSearch: 'corp.local -invalid.example bad_domain.example',
         ntpServers: 'ntp1.corp.local bad!host',
         fallBackNtpServers: 'pool.ntp.org invalid!host'
       }
@@ -143,8 +144,13 @@ describe('config validation', () => {
     const rows = validateConfig(c).filter((issue) => issue.rowIndex !== undefined);
     expect(rows).toEqual(expect.arrayContaining([
       expect.objectContaining({ fieldId: 'dns', rowIndex: 1 }),
+      expect.objectContaining({ fieldId: 'dnsSearch', rowIndex: 1 }),
+      expect.objectContaining({ fieldId: 'dnsSearch', rowIndex: 2 }),
       expect.objectContaining({ fieldId: 'ntpServers', rowIndex: 1 }),
       expect.objectContaining({ fieldId: 'fallBackNtpServers', rowIndex: 1 })
+    ]));
+    expect(rows).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ fieldId: 'dnsSearch', rowIndex: 0 })
     ]));
   });
 

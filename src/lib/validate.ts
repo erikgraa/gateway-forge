@@ -21,6 +21,7 @@ export interface Issue {
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 const HOST = /^(?=.{1,253}$)([A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(\.[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*$/;
+const DNS_DOMAIN = /^(?=.{1,253}\.?$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(?:\.(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*\.?$/;
 
 export const isIpv4 = (s: string) => IPV4.test(s);
 
@@ -119,6 +120,8 @@ export function checkRule(rule: Rule, raw: string): string | null {
   switch (rule) {
     case 'ipv4':
       return IPV4.test(s) ? null : 'Not a valid IPv4 address';
+    case 'dnsDomain':
+      return DNS_DOMAIN.test(s) && !IPV4.test(s.replace(/\.$/, '')) ? null : 'Not a valid DNS search domain';
     case 'hostOrIp':
       return hostPort(s) ? null : 'Not a valid host name, IP address or host:port';
     case 'hostList':
