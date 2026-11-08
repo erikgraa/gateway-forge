@@ -18,6 +18,7 @@ This roadmap highlights current priorities and longer-running work. It is direct
 - **Planned — add a trustedCert2-9 row editor.** Support up to eight additional trusted certificate path rows with ordered, validated import and generation across verified certificate-list targets. Key and target mappings require official-source verification. ([#57](https://github.com/erikgraa/gateway-forge/issues/57))
 - **Planned — polish the live topology.** Improve architecture clarity, dependencies, responsiveness, accessibility, and stale-edge handling while preserving live updates and performance. ([#59](https://github.com/erikgraa/gateway-forge/issues/59))
 - **Planned — document passwordless stateless redeployments.** Explain omitted root/admin password behavior, operational tradeoffs, and intentionally stateless redeployment guidance without implying unsupported passwordless behavior. Official-source verification is required before guidance is published. ([#60](https://github.com/erikgraa/gateway-forge/issues/60))
+- **Planned — add Content Gateway support.** Verify the supported schema against authoritative sources, then add UI, validation, import/export, a ready-to-use template, topology representation, and regression tests. ([#73](https://github.com/erikgraa/gateway-forge/issues/73))
 
 ## Future goals
 
