@@ -2,6 +2,7 @@ import { GROUPS, LISTS, deploymentNicCount, type Field, type Rule, type SectionI
 import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
 import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion } from './versions';
+import { parseOriginHeaderDetails } from './generate';
 import { sshPublicKeyValidationError } from './ssh';
 import { parseListValue } from './listValue';
 
@@ -21,6 +22,7 @@ export interface Issue {
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 const HOST = /^(?=.{1,253}$)([A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)(\.[A-Za-z0-9_]([A-Za-z0-9_-]{0,61}[A-Za-z0-9_])?)*$/;
+const DNS_DOMAIN = /^(?=.{1,253}\.?$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(?:\.(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?))*\.?$/;
 
 export const isIpv4 = (s: string) => IPV4.test(s);
 
@@ -59,6 +61,21 @@ function validUrl(s: string, httpsOnly: boolean): boolean {
     const u = new URL(s);
     if (!u.hostname) return false;
     return httpsOnly ? u.protocol === 'https:' : u.protocol === 'https:' || u.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
+function validHttpsOrigin(s: string): boolean {
+  try {
+    const u = new URL(s);
+    return u.protocol === 'https:'
+      && !!u.hostname
+      && !u.username
+      && !u.password
+      && u.pathname === '/'
+      && !u.search
+      && !u.hash;
   } catch {
     return false;
   }
@@ -104,16 +121,26 @@ export function checkRule(rule: Rule, raw: string): string | null {
   switch (rule) {
     case 'ipv4':
       return IPV4.test(s) ? null : 'Not a valid IPv4 address';
+    case 'dnsDomain':
+      return DNS_DOMAIN.test(s) && !IPV4.test(s.replace(/\.$/, '')) ? null : 'Not a valid DNS search domain';
     case 'hostOrIp':
       return hostPort(s) ? null : 'Not a valid host name, IP address or host:port';
     case 'hostList':
       return s.split(/[\s,]+/).filter(Boolean).every(hostPort) ? null : 'Contains an invalid host name or IP address';
+    case 'hostPortList':
+      return s.split(',').map((x) => x.trim()).filter(Boolean).every((x) => x === '_empty_' || hostPort(x)) ? null : 'Contains an invalid host[:port] value';
+    case 'hostEntry': {
+      const [ip, host, alias, extra] = s.trim().split(/\s+/);
+      return IPV4.test(ip ?? '') && !!host && (!alias || HOST.test(alias)) && extra === undefined && HOST.test(host) ? null : 'Use IPv4_address hostname [alias]';
+    }
     case 'ipList':
       return s.split(/[\s,]+/).filter(Boolean).every((x) => IPV4.test(x)) ? null : 'Contains an invalid IPv4 address';
     case 'url':
       return validUrl(s, false) ? null : 'Not a valid http(s) URL';
     case 'httpsUrl':
       return validUrl(s, true) ? null : 'Must be a valid https:// URL';
+    case 'httpsOrigin':
+      return validHttpsOrigin(s) ? null : 'Must be an https:// origin with no path, query or fragment';
     case 'urlList':
       return s.split(',').map((x) => x.trim()).filter(Boolean).every((x) => validUrl(x, true)) ? null : 'Contains an invalid https:// URL';
     case 'port':
@@ -144,6 +171,11 @@ export function checkRule(rule: Rule, raw: string): string | null {
       return validHostEntries(s) ? null : 'Must contain comma-separated "IP hostname [alias]" entries';
     case 'path':
       return s.startsWith('/') ? null : 'Must start with "/"';
+    case 'redirectMappings':
+      return s.split(',').map((x) => x.trim()).filter(Boolean).every((x) => {
+        const [from, to, extra] = x.split('_');
+        return !!from && !!to && extra === undefined && hostPort(from) && hostPort(to);
+      }) ? null : 'Use comma-separated source_host:port_redirect_host:port mappings';
     case 'pemPath': {
       const absolute = /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(s);
       if (!absolute) return 'Must be an absolute local path (Windows, UNC, or Unix)';
@@ -165,6 +197,7 @@ function checkField(f: Field, values: Values): string | null {
     if (f.min !== undefined && n < f.min) return `${f.label} must be ≥ ${f.min}`;
     if (f.max !== undefined && n > f.max) return `${f.label} must be ≤ ${f.max}`;
   }
+  if (f.maxLength !== undefined && String(v).length > f.maxLength) return `${f.label} must be at most ${f.maxLength} characters`;
   if (f.rule && f.type !== 'bool') {
     const err = checkRule(f.rule, String(v));
     if (err) return `${f.label}: ${err}`;
@@ -321,16 +354,29 @@ function lint(c: Config, push: Push): void {
     if (v.tunnelEnabled === true && c.version >= '2412' && !nonEmpty('tunnelExternalUrl')) push({ level: 'info', section: 'horizon', fieldId: 'tunnelExternalUrl', message: 'Tunnel external URL is not set.' });
     if (v.pcoipEnabled === true && !nonEmpty('pcoipExternalUrl')) push({ level: 'warn', section: 'horizon', fieldId: 'pcoipExternalUrl', message: 'PCoIP is enabled without an external URL (IPv4:4172).' });
     if (v.authMethods === 'passthrough' && v.gatewayLocation === 'external') push({ level: 'warn', section: 'horizon', fieldId: 'authMethods', message: 'External gateway with passthrough authentication - no MFA in the DMZ. Consider RADIUS or SAML.' });
-    if (v.authMethods === 'radius-auth' && v.radius_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses RADIUS authentication but RADIUS is not configured.' });
-    if (v.authMethods === 'saml-auth' && v.saml_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses SAML authentication but no SAML identity provider is configured.' });
+    const usesRadius = String(v.authMethods).startsWith('radius-auth') || v.authMethods === 'certificate-auth-and-radius-auth';
+    const usesSaml = String(v.authMethods).startsWith('saml-auth') || v.authMethods === 'device-certificate-auth-and-saml-auth';
+    const usesUnauthenticated = String(v.authMethods).includes('unauthenticated');
+    if (usesRadius && v.radius_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses RADIUS authentication but RADIUS is not configured.' });
+    if (usesSaml && v.saml_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses SAML authentication but no SAML identity provider is configured.' });
     if (v.authMethods === 'oidc-auth' && v.oidc_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses OpenID Connect authentication but no OIDC provider is configured.' });
-    if (v.authMethods === 'securid-auth' && v.securid_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses RSA SecurID authentication but RSA SecurID is not configured.' });
-    if (v.authMethods === 'certificate-auth' && v.certauth_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses certificate authentication but it is not configured.' });
+    if (String(v.authMethods).startsWith('securid-auth') && v.securid_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses RSA SecurID authentication but RSA SecurID is not configured.' });
+    if (String(v.authMethods).includes('certificate-auth') && v.certauth_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses certificate authentication but it is not configured.' });
+    if (usesUnauthenticated && v.gatewayLocation !== 'internal') push({ level: 'error', section: 'horizon', fieldId: 'gatewayLocation', message: 'Unauthenticated Horizon authentication methods require Gateway location "internal".' });
     if (v.originCheckEnabled === false) push({ level: 'warn', section: 'horizon', fieldId: 'originCheckEnabled', message: 'Origin header check is disabled - leaves Horizon web access open to cross-origin requests.' });
     if (v.clientEncryptionMode === 'DISABLED') push({ level: 'warn', section: 'horizon', fieldId: 'clientEncryptionMode', message: 'Client encryption mode is DISABLED.' });
     const extra = String(v.additionalBlastExternalUrls ?? '').split(',').map((x) => hostOf(x.trim())).filter(Boolean);
     const all = [hostOf(String(v.blastExternalUrl ?? '')), ...extra].filter(Boolean);
     if (new Set(all).size !== all.length) push({ level: 'error', section: 'horizon', fieldId: 'additionalBlastExternalUrls', message: 'Blast external URLs must be unique by host name.' });
+    const extraTunnel = String(v.additionalTunnelExternalUrls ?? '').split(',').map((x) => hostOf(x.trim())).filter(Boolean);
+    const allTunnel = [hostOf(String(v.tunnelExternalUrl ?? '')), ...extraTunnel].filter(Boolean);
+    if (new Set(allTunnel).size !== allTunnel.length) push({ level: 'error', section: 'horizon', fieldId: 'additionalTunnelExternalUrls', message: 'Tunnel external URLs must be unique by host name.' });
+    if (v.pcoipDisableLegacyCertificate === true) push({ level: 'info', section: 'horizon', fieldId: 'pcoipDisableLegacyCertificate', message: 'Legacy PCoIP clients cannot connect while the legacy PCoIP certificate is disabled.' });
+    if (v.canonicalizationEnabled === false) push({ level: 'warn', section: 'horizon', fieldId: 'canonicalizationEnabled', message: 'Proxy-pattern canonicalization is disabled - encoded path traversal checks can be bypassed.' });
+    if (v.endpointComplianceCheckProvider && v.complianceCheckOnAuthentication !== true) push({ level: 'info', section: 'horizon', fieldId: 'complianceCheckOnAuthentication', message: 'Endpoint compliance is checked at application launch but not immediately after authentication.' });
+    for (const [index, detail] of parseOriginHeaderDetails(v.origin).entries()) {
+      if (!validUrl(detail.origin, true) && !HOST.test(detail.origin)) push({ level: 'error', section: 'horizon', fieldId: 'origin', message: `Allowed origin ${index + 1} must be an https:// URL or hostname.` });
+    }
   }
 
   if (v.radius_enabled === true) {

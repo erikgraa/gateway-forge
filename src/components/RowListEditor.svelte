@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { fieldHelp, type Field, type Values } from '../lib/schema';
   import type { Platform } from '../lib/versions';
   import type { Issue } from '../lib/validate';
@@ -14,8 +15,9 @@
 
   const definition = $derived(field.rows!);
   const help = $derived(fieldHelp(field, platform));
-  let rows = $state<string[]>([]);
-  let emitted = $state('');
+  const initial = untrack(() => String(values[field.id] ?? ''));
+  let emitted = $state(initial);
+  let rows = $state<string[]>(parseListValue(initial));
 
   $effect(() => {
     const external = String(values[field.id] ?? '');

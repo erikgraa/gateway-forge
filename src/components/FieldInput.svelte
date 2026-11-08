@@ -53,9 +53,9 @@
         <button type="button" class="small" onclick={() => (reveal = !reveal)} aria-label={reveal ? 'Hide secret' : 'Show secret'}>{reveal ? 'Hide' : 'Show'}</button>
       </span>
     {:else if field.type === 'textarea'}
-      <textarea {id} rows="3" class:bad={!!error} bind:value={values[field.id]} placeholder={field.placeholder}></textarea>
+      <textarea {id} rows="3" maxlength={field.maxLength} class:bad={!!error} bind:value={values[field.id]} placeholder={field.placeholder}></textarea>
     {:else}
-      <input {id} type="text" autocomplete="off" spellcheck="false" class:bad={!!error} bind:value={values[field.id]} placeholder={field.placeholder} />
+      <input {id} type="text" maxlength={field.maxLength} autocomplete="off" spellcheck="false" class:bad={!!error} bind:value={values[field.id]} placeholder={field.placeholder} />
     {/if}
     {#if error}<span class="err">{error}</span>{:else if help}<span class="hint">{help}</span>{/if}
   </label>
