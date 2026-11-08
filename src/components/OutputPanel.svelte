@@ -25,16 +25,24 @@
 </script>
 
 <aside class="out" aria-label="Generated output">
-  <div class="tabs" role="tablist">
-    {#each tabs as t (t.id)}
-      <button role="tab" aria-selected={app.tab === t.id} class:on={app.tab === t.id} onclick={() => (app.tab = t.id)}>{t.label}</button>
-    {/each}
-    <span class="spacer"></span>
-    <button class="small" onclick={doCopy}>Copy</button>
-    <button class="small primary" onclick={() => download(rendered)}>Download</button>
+  <div class="output-head">
+    <div><span class="live-indicator"><i></i> Live artifact</span><h2>Configuration preview</h2></div>
+    <span class="artifact-status">Auto-generated</span>
   </div>
-  <div class="out-foot" style="border-top:0;padding-top:0">
-    <span>{rendered.filename} · {hints[app.tab]}</span>
+  <div class="output-toolbar">
+    <div class="tabs" role="tablist" aria-label="Artifact format">
+      {#each tabs as t (t.id)}
+        <button role="tab" aria-selected={app.tab === t.id} class:on={app.tab === t.id} onclick={() => (app.tab = t.id)}>{t.label}</button>
+      {/each}
+    </div>
+    <div class="output-actions">
+      <button class="small ghost" onclick={doCopy}>Copy</button>
+      <button class="small" onclick={() => download(rendered)} aria-label={`Download ${app.tab.toUpperCase()} artifact`}>Download</button>
+    </div>
+  </div>
+  <div class="output-file">
+    <span class="file-type">{app.tab === 'ps' ? 'PS1' : app.tab.toUpperCase()}</span>
+    <span><strong>{rendered.filename}</strong><small>{hints[app.tab]}</small></span>
   </div>
   {#if hasSecrets}<div class="warnbox">Secrets are included in plain text. Do not commit or share this output.</div>{/if}
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
