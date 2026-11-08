@@ -14,6 +14,7 @@
   import CommandPalette from './components/CommandPalette.svelte';
   import ThumbprintTool from './components/ThumbprintTool.svelte';
   import Templates from './components/Templates.svelte';
+  import NoticeStack from './components/NoticeStack.svelte';
 
   const descriptions: Record<SectionId, { eyebrow: string; description: string }> = {
     general: { eyebrow: 'Appliance profile', description: 'Define the appliance identity and administrative hardening baseline.' },
@@ -41,7 +42,6 @@
   const totalWarnings = $derived(issues.filter((i) => i.level === 'warn').length);
   const ready = $derived(totalErrors === 0);
   const latestVersion = VERSIONS.find((v) => v.latest)!;
-  const usingLatestVersion = $derived(app.config.version === latestVersion.id);
 
   let exportOpen = $state(false);
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
@@ -181,37 +181,12 @@
         </div>
       </section>
 
-      {#if app.config.platform === 'openshift'}
-        <section class="artifact-version-warning" role="note">
-          <strong>Limited Availability</strong>
-          <span>OpenShift deployment requires Omnissa-granted access and the prerequisites documented in the Network & deploy section. Gateway Forge generates preparation YAML and the official script workflow; it does not bypass that access requirement.</span>
-        </section>
-      {/if}
-      {#if app.config.platform === 'nutanix'}
-        <section class="artifact-version-warning" role="note">
-          <strong>Nutanix QCOW2 and VM replacement</strong>
-          <span>Upload the UAG QCOW2 image to Prism Central first. The official deployment script deletes and recreates an existing VM with the configured name.</span>
-        </section>
-      {/if}
-
-      <section class:older-version={!usingLatestVersion} class="version-policy" aria-live="polite">
-        <span class="version-shield" aria-hidden="true">{usingLatestVersion ? '✓' : '!'}</span>
-        <div>
-          <strong>{usingLatestVersion ? `UAG ${latestVersion.id} is the recommended security baseline` : `UAG ${app.config.version} is older than the recommended release`}</strong>
-          <p>
-            {#if usingLatestVersion}
-              New configurations target the current release and include fixes available in this build line.
-            {:else}
-              Older supported releases remain available for migration and maintenance, but may not include important security fixes present in UAG {latestVersion.id}. Review Omnissa security advisories before deployment.
-            {/if}
-          </p>
-        </div>
-        {#if usingLatestVersion}
-          <span class="version-pill">CURRENT</span>
-        {:else}
-          <button class="small" onclick={useLatestVersion}>Use UAG {latestVersion.id}</button>
-        {/if}
-      </section>
+      <NoticeStack
+        platform={app.config.platform}
+        version={app.config.version}
+        latestVersionId={latestVersion.id}
+        onUseLatest={useLatestVersion}
+      />
 
       {#if app.section === 'horizon'}<Topology />{/if}
 
