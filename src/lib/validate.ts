@@ -2,6 +2,8 @@ import { GROUPS, LISTS, deploymentNicCount, type Field, type Rule, type SectionI
 import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
 import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion } from './versions';
+import { sshPublicKeyValidationError } from './ssh';
+import { parseListValue } from './listValue';
 
 export type Level = 'error' | 'warn' | 'info';
 
@@ -13,6 +15,8 @@ export interface Issue {
   fieldId?: string;
   /** For list items: list id and 0-based index. */
   list?: { id: 'wrp' | 'syslog'; index: number };
+  /** For a row within a string-backed multi-value field. */
+  rowIndex?: number;
 }
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
@@ -86,6 +90,8 @@ export function checkRule(rule: Rule, raw: string): string | null {
       return /^\d+$/.test(s) && Number(s) >= 1 && Number(s) <= 65535 ? null : 'Port must be 1-65535';
     case 'thumbprints':
       return validThumbprints(s);
+    case 'sshPublicKeys':
+      return sshPublicKeyValidationError(s);
     case 'uagName':
       return /^[A-Za-z0-9.-]{1,24}$/.test(s) ? null : 'Up to 24 characters: A-Z, 0-9, "-" and "."; no spaces';
     case 'ipv4Port': {
@@ -94,6 +100,12 @@ export function checkRule(rule: Rule, raw: string): string | null {
     }
     case 'path':
       return s.startsWith('/') ? null : 'Must start with "/"';
+    case 'pemPath': {
+      const absolute = /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(s);
+      if (!absolute) return 'Must be an absolute local path (Windows, UNC, or Unix)';
+      if (!/\.pem$/i.test(s)) return 'Must point to a .pem file';
+      return null;
+    }
     case 'int':
       return /^-?\d+$/.test(s) ? null : 'Must be an integer';
   }
@@ -139,6 +151,25 @@ export function validateConfig(c: Config): Issue[] {
     if (!groupEnabled(g, c)) continue;
     for (const f of g.fields) {
       if (!fieldAvailable(f, c.version, c.platform, v)) continue;
+      if (f.rows) {
+        const rows = parseListValue(v[f.id]);
+        if (rows.length === 0) {
+          const required = typeof f.required === 'function' ? f.required(v) : f.required;
+          if (required) push({ level: 'error', section: g.section, fieldId: f.id, message: `${f.label} is required` });
+          continue;
+        }
+        rows.forEach((row, index) => {
+          const error = checkRule(f.rows!.rule, row);
+          if (error) push({
+            level: 'error',
+            section: g.section,
+            fieldId: f.id,
+            rowIndex: index,
+            message: `${f.rows!.itemLabel} ${index + 1}: ${error}`
+          });
+        });
+        continue;
+      }
       const msg = checkField(f, v);
       if (msg) push({ level: 'error', section: g.section, fieldId: f.id, message: msg });
     }
@@ -168,7 +199,7 @@ function lint(c: Config, push: Push): void {
   if (role === 'outer') {
     push({ level: 'info', section: 'horizon', fieldId: 'cascade_role', message: 'Outer UAG: Horizon edge service is replaced by a "Horizon-WRP" reverse proxy to the inner UAG. Set Blast/tunnel external URLs on the INNER UAG to this UAG\'s public FQDN.' });
     if (String(v.deploymentOption).startsWith('onenic')) push({ level: 'info', section: 'network', fieldId: 'deploymentOption', message: 'Cascade: use separate NICs/DMZ networks so the outer UAG can reach DMZ 2 only through the inter-DMZ firewall.' });
-    if (!nonEmpty('cascade_innerThumbprints') && !nonEmpty('cascade_innerTrustedCert') && nonEmpty('cascade_innerUrl')) push({ level: 'info', section: 'horizon', fieldId: 'cascade_innerThumbprints', message: 'No inner UAG thumbprint or trusted CA certificate: required if the inner UAG uses a self-signed or private-CA certificate.' });
+    if (!nonEmpty('cascade_innerThumbprints') && !['cascade_innerTrustedCert', ...Array.from({ length: 8 }, (_, i) => `cascade_innerTrustedCert${i + 2}`)].some(nonEmpty) && nonEmpty('cascade_innerUrl')) push({ level: 'info', section: 'horizon', fieldId: 'cascade_innerThumbprints', message: 'No inner UAG thumbprint or trusted CA certificate: required if the inner UAG uses a self-signed or private-CA certificate.' });
     if (v.cascade_fwdPcoipTcp === true !== (v.cascade_fwdPcoipUdp === true)) push({ level: 'warn', section: 'horizon', fieldId: 'cascade_fwdPcoipTcp', message: 'PCoIP needs both TCP and UDP 4172 forwarded.' });
   }
   if (role === 'inner') {
@@ -210,7 +241,7 @@ function lint(c: Config, push: Push): void {
 
   if (horizon) {
     const url = String(v.proxyDestinationUrl ?? '');
-    if (url && validUrl(url, true) && !nonEmpty('proxyDestinationUrlThumbprints') && !nonEmpty('trustedCert1')) push({ level: 'info', section: 'horizon', fieldId: 'trustedCert1', message: 'No Connection Server thumbprint or trusted CA certificate: one of them is required if its certificate is self-signed or from a private CA.' });
+    if (url && validUrl(url, true) && !nonEmpty('proxyDestinationUrlThumbprints') && !Array.from({ length: 9 }, (_, i) => `trustedCert${i + 1}`).some(nonEmpty)) push({ level: 'info', section: 'horizon', fieldId: 'trustedCert1', message: 'No Connection Server thumbprint or trusted CA certificate: one of them is required if its certificate is self-signed or from a private CA.' });
     const tp = String(v.proxyDestinationUrlThumbprints ?? '');
     if (tp && tp.split(',').some((e) => parseThumbprint(e)?.alg === 'sha1')) push({ level: 'warn', section: 'horizon', fieldId: 'proxyDestinationUrlThumbprints', message: 'SHA-1 thumbprint in use - prefer SHA-256 or stronger.' });
     if (v.minSHAHashSize === 'SHA-1' && c.version >= '2312') push({ level: 'warn', section: 'horizon', fieldId: 'minSHAHashSize', message: 'Minimum SHA hash size is SHA-1, which is not recommended.' });

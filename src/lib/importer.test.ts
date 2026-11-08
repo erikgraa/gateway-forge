@@ -47,6 +47,7 @@ syslogUrl=syslog.corp.local:514
 version=V1+V2c
 communityName=abc
 `;
+const SSH_PUBLIC_KEY = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7 admin@host';
 
 describe('INI parsing', () => {
   it('parses sections, comments and values with "="', () => {
@@ -100,6 +101,20 @@ describe('INI import', () => {
   it('detects Azure from the [Azure] section', () => {
     expect(importIni('[General]\nuagName=x\n[Azure]\nsubscriptionID=1\nlocation=uksouth').config.platform).toBe('azure');
   });
+  it('imports numbered SSH public-key file paths', () => {
+    const r = importIni('[General]\nsshEnabled=true\nsshKeyAccessEnabled=true\nsshPublicKey1=C:\\keys\\admin.pub\nsshPublicKey2=keys\\backup.pub');
+    expect(r.config.values.sshPublicKeys).toBe('C:\\keys\\admin.pub\nkeys\\backup.pub');
+    expect(r.unmapped).toEqual([]);
+    expect(generateIni(r.config)).toContain('sshPublicKey1=C:\\keys\\admin.pub');
+    expect(generateIni(r.config)).toContain('sshPublicKey2=keys\\backup.pub');
+  });
+
+  it('normalizes imported DNS and NTP values for row editors', () => {
+    const c = importIni('[General]\ndns=192.0.2.1   192.0.2.2\nntpServers=ntp1.corp.local  ntp2.corp.local\nfallBackNtpServers=pool.ntp.org').config;
+    expect(c.values.dns).toBe('192.0.2.1 192.0.2.2');
+    expect(c.values.ntpServers).toBe('ntp1.corp.local ntp2.corp.local');
+    expect(c.values.fallBackNtpServers).toBe('pool.ntp.org');
+  });
 });
 
 describe('round trip', () => {
@@ -150,6 +165,21 @@ describe('JSON import', () => {
   it('autodetects format', () => {
     expect(importText('{"systemSettings":{}}').format).toBe('json');
     expect(importText('[General]\nuagName=a').format).toBe('ini');
+  });
+
+  it('imports UAG SSH public-key name/data objects', () => {
+    const r = importJson(JSON.stringify({
+      systemSettings: {
+        sshEnabled: true,
+        sshKeyAccessEnabled: true,
+        sshPublicKeys: [{ name: 'admin.pub', data: SSH_PUBLIC_KEY }]
+      }
+    }));
+    expect(r.unmapped).toEqual([]);
+    expect(r.config.values.sshPublicKeys).toBe(SSH_PUBLIC_KEY);
+    expect((generateJsonObject(r.config) as any).systemSettings.sshPublicKeys).toEqual([
+      { name: 'admin.pub', data: SSH_PUBLIC_KEY }
+    ]);
   });
 });
 

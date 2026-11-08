@@ -1,35 +1,240 @@
 # Authoritative sources
 
-Gateway Forge targets Omnissa Unified Access Gateway (UAG) behavior. When a source conflict exists, the current versioned Omnissa product documentation and the appliance/deployment tooling win over implementation conventions or community examples.
+This file is the source map for Gateway Forge. It records where product facts
+come from and, just as importantly, which Gateway Forge behavior is an
+implementation decision rather than a fact published by Omnissa.
 
-## Authoritative product documentation
+Gateway Forge is an unofficial consumer of these interfaces. A supported version
+list does not make generated output a supported Omnissa configuration, and a
+valid JSON document is not necessarily a valid UAG settings document. Always
+review generated output against the target UAG release and test it on a
+non-production appliance.
 
-- [Deploying and Configuring Omnissa Unified Access Gateway](https://docs.omnissa.com/category/UnifiedAccessGateway): versioned product guide and the primary source for supported behavior and settings.
-- [PowerShell deployment parameters](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/PowerShelldeploymentparameters): deploy-time INI parameters, deployment size variants, NIC counts, and address/mask semantics.
-- [Run PowerShell script to deploy](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy): canonical sample INI, deployment keys, and `uagdeploy` invocation.
-- [Secure DMZ design with multiple network interfaces](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/SecureDMZdesignwithmultiplenetworkinterfaces): authoritative one-, two-, and three-NIC traffic separation model. A two-NIC deployment places Internet traffic on the first interface and combines authenticated back-end and management traffic on the second; a three-NIC deployment further separates management traffic.
-- [Deploying UAG without Network Protocol Profile](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/DeployingUnifiedAccessGatewayWithoutNetworkProtocolProfileNPP): static address, subnet mask, and gateway deployment context.
-- [System and network requirements](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/Systemandnetworkrequirements) and [Network settings](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/Networksettings): network requirements and supported address-management behavior.
-- [Importing UAG settings](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/ImportingUnifiedAccessGatewaySettings) and [Exporting UAG settings](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/ExportingUnifiedAccessGatewaySettings): settings JSON as an appliance export/import format. Omnissa does not publish a complete JSON schema for all Gateway Forge settings.
-- [Omnissa Product Lifecycle Matrix](https://docs.omnissa.com/bundle/Product-Lifecycle-Matrix/page/lifecyclematrix.html): supported product/version lifecycle.
-- [TLS security settings](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/TLSSecuritySettings), [Frequently asked questions about security](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/FrequentlyAskedQuestionsFAQsaboutSecurity), and [Troubleshooting security best practices](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/TroubleshootingSecurityBestPractices): security guidance used for validation and lint findings.
+## Evidence labels
 
-The appliance's authenticated Swagger UI at `https://<uag>:9443/swagger` is the authoritative runtime/API schema for the deployed appliance and should be used to verify JSON imports.
+| Label | Meaning |
+| --- | --- |
+| **Verified documentation** | The claim was checked in an official Omnissa page, release note, or downloadable release artifact for the stated UAG version. |
+| **Verified runtime** | The claim was checked against a real appliance export, its Swagger document, or the exact deployment script shipped with that release. |
+| **Inferred behavior** | Gateway Forge extrapolated from a documented pattern or observed export. The corresponding UI field is marked `inferred` where applicable and must be verified before production use. |
+| **Project behavior** | A Gateway Forge choice, validation rule, recommendation, default, or presentation detail. It is not an Omnissa product guarantee. |
+| **Unverified assumption** | A proposed behavior without an official or runtime source. It must not be treated as authoritative and should not silently become a required field or validation rule. |
 
-## Authoritative tooling references
+When a source and the implementation disagree, use this order of precedence:
 
-- [Omnissa `euc-samples` UAG deployment tooling](https://github.com/euc-oss/euc-samples/tree/main/UAG-Samples): maintained Omnissa sample automation. Its [network interface notes](https://github.com/euc-oss/euc-samples/blob/main/UAG-Samples/UAG%20Automation%20and%20Day%202%20Operations/README.md) explicitly map `netInternet` to eth0, `netManagementNetwork` to eth1, and `netBackendNetwork` to eth2.
-- [`uagdeploytr.ps1`](https://github.com/euc-oss/euc-samples/blob/main/UAG-Samples/uag-terraform/uagdeploytr.ps1): shows that `twonic*` consumes NIC0 and NIC1 while `threenic*` additionally consumes NIC2. Therefore the two-NIC selection uses `netManagementNetwork`/NIC1, whose product-level role is combined back-end and management; it is not a dedicated back-end-only interface.
-- The `uagdeploy.ps1`/`uagdeployhv.ps1` scripts and modules distributed with the selected UAG image are the execution-time authority for a release.
+1. The exact downloaded or installed UAG release artifact.
+2. Runtime output from that release's appliance: admin-UI export and Swagger.
+3. The same release's official Omnissa deployment documentation and release
+   notes.
+4. Official product-wide sources such as the Lifecycle Matrix and security
+   advisories.
+5. Official tool or standards documentation.
+6. Gateway Forge's schema, templates, validation, and comments.
 
-## Project conventions and unverified assumptions
+## UAG INI keys and deployment
 
-Gateway Forge's validation, UI wording, generated runbooks, and PowerShell wrappers are project implementation conventions, not additional UAG features. A setting marked **verify** in the UI is inferred from an Omnissa-documented naming pattern and remains unverified until checked against the target release's deployment tooling or appliance.
+### Official product documentation
 
-Community INI files and blogs are examples only. They may document an older release, omit DHCP/IPv6 behavior, or contain stale keys; they are not used to override Omnissa documentation or scripts.
+The [Omnissa documentation site](https://docs.omnissa.com/) is the starting
+point. Select the exact UAG release before consulting it. The project has used
+the release-specific *Deploying and Configuring Unified Access Gateway*
+material, including pages titled:
 
-## Maintenance
+- *Run PowerShell script to deploy* and its sample INI
+- *PowerShell deployment parameters*
+- *Configure Horizon Settings*
+- vSphere, Hyper-V, and Azure deployment configuration
+- *Non-Interactive mode deployment parameters*
 
-Review this file when a supported UAG version is added or removed, when `src/lib/versions.ts` changes, and before changing deploy-time keys or topology behavior. Recheck the corresponding versioned guide, sample INI, and distributed deployment scripts; update the source links and snapshot date in the same change. Record the release and reason when behavior is inferred rather than directly documented.
+The page hierarchy and URLs have changed over time, so use the official search
+result or product table of contents for the target release rather than reusing
+a URL from a newer or older release. These pages are the **verified
+documentation** source for the documented section names, key names, script
+arguments, and platform-specific deployment behavior reflected in
+`src/lib/schema.ts` and `src/lib/powershell.ts`.
 
-Source snapshot: **2026-11-08** (UAG 2609 guide; supported-version list remains tracked in `src/lib/versions.ts`).
+### Downloaded release artifacts
+
+[Omnissa Customer Connect](https://customerconnect.omnissa.com/) distributes
+the UAG images, release notes, and PowerShell deployment packages. For a claim
+about script syntax or a key missing from the web documentation, inspect the
+`uagdeploy.ps1`, `uagdeployhv.ps1`, `uagdeployaz.ps1`, and `uagdeploy.psm1`
+files in the package for the exact UAG release.
+
+The shipped scripts, module, and sample files are the release's strongest
+source for deployment-time behavior. A PowerShell command generated by Gateway
+Forge is **verified documentation/runtime** only when it has been checked
+against those files; otherwise it is project behavior.
+
+For the NIC deployment mapping, the UAG 2609
+[secure DMZ guide](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/SecureDMZdesignwithmultiplenetworkinterfaces)
+states that the first NIC is Internet-facing and that a two-NIC deployment
+combines authenticated back-end and management traffic on the second NIC. The
+[deployment parameter](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/PowerShelldeploymentparameters)
+page defines the standard, large, and XL `onenic`, `twonic`, and `threenic`
+families. Omnissa's maintained
+[UAG automation notes](https://github.com/euc-oss/euc-samples/blob/main/UAG-Samples/UAG%20Automation%20and%20Day%202%20Operations/README.md)
+map `netInternet` to eth0/NIC0, `netManagementNetwork` to eth1/NIC1, and
+`netBackendNetwork` to eth2/NIC2. Its
+[`uagdeploytr.ps1`](https://github.com/euc-oss/euc-samples/blob/main/UAG-Samples/uag-terraform/uagdeploytr.ps1)
+shows that `twonic*` consumes NIC0 and NIC1, while `threenic*` additionally
+consumes NIC2. Thus `twonic` uses Internet plus combined back-end/management;
+it is not Internet plus a dedicated back-end-only interface.
+
+Key names in `src/lib/schema.ts` should be copied with their documented
+capitalization. The following are not public Omnissa schema facts:
+
+- `trustedCert2`, `radius_hostName_2`, and `radius_sharedSecret_2` are
+  **inferred behavior** from numbered-key patterns. Gateway Forge labels them
+  for verification.
+- The acceptable SNMPv3 security-level tokens are not exhaustively listed by
+  the currently consulted UAG documentation. Treat the free-text field as an
+  **unverified assumption at the value level** until checked against an
+  appliance or release artifact.
+- One-, two-, and three-NIC required-field choices are verified against the
+  release mapping above, while the exact blocking-validation policy remains
+  Gateway Forge **project behavior**.
+- The `since` and `until` gates were established from release-to-release
+  documentation comparisons. Their values are **inferred behavior**: first
+  publication in the sampled documentation is not proof that a key was
+  introduced in exactly that release.
+
+## Settings JSON
+
+The settings JSON is an admin-UI export/import document, not a publicly
+versioned replacement for the deployment INI. Omnissa does not publish a
+single public JSON schema covering the structures emitted by Gateway Forge.
+
+For the selected release, use:
+
+1. The real appliance's admin UI export from **Monitoring > Export** as the
+   **verified runtime** baseline.
+2. The appliance's Swagger UI at `https://<uag>:9443/swagger` as the
+   authoritative API contract for that installed release.
+3. The `PUT /rest/v1/config/settings` contract exposed by that Swagger document
+   before applying Gateway Forge output.
+
+Gateway Forge's `systemSettings`, `edgeServiceSettingsList`,
+`authMethodSettingsList`, and other nesting mirrors observed admin-UI exports.
+That mapping is **inferred behavior** until it is tested on the same UAG
+release. Deploy-time-only values, file paths, and settings intentionally marked
+`json: false` are absent from the generated settings document. In particular,
+the OpenID Connect, SecurID, certificate-authentication, outbound-proxy, and
+some certificate details remain INI-only because Gateway Forge does not yet
+have a verified public JSON shape for them.
+
+[RFC 8259](https://www.rfc-editor.org/info/rfc8259) defines JSON syntax only. It
+does not establish the validity of UAG keys, nesting, or values.
+
+## Lifecycle, release, and security data
+
+- The [Omnissa Product Lifecycle
+  Matrix](https://docs.omnissa.com/bundle/Product-Lifecycle-Matrix/page/lifecyclematrix.html)
+  is the **verified documentation** source for product support status. The
+  weekly lifecycle workflow in `.github/workflows/lifecycle-check.yml` is only
+  an automated comparison with that source.
+- `LIFECYCLE_SNAPSHOT` in `src/lib/versions.ts` records when the matrix was
+  reviewed; it is an evidence date, not a lifecycle guarantee. `VERSIONS`
+  remains a project snapshot and is not itself authoritative.
+- Release dates, build identifiers, and maintenance-release relationships must
+  come from the corresponding official UAG release notes or Customer Connect
+  package metadata. A maintenance release sharing its parent's schema is a
+  Gateway Forge assumption unless the release notes or appliance export
+  verifies it.
+- The [Omnissa security response and advisory
+  index](https://www.omnissa.com/omnissa-security-response) is the official
+  source for Omnissa Security Advisories. Follow the linked OMSA PDF and its
+  affected-version/fixed-version table. The Lifecycle Matrix alone does not
+  show whether a supported release has a known vulnerability or required
+  patch.
+- CVE databases such as [NVD](https://nvd.nist.gov/) are useful indexes, but
+  their records are secondary. The applicable OMSA and the vendor's fixed
+  release are authoritative for Omnissa remediation guidance.
+
+## Helper, crypto, and web-platform behavior
+
+The local thumbprint helper has no npm runtime dependencies. It uses Node.js
+built-in modules, governed by the official Node.js API documentation:
+
+- [`node:http`](https://nodejs.org/docs/latest-v20.x/api/http.html)
+- [`node:tls`](https://nodejs.org/docs/latest-v20.x/api/tls.html)
+- [`node:crypto`](https://nodejs.org/docs/latest-v20.x/api/crypto.html),
+  including `createHash` and `X509Certificate`
+
+Browser-side certificate hashing uses
+[Web Crypto `SubtleCrypto.digest()`](https://www.w3.org/TR/webcrypto-2/#dfn-SubtleCrypto-method-digest).
+The digest algorithms are defined by
+[FIPS 180-4](https://csrc.nist.gov/pubs/fips/180-4/upd1/final). These sources
+verify how bytes are hashed; UAG's accepted `sha1=...`/`sha256=...` text syntax
+still has to be verified from UAG documentation or an appliance export.
+
+The helper's cross-origin requests and the browser's `Origin` behavior follow
+the [Fetch Standard](https://fetch.spec.whatwg.org/). Its loopback-only bind,
+allowed-origin list, `Host` validation, and response payload are **project
+behavior** designed for this helper. They are not UAG requirements or a general
+guarantee against every localhost or DNS-rebinding threat.
+
+The generated PowerShell certificate probe uses the documented
+[.NET `SslStream`](https://learn.microsoft.com/dotnet/api/system.net.security.sslstream)
+and
+[`X509Certificate2`](https://learn.microsoft.com/dotnet/api/system.security.cryptography.x509certificates.x509certificate2)
+APIs. Review the resulting thumbprint against the intended appliance; do not
+use the helper's certificate connection as proof of trust, because thumbprint
+discovery intentionally opens the TLS connection without normal trust
+validation.
+
+## Build and documentation dependencies
+
+- `package.json` declares the direct development tools. `package-lock.json` is
+  the resolved dependency record for reproducible installs; upstream package
+  documentation explains those tools, not UAG behavior.
+- [`Svelte`](https://svelte.dev/docs), [Vite](https://vite.dev/guide/), and
+  [Vitest](https://vitest.dev/guide/) are development/build dependencies, not
+  authorities for generated UAG configuration.
+- The changelog follows the [Keep a Changelog](https://keepachangelog.com/)
+  structure. This is a repository convention rather than an Omnissa standard.
+
+## Project behavior that needs review
+
+The following implementation areas must be kept separate from product facts in
+code review and user-facing copy:
+
+| Area | Project authority today |
+| --- | --- |
+| Required fields and `showIf` rules | Gateway Forge behavior, unless each condition cites the same release's UAG documentation or script |
+| Defaults and `omitDefault` | Must be copied from official docs or an appliance/export; otherwise label as project behavior |
+| Validation and lint messages | A mix of format checks and recommendations; not a statement of what UAG accepts |
+| Double-DMZ proxy regex, forward rules, and templates | Derived from UAG/Horizon guidance and implemented by Gateway Forge; verify changes against the cited topology documentation |
+| Security-baseline recommendations | Project policy informed by lifecycle and OMSA data, not a substitute for a deployment-specific risk assessment |
+| UAG version auto-detection | Gateway Forge filename parsing, not an authoritative identification of an appliance image |
+| Unsupported-key warning on import | Evidence that the schema does not map a key, not evidence that UAG rejects it |
+
+## Source review and maintenance
+
+For every source-backed schema, deployment, lifecycle, or security change:
+
+1. Record the exact UAG release and the source page, release artifact, Swagger
+   document, or appliance export used. Include the source and date in the pull
+   request description for non-obvious claims.
+2. Prefer version-specific documentation over a page that now describes only
+   the latest release. Do not use a newer release to prove when an older key
+   first appeared.
+3. Keep verified facts separate from inference. Set the schema's `inferred`
+   flag when a key is extrapolated, and retain a visible warning until an
+   official or runtime source confirms it.
+4. Do not turn an unverified value into a default, required field, or blocking
+   validation solely because the UI or a template currently expects it.
+5. On a lifecycle-matrix change, update `VERSIONS`, `LIFECYCLE_SNAPSHOT`,
+   `README.md`, and this file's review notes. Review all `since`/`until` gates
+   and newly published deployment keys for the added release.
+6. On an OMSA or UAG release alert, review the recommended release and
+   security-copy assumptions; do not infer that a lifecycle-supported release
+   is patched against every advisory.
+7. Re-check public links when product or dependency major versions change.
+   If a vendor blocks automated access, note the HTTP result and verify the
+   official URL in a browser before removing or replacing it.
+
+Public Omnissa links were last reviewed on **2026-11-08**. Automated access to
+`docs.omnissa.com` can return HTTP 403, as it also can in the lifecycle
+workflow. An access failure is not evidence that a previously documented key or
+page no longer exists.

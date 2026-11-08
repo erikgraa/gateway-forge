@@ -10,13 +10,17 @@ export interface TopologyNode {
   id: string;
   label: string;
   sub?: string;
-  kind: 'client' | 'uag' | 'backend' | 'aux';
+  detail?: string;
+  kind: 'client' | 'uag' | 'backend' | 'identity' | 'monitoring';
+  zone: 'untrusted' | 'dmz' | 'internal';
 }
 
 export interface Topology {
   nodes: TopologyNode[];
   /** from -> to with an optional label. */
-  edges: { from: string; to: string; label?: string }[];
+  edges: { from: string; to: string; label: string; kind: 'access' | 'service' | 'identity' | 'monitoring' | 'cascade' }[];
+  facts: string[];
+  description: string;
 }
 
 function host(url: unknown): string {
@@ -29,40 +33,158 @@ function host(url: unknown): string {
 
 export function buildTopology(c: Config): Topology {
   const v = c.values;
-  const nodes: TopologyNode[] = [{ id: 'client', label: 'Internet', sub: 'Horizon / web clients', kind: 'client' }];
+  const role = cascadeRole(v);
+  const def = platformDef(c.platform);
+  const deployment = String(v.deploymentOption || 'onenic');
+  const nicCount = deployment.startsWith('threenic') ? 3 : deployment.startsWith('twonic') ? 2 : 1;
+  const nicRoles = nicCount === 1
+    ? 'NIC0 · internet / management / backend'
+    : nicCount === 2
+      ? 'NIC0 internet · NIC1 management / backend'
+      : 'NIC0 internet · NIC1 management · NIC2 backend';
+  const horizonProtocols = v.horizon_enabled === true ? [
+      'HTTPS 443',
+      v.tunnelEnabled === true ? 'Tunnel 443' : '',
+      v.blastEnabled === true ? 'Blast TCP+UDP 8443' : '',
+      v.pcoipEnabled === true ? 'PCoIP TCP+UDP 4172' : ''
+    ].filter(Boolean) : [];
+  const protocolLabel = horizonProtocols.join(' · ');
+  const hasPublishedService = role === 'outer' || role === 'inner' || v.horizon_enabled === true || c.wrp.length > 0;
+  const nodes: TopologyNode[] = [];
+  if (hasPublishedService) {
+    nodes.push({
+      id: 'client',
+      label: 'External clients',
+      sub: 'Horizon · browser · applications',
+      detail: protocolLabel || 'HTTPS 443',
+      kind: 'client',
+      zone: 'untrusted'
+    });
+  }
   const edges: Topology['edges'] = [];
-  const ext = [v.ip0, v.ip1].filter(Boolean).join(' · ');
-  nodes.push({ id: 'uag', label: String(v.uagName || 'uag'), sub: ext || `UAG ${c.version}`, kind: 'uag' });
-  edges.push({ from: 'client', to: 'uag', label: v.blastEnabled === true && v.horizon_enabled === true ? '443 / 8443' : '443' });
+  const ips = [v.ip0, v.ip1, v.ip2].slice(0, nicCount).filter(Boolean).join(' · ');
+  nodes.push({
+    id: 'uag',
+    label: String(v.uagName || 'UAG'),
+    sub: `${def.label} · UAG ${c.version} · ${nicCount}-NIC`,
+    detail: ips ? `${nicRoles}\n${ips}` : nicRoles,
+    kind: 'uag',
+    zone: 'dmz'
+  });
 
-  if (cascadeRole(v) === 'outer') {
-    nodes.push({ id: 'inner', label: 'Inner UAG', sub: host(v.cascade_innerUrl), kind: 'uag' });
-    edges.push({ from: 'uag', to: 'inner', label: 'DMZ 2' });
+  if (role === 'inner') {
+    nodes.push({
+      id: 'outer',
+      label: 'Outer UAG',
+      sub: 'Cascade peer · DMZ 1',
+      detail: 'Configured externally',
+      kind: 'uag',
+      zone: 'dmz'
+    });
+    edges.push({ from: 'client', to: 'outer', label: protocolLabel || 'HTTPS 443', kind: 'access' });
+    edges.push({ from: 'outer', to: 'uag', label: 'Cascade to DMZ 2', kind: 'cascade' });
+  } else if (hasPublishedService) {
+    edges.push({ from: 'client', to: 'uag', label: protocolLabel || 'HTTPS 443', kind: 'access' });
+  }
+
+  if (role === 'outer') {
+    const forwarded = FORWARD_FLAGS
+      .filter((f) => v[f.id] === true)
+      .map((f) => `${f.proto.toUpperCase()} ${f.port}`)
+      .filter((value, index, all) => all.indexOf(value) === index);
+    nodes.push({
+      id: 'inner',
+      label: 'Inner UAG',
+      sub: host(v.cascade_innerUrl),
+      detail: forwarded.length ? `Cascade · ${forwarded.join(' · ')}` : 'Cascade · Horizon XML-API',
+      kind: 'uag',
+      zone: 'dmz'
+    });
+    edges.push({ from: 'uag', to: 'inner', label: 'DMZ 1 → DMZ 2 · TLS / forwarded ports', kind: 'cascade' });
   } else if (v.horizon_enabled === true) {
-    nodes.push({ id: 'cs', label: 'Horizon CS', sub: host(v.proxyDestinationUrl), kind: 'backend' });
-    edges.push({ from: 'uag', to: 'cs', label: 'XML-API' });
+    nodes.push({
+      id: 'cs',
+      label: 'Horizon Connection Server',
+      sub: host(v.proxyDestinationUrl),
+      detail: `XML-API · ${String(v.authMethods || 'passthrough')}`,
+      kind: 'backend',
+      zone: 'internal'
+    });
+    edges.push({ from: 'uag', to: 'cs', label: 'HTTPS · XML-API', kind: 'service' });
   }
   c.wrp.forEach((item, i) => {
-    nodes.push({ id: `wrp${i}`, label: String(item.instanceId || `proxy ${i + 1}`), sub: host(item.proxyDestinationUrl), kind: 'backend' });
-    edges.push({ from: 'uag', to: `wrp${i}` });
+    nodes.push({
+      id: `wrp${i}`,
+      label: String(item.instanceId || `Web proxy ${i + 1}`),
+      sub: host(item.proxyDestinationUrl),
+      detail: `Web reverse proxy · ${String(item.authMethods || 'passthrough')}`,
+      kind: 'backend',
+      zone: 'internal'
+    });
+    edges.push({ from: 'uag', to: `wrp${i}`, label: 'HTTPS · reverse proxy', kind: 'service' });
   });
   if (v.radius_enabled === true) {
-    nodes.push({ id: 'radius', label: 'RADIUS', sub: `${v.radius_hostName || '?'}:${v.radius_authPort}`, kind: 'aux' });
-    edges.push({ from: 'uag', to: 'radius', label: 'MFA' });
+    nodes.push({
+      id: 'radius',
+      label: 'RADIUS / MFA',
+      sub: `${v.radius_hostName || 'host not set'}:${v.radius_authPort || 1812}`,
+      detail: String(v.radius_authType || 'Authentication'),
+      kind: 'identity',
+      zone: 'internal'
+    });
+    edges.push({ from: 'uag', to: 'radius', label: `RADIUS · UDP ${v.radius_authPort || 1812}`, kind: 'identity' });
   }
   if (v.saml_enabled === true) {
-    nodes.push({ id: 'idp', label: 'SAML IdP', sub: host(v.saml_entityID), kind: 'aux' });
-    edges.push({ from: 'uag', to: 'idp', label: 'SAML' });
+    nodes.push({
+      id: 'idp',
+      label: 'SAML identity provider',
+      sub: host(v.saml_entityID),
+      detail: 'Identity assertion / metadata',
+      kind: 'identity',
+      zone: 'internal'
+    });
+    edges.push({ from: 'uag', to: 'idp', label: 'SAML · HTTPS metadata / assertions', kind: 'identity' });
   }
   c.syslog.forEach((item, i) => {
-    nodes.push({ id: `sys${i}`, label: 'Syslog', sub: String(item.syslogUrl || item.hostname || '?'), kind: 'aux' });
-    edges.push({ from: 'uag', to: `sys${i}`, label: String(item.sysLogType) });
+    nodes.push({
+      id: `sys${i}`,
+      label: String(item.syslogSettingName || 'Syslog'),
+      sub: String(item.syslogUrl || item.hostname || 'collector not set'),
+      detail: `${item.sysLogType || 'TLS'} event forwarding`,
+      kind: 'monitoring',
+      zone: 'internal'
+    });
+    edges.push({ from: 'uag', to: `sys${i}`, label: String(item.sysLogType || 'TLS'), kind: 'monitoring' });
   });
   if (v.snmp_enabled === true) {
-    nodes.push({ id: 'snmp', label: 'SNMP monitor', sub: String(v.snmp_version), kind: 'aux' });
-    edges.push({ from: 'snmp', to: 'uag', label: 'poll' });
+    nodes.push({
+      id: 'snmp',
+      label: 'SNMP monitor',
+      sub: String(v.snmp_version || 'SNMP'),
+      detail: 'Management polling',
+      kind: 'monitoring',
+      zone: 'internal'
+    });
+    edges.push({ from: 'snmp', to: 'uag', label: 'SNMP poll', kind: 'monitoring' });
   }
-  return { nodes, edges };
+  const facts = [
+    `${def.label} · UAG ${c.version}`,
+    `${nicCount}-NIC deployment: ${nicRoles}`,
+    role === 'none' ? 'Direct publishing topology' : `${role === 'outer' ? 'Outer' : 'Inner'} cascade role`,
+    v.horizon_enabled === true ? `Horizon protocols: ${horizonProtocols.join(', ')}` : 'Horizon edge service disabled',
+    `${c.wrp.length} web reverse proxy instance${c.wrp.length === 1 ? '' : 's'}`,
+    `Identity: ${[v.radius_enabled === true ? 'RADIUS' : '', v.saml_enabled === true ? 'SAML' : ''].filter(Boolean).join(', ') || 'none enabled'}`
+  ];
+  const description = [
+    `Live UAG topology for ${v.uagName || 'UAG'} on ${def.label}, version ${c.version}.`,
+    facts.slice(1).join('. '),
+    ...edges.map((edge) => {
+      const from = nodes.find((node) => node.id === edge.from)?.label || edge.from;
+      const to = nodes.find((node) => node.id === edge.to)?.label || edge.to;
+      return `${from} connects to ${to} using ${edge.label}.`;
+    })
+  ].join(' ');
+  return { nodes, edges, facts, description };
 }
 
 /** Markdown documentation of the configuration, suitable for runbooks and change tickets. */
@@ -83,7 +205,10 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   if (v.ntpServers) L.push(`- **NTP:** ${v.ntpServers}`);
   L.push('', '## Deployment', '');
   L.push(`- Run: \`${platformScript(c)} -iniFile <file>.ini${runtimeSwitches(c)}\``);
-  L.push('- Root and admin passwords are read at deploy time (prompt, or `-rootPwd` / `-adminPwd`); they are not part of the INI.');
+  L.push('- Gateway Forge never asks for or stores the UAG root or Admin UI passwords. Omnissa marks `-rootPwd` and `-adminPwd` as mandatory for headless deployment; the generated PowerShell reads them only at deploy time when supplied.');
+  L.push('- **Immutable / replace-on-failure option:** Omnissa documents that an appliance may be deployed without an Admin UI password when no post-deployment changes are needed. The Admin UI and API are then unavailable, no user can be added later, and the appliance must be redeployed to restore administrative access. This does not remove or disable the root account.');
+  L.push('- Before choosing this workflow, complete and test the INI as the recovery baseline; retain deployment artifacts in an approved secrets-managed system; and assess console access, break-glass recovery, monitoring, password rotation, change control, backup, and compliance requirements. Redeploy rather than attempting in-place administration.');
+  L.push('- Reference: [Omnissa non-interactive deployment parameters](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters) and [Run PowerShell script to deploy](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy).');
   L.push('', '## Edge services', '');
   if (cascadeRole(v) === 'outer') L.push(`- **Cascade - outer UAG (DMZ 1)** reverse proxy → ${v.cascade_innerUrl || '(not set)'}`);
   if (cascadeRole(v) === 'inner') L.push('- **Cascade - inner UAG (DMZ 2)**: Horizon external URLs must point to the outer UAG');
