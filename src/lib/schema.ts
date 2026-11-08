@@ -389,7 +389,7 @@ export const GROUPS: GroupDef[] = [
     section: 'network',
     target: 'runtime',
     iniSection: 'Runtime',
-    help: 'Not INI settings: these are passed on the uagdeploy command line and only affect the PowerShell output. Passwords are never part of the INI or stored here: the root and admin passwords are read at deploy time, either via prompts or with -rootPwd "<root_password>" -adminPwd "<admin_password>" (minimum 8 characters; 14 for a FIPS appliance). The PowerShell tab shows both forms.',
+    help: 'Not INI settings: these are passed on the uagdeploy command line and only affect the PowerShell output. Gateway Forge never asks for or stores the UAG root or Admin UI passwords. Omnissa marks -rootPwd and -adminPwd as mandatory for headless deployment. It separately documents an immutable option without an Admin UI password: the appliance can be production-ready, but the Admin UI and API are unavailable, no user can be added later, and administrative recovery requires redeployment. This is not a passwordless appliance; assess console access, break-glass recovery, logging, rotation, and compliance before choosing that model.',
     fields: [
       bool('run_noSSLVerify', 'Skip SSL/TLS certificate verification (-noSSLVerify)', 'run_noSSLVerify', false, {
         wide: true,
