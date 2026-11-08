@@ -12,6 +12,8 @@
 A live demo is available at **[gateway-forge.graa.dev](https://gateway-forge.graa.dev)** - everything runs in your browser, nothing is uploaded.
 
 See the **[project roadmap](ROADMAP.md)** for planned work and ongoing priorities.
+See **[SOURCES.md](SOURCES.md)** for the authoritative product and tool
+references, the project evidence labels, and the source-review policy.
 
 ## ✨ Features
 
@@ -49,11 +51,15 @@ Per-version field availability (`since` in the schema) was derived by diffing th
 1. Pick the **UAG version** and **platform** (vSphere, Hyper-V, Azure) in the header - or start from a **template**, or **Import** an existing INI/JSON.
 2. Fill in the sections. Required fields and lint findings are flagged inline and in the *Validation & lint* panel.
 3. Take the result from the right-hand panel: **INI**, **JSON**, **PowerShell** or **Docs**; *Copy* or *Download* (also in **Export**).
-4. Deploy: `.\uagdeploy.ps1 -iniFile .\uag-dmz-01.ini` (you are prompted for the root and admin passwords; the PowerShell tab also shows the non-interactive form `-rootPwd … -adminPwd …`).
+4. Deploy: `.\uagdeploy.ps1 -iniFile .\uag-dmz-01.ini` (the script handles the credentials; the PowerShell tab also shows the documented headless `-rootPwd … -adminPwd …` form).
 
 ### 📚 Where do the key names come from?
 
 INI section and key names (`[General]`, `[Horizon]`, `[RADIUSAuth]`, `[SnmpSettings]`, `[SyslogServerSettingsN]`, `[WebReverseProxyN]`, `[IDPExternalMetadata1]`, `[SSLCert]`, `[Azure]`) were taken from the official Omnissa documentation - *Run PowerShell script to deploy* (sample INI), *PowerShell deployment parameters*, *Configure Horizon Settings*, the vSphere/Hyper-V/Azure deployment pages and *Non-Interactive mode deployment parameters*. Keys whose name is only inferred from a documented pattern (secondary RADIUS server `hostName_2`/`sharedSecret_2`) carry a **verify** badge in the UI; the SNMPv3 *security level* token is free text because the docs do not list the INI values.
+
+The [source map](SOURCES.md#uag-ini-keys-and-deployment) records the exact
+evidence hierarchy for these keys and distinguishes Omnissa documentation from
+release-artifact observations and Gateway Forge assumptions.
 
 ### 🧾 Settings JSON - read this
 
@@ -62,9 +68,13 @@ Omnissa documents the JSON as an *export/import format* of the admin UI but does
 ## 🔒 Security & privacy
 
 - Everything runs in your browser. **No telemetry, no network calls** (the only optional one is to a helper on `127.0.0.1` that *you* start).
-- Secrets (RADIUS shared secrets, SNMP community/passwords) are **masked in the form**, **never saved** in the browser draft, and exported as `<REDACTED>` placeholders by default. Choose *Omit entirely* or *Include (plain text)* under the output panel. UAG root/admin passwords are never asked for - `uagdeploy` prompts for them.
+- Secrets (RADIUS shared secrets, SNMP community/passwords) are **masked in the form**, **never saved** in the browser draft, and exported as `<REDACTED>` placeholders by default. Choose *Omit entirely* or *Include (plain text)* under the output panel. UAG root/Admin UI passwords are never asked for or stored by Gateway Forge - credentials are handled by `uagdeploy` at deployment time.
+- Omnissa marks `rootPwd` and `adminPwd` as mandatory in its [non-interactive parameter reference](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters). Its [deployment workflow](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy) separately documents an intentional immutable option without an Admin UI password: the appliance is production-ready from the INI, but the Admin UI and API are unavailable, no user can later be added, and recovery requires redeployment. **This is not a passwordless appliance.**
+- For immutable or replace-on-failure operations, treat the complete, validated INI as the recovery baseline and test that a clean redeployment restores service. Keep deployment artifacts in an approved secrets-managed location and assess console access, break-glass recovery, monitoring, password rotation, change control, backup, and compliance before deliberately omitting the Admin UI password.
+- SSH public keys are public, so they are not treated as secrets. Paste one OpenSSH RSA key per line, or provide `.pub` file paths for INI deployment. The PowerShell artifact writes pasted keys to numbered companion files; settings JSON uses UAG's `sshPublicKeys` `{name, data}` array.
 - The form state (minus secrets) is kept in `localStorage` so a refresh does not lose work; use **Reset** to clear it.
 - Certificates are referenced by *file path* (read by `uagdeploy` at deploy time); certificate or key content is never stored.
+- Future external secret-management and PKI integrations are design-only and explicitly opt-in; see the [provider security design and implementation roadmap](docs/secret-pki-provider-design.md).
 
 ## 🔑 Thumbprint helper
 
@@ -124,6 +134,7 @@ Stack: Vite + Svelte 5 + TypeScript. Layout:
 | `src/lib/templates.ts` | Ready-made designs |
 | `src/components/` | Svelte UI |
 | `helper/` | Optional localhost helper |
+| `SOURCES.md` | Authoritative source map and evidence/source-review policy |
 
 ### 🧩 Adding a setting
 
