@@ -10,6 +10,8 @@ import { fieldAvailable, groupEnabled, isDefault, isEmpty, type Config } from '.
 import { CASCADE_INSTANCE_ID, CASCADE_PATTERN, CASCADE_PATTERN_OPSWAT, cascadeRole, forwardRules } from './cascade';
 import { platformDef } from './versions';
 import { trustedCertFields, trustedCertPaths } from './trusted-certs';
+import { sshPublicKeys } from './ssh';
+import { serializeListValue } from './listValue';
 
 export type SecretMode = 'placeholder' | 'omit' | 'include';
 export const SECRET_PLACEHOLDER = '<REDACTED>';
@@ -43,10 +45,12 @@ function sectionRank(name: string): number {
 }
 
 function entryFor(f: Field, values: Values, mode: SecretMode): Entry | null {
+  if (f.customOutput) return null;
   const raw = values[f.id];
-  if (isEmpty(raw)) return null;
-  if (f.omitDefault && isDefault(f, raw)) return null;
-  let value = raw as Primitive;
+  const normalized = f.rows ? serializeListValue([raw]) : raw;
+  if (isEmpty(normalized)) return null;
+  if (f.omitDefault && isDefault(f, normalized)) return null;
+  let value = normalized as Primitive;
   if (f.secret) {
     if (mode === 'omit') return null;
     if (mode === 'placeholder') value = SECRET_PLACEHOLDER;
@@ -81,6 +85,18 @@ export function collectBlocks(c: Config, opts: GenerateOptions = { secrets: 'pla
       const e = entryFor({ ...field, key: `trustedCert${index + 1}` }, { [field.id]: certPaths[index] }, opts.secrets);
       if (e) entries.push(e);
     });
+    if (g.id === 'appliance' && c.values.sshEnabled === true && c.values.sshKeyAccessEnabled === true) {
+      const field = g.fields.find((f) => f.id === 'sshPublicKeys');
+      if (field) {
+        sshPublicKeys(c.values.sshPublicKeys, c.values.sshPublicKeyNames).forEach((key, index) => entries.push({
+          key: `sshPublicKey${index + 1}`,
+          jsonKey: false,
+          value: key.path ?? key.fileName,
+          field,
+          secret: false
+        }));
+      }
+    }
     if (g.target === 'snmp' && c.values.snmp_enabled === true) {
       const sys = get('General', 'system');
       sys.entries.push({
@@ -217,6 +233,12 @@ export function generateJsonObject(c: Config, opts: GenerateOptions = { secrets:
 
   const system: Record<string, unknown> = {};
   for (const b of blocks.filter((x) => x.section === 'General')) Object.assign(system, objectFrom(b.entries));
+  if (c.values.sshEnabled === true && c.values.sshKeyAccessEnabled === true) {
+    const keys = sshPublicKeys(c.values.sshPublicKeys, c.values.sshPublicKeyNames)
+      .filter((key) => key.data)
+      .map(({ name, data }) => ({ name, data }));
+    if (keys.length) system.sshPublicKeys = keys;
+  }
   if (Object.keys(system).length) doc.systemSettings = system;
 
   const edge: Record<string, unknown>[] = [];

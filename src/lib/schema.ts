@@ -16,6 +16,7 @@ export type Rule =
   | 'port'
   | 'thumbprints'
   | 'pemPath'
+  | 'sshPublicKeys'
   | 'uagName'
   | 'ipv4Port'
   | 'path'
@@ -74,6 +75,13 @@ export interface Field {
   wide?: boolean;
   /** Emit to INI only when the user sets it (not when equal to the documented default). */
   omitDefault?: boolean;
+  /** This field needs format-specific output rather than a direct INI entry. */
+  customOutput?: boolean;
+  /** Edit a string-backed, space-separated value as individually validated rows. */
+  rows?: {
+    itemLabel: string;
+    rule: 'ipv4' | 'hostOrIp';
+  };
 }
 
 export interface GroupDef {
@@ -268,6 +276,17 @@ export const GROUPS: GroupDef[] = [
       num('sshPort', 'SSH port', 'sshPort', { default: 22, rule: 'port', showIf: (v) => v.sshEnabled === true }),
       bool('sshPasswordAccessEnabled', 'SSH password access', 'sshPasswordAccessEnabled', false, { showIf: (v) => v.sshEnabled === true }),
       bool('sshKeyAccessEnabled', 'SSH key access', 'sshKeyAccessEnabled', true, { showIf: (v) => v.sshEnabled === true }),
+      text('sshPublicKeys', 'SSH public keys', 'sshPublicKey1', {
+        type: 'textarea',
+        wide: true,
+        rule: 'sshPublicKeys',
+        json: 'sshPublicKeys',
+        customOutput: true,
+        required: (v) => v.sshEnabled === true && v.sshKeyAccessEnabled === true,
+        showIf: (v) => v.sshEnabled === true && v.sshKeyAccessEnabled === true,
+        placeholder: 'ssh-rsa AAAAB3NzaC1yc2E... administrator@workstation',
+        help: 'Paste one OpenSSH RSA public key or existing .pub file path per line. INI uses numbered sshPublicKeyN file paths; PowerShell writes pasted keys as companion files.'
+      }),
       text('sshLoginBannerText', 'Login banner text', 'sshLoginBannerText', {
         wide: true,
         help: 'ASCII only. Use \\n for new lines.'
@@ -389,7 +408,7 @@ export const GROUPS: GroupDef[] = [
     section: 'network',
     target: 'runtime',
     iniSection: 'Runtime',
-    help: 'Not INI settings: these are passed on the uagdeploy command line and only affect the PowerShell output. Passwords are never part of the INI or stored here: the root and admin passwords are read at deploy time, either via prompts or with -rootPwd "<root_password>" -adminPwd "<admin_password>" (minimum 8 characters; 14 for a FIPS appliance). The PowerShell tab shows both forms.',
+    help: 'Not INI settings: these are passed on the uagdeploy command line and only affect the PowerShell output. Gateway Forge never asks for or stores the UAG root or Admin UI passwords. Omnissa marks -rootPwd and -adminPwd as mandatory for headless deployment. It separately documents an immutable option without an Admin UI password: the appliance can be production-ready, but the Admin UI and API are unavailable, no user can be added later, and administrative recovery requires redeployment. This is not a passwordless appliance; assess console access, break-glass recovery, logging, rotation, and compliance before choosing that model.',
     fields: [
       bool('run_noSSLVerify', 'Skip SSL/TLS certificate verification (-noSSLVerify)', 'run_noSSLVerify', false, {
         wide: true,
@@ -411,10 +430,25 @@ export const GROUPS: GroupDef[] = [
     target: 'system',
     iniSection: 'General',
     fields: [
-      text('dns', 'DNS servers', 'dns', {       rule: 'ipList', placeholder: '10.0.0.10 10.0.0.11', required: true, json: false, help: 'Space-separated IPv4 addresses.' }),
-            text('dnsSearch', 'DNS search domains', 'dnsSearch', { placeholder: 'corp.local', json: false }),
-      text('ntpServers', 'NTP servers', 'ntpServers', { rule: 'hostList', placeholder: 'pool.ntp.org', help: 'Space-separated hostnames/IPs.' }),
-      text('fallBackNtpServers', 'Fallback NTP servers', 'fallBackNtpServers', { rule: 'hostList' })
+      text('dns', 'DNS servers', 'dns', {
+        rule: 'ipList',
+        rows: { itemLabel: 'DNS server', rule: 'ipv4' },
+        placeholder: '10.0.0.10',
+        required: true,
+        json: false,
+        help: 'Add each IPv4 address on its own row.'
+      }),
+      text('dnsSearch', 'DNS search domains', 'dnsSearch', { placeholder: 'corp.local', json: false }),
+      text('ntpServers', 'NTP servers', 'ntpServers', {
+        rule: 'hostList',
+        rows: { itemLabel: 'NTP server', rule: 'hostOrIp' },
+        placeholder: 'pool.ntp.org',
+        help: 'Add each hostname or IP address on its own row.'
+      }),
+      text('fallBackNtpServers', 'Fallback NTP servers', 'fallBackNtpServers', {
+        rule: 'hostList',
+        rows: { itemLabel: 'Fallback NTP server', rule: 'hostOrIp' }
+      })
     ]
   },
   {

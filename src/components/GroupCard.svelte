@@ -5,6 +5,7 @@
   import type { Issue } from '../lib/validate';
   import FieldInput from './FieldInput.svelte';
   import TrustedCertEditor from './TrustedCertEditor.svelte';
+  import RowListEditor from './RowListEditor.svelte';
 
   interface Props {
     group: GroupDef;
@@ -40,7 +41,11 @@
     {#if enabled}
       <div class="grid">
         {#each regularFields as f (f.id)}
-          <FieldInput field={f} bind:values={app.config.values as Values} error={err(f.id)} />
+          {#if f.rows}
+            <RowListEditor field={f} bind:values={app.config.values as Values} {issues} />
+          {:else}
+            <FieldInput field={f} bind:values={app.config.values as Values} error={err(f.id)} />
+          {/if}
         {/each}
         {#if trustedFields.length}
           <TrustedCertEditor fields={trustedFields} bind:values={app.config.values as Values} {issues} uid={group.id} />

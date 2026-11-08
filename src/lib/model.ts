@@ -86,5 +86,6 @@ export function applyPatch(base: Config, patch: Partial<Omit<Config, 'values'>> 
   if (patch.values) Object.assign(out.values, patch.values);
   if (patch.wrp) out.wrp = patch.wrp.map((i) => ({ ...newListItem('wrp'), ...i }));
   if (patch.syslog) out.syslog = patch.syslog.map((i) => ({ ...newListItem('syslog'), ...i }));
+  compactConfigTrustedCerts(out);
   return out;
 }
