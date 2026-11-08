@@ -1,17 +1,20 @@
 <script lang="ts">
-  import type { Field, Values } from '../lib/schema';
+  import { fieldHelp, type Field, type Values } from '../lib/schema';
+  import type { Platform } from '../lib/versions';
 
   interface Props {
     field: Field;
     values: Values;
+    platform: Platform;
     error?: string;
     /** DOM id suffix when the same field id appears more than once (list items). */
     uid?: string;
   }
-  let { field, values = $bindable(), error, uid }: Props = $props();
+  let { field, values = $bindable(), platform, error, uid }: Props = $props();
 
   let reveal = $state(false);
   const id = $derived(`f-${uid ?? field.id}`);
+  const help = $derived(fieldHelp(field, platform));
 
   function setNumber(e: Event) {
     const raw = (e.currentTarget as HTMLInputElement).value;
@@ -25,7 +28,7 @@
     <span>
       {field.label}
       {#if field.since}<span class="chip">UAG ≥ {field.since}</span>{/if}
-      {#if field.help}<span class="hint"> - {field.help}</span>{/if}
+      {#if help}<span class="hint"> - {help}</span>{/if}
     </span>
   </label>
 {:else}
@@ -50,10 +53,10 @@
         <button type="button" class="small" onclick={() => (reveal = !reveal)} aria-label={reveal ? 'Hide secret' : 'Show secret'}>{reveal ? 'Hide' : 'Show'}</button>
       </span>
     {:else if field.type === 'textarea'}
-      <textarea {id} rows="3" class:bad={!!error} bind:value={values[field.id]} placeholder={field.placeholder}></textarea>
+      <textarea {id} rows="3" maxlength={field.maxLength} class:bad={!!error} bind:value={values[field.id]} placeholder={field.placeholder}></textarea>
     {:else}
-      <input {id} type="text" autocomplete="off" spellcheck="false" class:bad={!!error} bind:value={values[field.id]} placeholder={field.placeholder} />
+      <input {id} type="text" maxlength={field.maxLength} autocomplete="off" spellcheck="false" class:bad={!!error} bind:value={values[field.id]} placeholder={field.placeholder} />
     {/if}
-    {#if error}<span class="err">{error}</span>{:else if field.help}<span class="hint">{field.help}</span>{/if}
+    {#if error}<span class="err">{error}</span>{:else if help}<span class="hint">{help}</span>{/if}
   </label>
 {/if}

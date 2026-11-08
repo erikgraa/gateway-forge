@@ -5,6 +5,8 @@ import { sshPublicKeys } from './ssh';
 
 const psq = (s: string) => `'${s.replace(/'/g, "''")}'`;
 
+export type DeploymentMode = 'interactive' | 'headless';
+
 /** Run-time switches for the deploy script (not INI settings). */
 export function runtimeSwitches(c: Config): string {
   let s = '';
@@ -14,8 +16,12 @@ export function runtimeSwitches(c: Config): string {
 }
 
 /** PowerShell that writes the INI and runs the deployment script. */
-export function generatePowerShell(c: Config, mode: SecretMode = 'placeholder'): string {
-  const ini = generateIni(c, { secrets: mode });
+export function generatePowerShell(
+  c: Config,
+  secretMode: SecretMode = 'placeholder',
+  deploymentMode: DeploymentMode = 'interactive'
+): string {
+  const ini = generateIni(c, { secrets: secretMode });
   const file = iniFileName(c);
   const script = platformScript(c);
   const def = platformDef(c.platform);
@@ -41,40 +47,36 @@ export function generatePowerShell(c: Config, mode: SecretMode = 'placeholder'):
       out.push(`$sshKey = @'`, key.data!, `'@`, `Set-Content -Path .\\${key.fileName} -Value $sshKey -Encoding ASCII`, '');
     }
   }
-  if (mode === 'placeholder' && ini.includes('<REDACTED>')) out.push('# Replace every <REDACTED> value in the INI before deploying.', '');
-  out.push(`# 2. Password handling and deployment`);
-  out.push(`# Gateway Forge never requests or stores the UAG root or Admin UI passwords.`);
-  out.push(`# Omnissa's headless parameter reference marks -rootPwd and -adminPwd as mandatory.`);
-  out.push(`# Its deployment workflow also documents an intentional immutable option: if no post-deployment changes are needed,`);
-  out.push(`# the Admin UI password can be left unset. The Admin UI and API are then unavailable, no user can be added later,`);
-  out.push(`# and the appliance must be redeployed to regain administrative access. This does not remove the root account.`);
-  out.push(`# References: https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters`);
-  out.push(`#             https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy`);
-  out.push('');
-  if (c.platform === 'openshift') return generateOpenShiftPowerShell(c, mode, out);
-  out.push(`# 2a. Interactive deployment (prompts for the root and admin passwords)`);
-  out.push(deploymentCommand(c, sw), '');
+  if (secretMode === 'placeholder' && ini.includes('<REDACTED>')) out.push('# Replace every <REDACTED> value in the INI before deploying.', '');
+  out.push('# 2. Deploy the appliance');
+  if (c.platform === 'openshift') return generateOpenShiftPowerShell(c, secretMode, deploymentMode, out);
   if (c.platform === 'nutanix') {
+    out.push('# Interactive mode: the official Nutanix script prompts for the UAG and Prism Central passwords.');
+    out.push(deploymentCommand(c, sw), '');
     out.push('# This command also prompts for the Prism Central password.');
     out.push('# Omnissa does not provide a verified non-interactive command on the referenced deployment page.');
     out.push('# WARNING: the official script deletes and recreates a VM with the same name.');
     out.push('');
     return out.join('\n');
   }
-  out.push(`# 2b. Non-interactive deployment: -rootPwd / -adminPwd are read at deploy time and are never stored in the INI (min 8 characters; 14 for FIPS)`);
-  out.push(`$rootPwd  = Read-Host 'UAG root password'  -AsSecureString`);
-  out.push(`$adminPwd = Read-Host 'UAG admin password' -AsSecureString`);
-  out.push(`$plain = { param($s) [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s)) }`);
-  if (def.nonInteractive === 'positional') {
-    out.push(`.\\${script} .\\${file} (& $plain $rootPwd) (& $plain $adminPwd) no${sw}   # <ceip-yes-no> follows the passwords`);
+  if (deploymentMode === 'interactive') {
+    out.push('# Interactive mode: the deployment script prompts for the root and Admin UI passwords.');
+    out.push((c.platform === 'azure' ? `.\\${script} .\\${file}` : `.\\${script} -iniFile .\\${file}`) + sw);
   } else {
-    out.push(`.\\${script} -iniFile .\\${file} -rootPwd (& $plain $rootPwd) -adminPwd (& $plain $adminPwd)${sw}`);
+    out.push('# Headless mode: passwords are read from the runtime environment and never written to this script or the INI.');
+    out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running headless deployment.' }`);
+    out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.' }`);
+    if (def.nonInteractive === 'positional') {
+      out.push(`.\\${script} .\\${file} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no${sw}`);
+    } else {
+      out.push(`.\\${script} -iniFile .\\${file} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD${sw}`);
+    }
   }
   out.push('');
   return out.join('\n');
 }
 
-function generateOpenShiftPowerShell(c: Config, mode: SecretMode, out: string[]): string {
+function generateOpenShiftPowerShell(c: Config, mode: SecretMode, deploymentMode: DeploymentMode, out: string[]): string {
   const yamlFile = manifestFileName(c);
   const manifest = generateBootableVolumeManifest(c);
   const volume = String(c.values.ocp_volume || '<volume-name>');
@@ -102,16 +104,27 @@ function generateOpenShiftPowerShell(c: Config, mode: SecretMode, out: string[])
     out.push('oc logout', '');
   }
   out.push('# 4. Deploy the VM. The script requires both uagdeployopenshift.ps1 and uagdeploy.psm1.');
-  out.push(deploymentCommand(c, sw), '');
-  out.push('# 5. Non-interactive option. Password arguments can be retained in shell history; run Clear-History afterward.');
-  out.push(`$rootPwd = Read-Host 'UAG root password' -AsSecureString`);
-  out.push(`$adminPwd = Read-Host 'UAG admin password' -AsSecureString`);
-  out.push(`$plain = { param($s) [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s)) }`);
-  if (mode !== 'omit' && String(c.values.ocp_bearerToken || '')) {
-    out.push(`${deploymentCommand(c)} -rootPwd (& $plain $rootPwd) -adminPwd (& $plain $adminPwd) no${sw}`);
+  if (deploymentMode === 'interactive') {
+    if (mode === 'omit' || !String(c.values.ocp_bearerToken || '')) {
+      out.push('# The bearer token is omitted, so provide the OpenShift password securely at runtime.');
+      out.push(`$openshiftPwd = Read-Host 'OpenShift password' -AsSecureString`);
+      out.push(`$plain = { param($s) [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s)) }`);
+      out.push(`${deploymentCommand(c, sw)} -openshiftPassword (& $plain $openshiftPwd)`);
+    } else {
+      out.push('# Interactive mode: the deployment script prompts for the required UAG passwords.');
+      out.push(deploymentCommand(c, sw));
+    }
+    out.push('');
   } else {
-    out.push(`$openshiftPwd = Read-Host 'OpenShift password' -AsSecureString`);
-    out.push(`${deploymentCommand(c)} -rootPwd (& $plain $rootPwd) -adminPwd (& $plain $adminPwd) no -openshiftPassword (& $plain $openshiftPwd)${sw}`);
+    out.push('# Headless mode: passwords are read from the runtime environment and never written to this script or the INI.');
+    out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running headless deployment.' }`);
+    out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.' }`);
+    if (mode === 'omit' || !String(c.values.ocp_bearerToken || '')) {
+      out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_OPENSHIFT_PASSWORD)) { throw 'Set UAG_OPENSHIFT_PASSWORD before running headless deployment.' }`);
+      out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no -openshiftPassword $env:UAG_OPENSHIFT_PASSWORD${sw}`);
+    } else {
+      out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no${sw}`);
+    }
   }
   out.push('Clear-History', '');
   return out.join('\n');

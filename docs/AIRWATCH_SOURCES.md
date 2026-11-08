@@ -14,7 +14,7 @@ The Tunnel deployment guide supports UAG-hosted Tunnel on vSphere and Hyper-V. G
 | --- | --- |
 | `tunnelGatewayEnabled` | Enables the Tunnel gateway. Must be `true` when the group is enabled. |
 | `disableAutoConfigUpdate` | Locks custom configuration, authentication, certificates, and networking against UEM auto-updates. Introduced in the 2303 sample. |
-| `apiServerUrl` | Required HTTPS Workspace ONE UEM REST API URL from Site URLs. |
+| `apiServerUrl` | Required HTTPS Workspace ONE UEM REST API origin from Site URLs. Paths, query strings, fragments, and embedded credentials are rejected; a trailing slash or explicit port is allowed. |
 | `apiServerUsername` | Required initial UEM console administrator account; minimum Console Administrator privilege. |
 | `apiServerPassword` | Required UEM administrator password for initial bootstrap. Stored as a secret and stripped from drafts. |
 | `organizationGroupCode` | Optional organization group ID; not required when the UEM console supports multi-tunnel configuration. |

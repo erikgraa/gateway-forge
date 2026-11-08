@@ -2,6 +2,9 @@ import { defaultConfig, stripSecrets, applyPatch, type Config } from './model';
 import { isSupportedVersion, DEFAULT_VERSION } from './versions';
 import type { SectionId } from './schema';
 import type { SecretMode } from './generate';
+import type { DeploymentMode } from './powershell';
+
+const RUNTIME_FIELD_IDS = new Set(['run_noSSLVerify', 'run_disableVerification']);
 
 const DRAFT_KEY = 'gateway-forge.draft';
 const THEME_KEY = 'gateway-forge.theme';
@@ -112,6 +115,7 @@ class AppState {
   section = $state<SectionId>('general');
   tab = $state<OutputTab>('ini');
   secretMode = $state<SecretMode>('placeholder');
+  deploymentMode = $state<DeploymentMode>('interactive');
   theme = $state<'dark' | 'light'>(initialTheme());
   focusField = $state<string | null>(null);
   showImport = $state(false);
@@ -142,6 +146,8 @@ class AppState {
   }
 
   goTo(section: SectionId, fieldId?: string) {
+    const runtimeControl = fieldId && RUNTIME_FIELD_IDS.has(fieldId);
+    if (runtimeControl) this.tab = 'ps';
     this.section = section;
     this.focusField = fieldId ?? null;
     if (fieldId) {

@@ -47,12 +47,16 @@ Gateway Forge supports every Omnissa UAG release that is **not end-of-life** acc
 
 Per-version field availability (`since` in the schema) was derived by diffing the published *Deploying and Configuring UAG* INI/Horizon reference pages of each release (2212 → 2609), e.g. `headersToBeLogged`/`minSHAHashSize` (2312), `enableAuthOnRedirectedSite`/`unrecognizedSessionsMonitoringEnabled` (2406), additional Blast/Tunnel external URLs and `disableWebClient` (2412), `originCheckEnabled` (2503), SAML IdP binding keys (2603). Treat gating as best-effort: Omnissa's pages reorganised over time, so a key may exist slightly earlier than the page first lists it.
 
+The completed [UAG 2609 Horizon schema audit](docs/horizon-2609-schema-audit.md) records every documented Horizon row, the schema decision, exact type/default/version gate where known, and explicit exclusions or uncertainty. It was audited on **2026-11-08**.
+
 ## 🧭 Using it
 
 1. Pick the **UAG version** and **platform** (vSphere, Hyper-V, Azure, Nutanix AHV or OpenShift Virtualization) in the header - or start from a **template**, or **Import** an existing INI/JSON. Nutanix output is available from UAG 2606; OpenShift output is UAG 2609 and Limited Availability.
 2. Fill in the sections. Required fields and lint findings are flagged inline and in the *Validation & lint* panel.
 3. Take the result from the right-hand panel: **INI**, **JSON**, **PowerShell** or **Docs**; *Copy* or *Download* (also in **Export**).
 4. Deploy with the command shown for the selected platform. Examples: vSphere uses `.\uagdeploy.ps1 -iniFile ...`; Nutanix uses `.\uagdeployntnx.ps1 ...`; OpenShift first prepares the bootable volume and then uses `.\uagdeployopenshift.ps1 -iniFile ...`.
+
+   vSphere, Hyper-V and Azure also support **Headless** mode in the PowerShell tab, using `UAG_ROOT_PASSWORD` / `UAG_ADMIN_PASSWORD` from the runtime environment. Nutanix uses the verified interactive script flow.
 
 ### Nutanix and OpenShift support boundaries
 
@@ -63,6 +67,8 @@ Per-version field availability (`since` in the schema) was derived by diffing th
 - **NIC configuration boundary:** Nutanix and OpenShift generation currently models the documented IPv4 `DHCPV4` and `STATICV4` modes and numeric eth0/eth1/eth2 mapping. IPv6 modes, per-interface `routesN`, and `CustomConfig`/`ethNCustomConfig` inputs are intentionally not offered because they need additional source-backed validation.
 
 ### 📚 Where do the key names come from?
+
+**Gateway Forge is documentation-first.** A setting is added to the schema only after its meaning and parameter name can be traced to an official Omnissa source; UI-only controls are not treated as proof of a stable INI key. Where the reference table, release page, and deployment sample disagree, the 2609 deployment sample is the generation source, older spellings are accepted on import, and the discrepancy is recorded in the audit matrix. Version gates are deliberately conservative, runtime-only or unsupported JSON settings are explicit exclusions rather than silent omissions, and inferred names or unresolved details remain visibly marked for appliance-export verification.
 
 INI section and key names (`[General]`, `[Horizon]`, `[RADIUSAuth]`, `[SnmpSettings]`, `[SyslogServerSettingsN]`, `[WebReverseProxyN]`, `[IDPExternalMetadata1]`, `[SSLCert]`, `[Azure]`) were taken from the official Omnissa documentation - *Run PowerShell script to deploy* (sample INI), [*PowerShell deployment parameters*](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/PowerShelldeploymentparameters), *Configure Horizon Settings*, the vSphere/Hyper-V/Azure deployment pages and *Non-Interactive mode deployment parameters*. The UAG 2609 `[General]` audit, including added static-route mapping, intentional exclusions and uncertain keys, is recorded in the [deployment gap matrix](docs/uag-2609-deployment-gap-matrix.md). Keys whose name is only inferred from a documented pattern (secondary RADIUS server `hostName_2`/`sharedSecret_2`) carry a **verify** badge in the UI; the SNMPv3 *security level* token is free text because the docs do not list the INI values.
 
@@ -79,7 +85,7 @@ Omnissa documents the JSON as an *export/import format* of the admin UI but does
 ## 🔒 Security & privacy
 
 - Everything runs in your browser. **No telemetry, no network calls** (the only optional one is to a helper on `127.0.0.1` that *you* start).
-- Secrets (RADIUS shared secrets, SNMP community/passwords) are **masked in the form**, **never saved** in the browser draft, and exported as `<REDACTED>` placeholders by default. Choose *Omit entirely* or *Include (plain text)* under the output panel. UAG root/Admin UI passwords are never asked for or stored by Gateway Forge - credentials are handled by `uagdeploy` at deployment time.
+- Secrets (RADIUS shared secrets, SNMP community/passwords) are **masked in the form**, **never saved** in the browser draft, and exported as `<REDACTED>` placeholders by default. Choose *Omit entirely* or *Include (plain text)* under the output panel. UAG root/Admin UI passwords are never asked for or stored by Gateway Forge. Interactive PowerShell lets `uagdeploy` prompt; headless PowerShell reads them from `UAG_ROOT_PASSWORD` and `UAG_ADMIN_PASSWORD` at runtime and fails clearly when either is absent.
 - Omnissa marks `rootPwd` and `adminPwd` as mandatory in its [non-interactive parameter reference](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters). Its [deployment workflow](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy) separately documents an intentional immutable option without an Admin UI password: the appliance is production-ready from the INI, but the Admin UI and API are unavailable, no user can later be added, and recovery requires redeployment. **This is not a passwordless appliance.**
 - For immutable or replace-on-failure operations, treat the complete, validated INI as the recovery baseline and test that a clean redeployment restores service. Keep deployment artifacts in an approved secrets-managed location and assess console access, break-glass recovery, monitoring, password rotation, change control, backup, and compliance before deliberately omitting the Admin UI password.
 - SSH public keys are public, so they are not treated as secrets. Paste one OpenSSH RSA key per line, or provide `.pub` file paths for INI deployment. The PowerShell artifact writes pasted keys to numbered companion files; settings JSON uses UAG's `sshPublicKeys` `{name, data}` array.

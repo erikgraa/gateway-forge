@@ -81,6 +81,9 @@ export function isDefault(f: Field, value: unknown): boolean {
 export function stripSecrets(c: Config): Config {
   const out = cloneConfig(c);
   for (const g of GROUPS) for (const f of g.fields) if (f.secret) out.values[f.id] = '';
+  for (const key of ['rootPwd', 'adminPwd', 'rootPassword', 'adminPassword', 'UAG_ROOT_PASSWORD', 'UAG_ADMIN_PASSWORD']) {
+    delete out.values[key];
+  }
   compactConfigTrustedCerts(out);
   return out;
 }

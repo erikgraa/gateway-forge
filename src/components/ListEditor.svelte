@@ -43,7 +43,7 @@
       </div>
       <div class="grid">
         {#each availableFields.filter((f) => f.trustedCertIndex === undefined) as f (f.id)}
-          <FieldInput field={f} uid={`${list.id}${i}_${f.id}`} bind:values={app.config[list.id][i]} error={err(i, f.id)} />
+          <FieldInput field={f} platform={c.platform} uid={`${list.id}${i}_${f.id}`} bind:values={app.config[list.id][i]} error={err(i, f.id)} />
         {/each}
         {#if trustedFields.length}
           <TrustedCertEditor fields={trustedFields} bind:values={app.config[list.id][i]} {issues} uid={`${list.id}${i}`} list={{ id: list.id, index: i }} />
