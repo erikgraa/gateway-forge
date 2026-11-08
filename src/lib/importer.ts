@@ -3,6 +3,7 @@ import { defaultConfig, newListItem, type Config } from './model';
 import { SECRET_PLACEHOLDER } from './generate';
 import { inVersion, isSupportedVersion } from './versions';
 import { CASCADE_INSTANCE_ID, parseForwardRules } from './cascade';
+import { compactConfigTrustedCerts, writeTrustedCertPaths } from './trusted-certs';
 
 export interface Unmapped {
   where: string;
@@ -87,7 +88,8 @@ function detectCascade(c: Config): void {
   c.values.cascade_role = 'outer';
   c.values.cascade_innerUrl = String(w.proxyDestinationUrl ?? '');
   c.values.cascade_innerThumbprints = String(w.proxyDestinationUrlThumbprints ?? '');
-  c.values.cascade_innerTrustedCert = String(w.trustedCert1 ?? '');
+  const cascadeCertFields = GROUPS.find((g) => g.id === 'cascade')!.fields;
+  writeTrustedCertPaths(c.values, cascadeCertFields, Array.from({ length: 9 }, (_, n) => String(w[`trustedCert${n + 1}`] ?? '')).filter(Boolean));
   c.values.cascade_opswat = String(w.proxyPattern ?? '').includes('/gateway/resources');
 }
 
@@ -161,6 +163,7 @@ export function importIni(text: string, base?: Config): ImportResult {
   c.wrp = [...listItems.wrp.entries()].sort((a, b) => a[0] - b[0]).map((x) => x[1]);
   c.syslog = [...listItems.syslog.entries()].sort((a, b) => a[0] - b[0]).map((x) => x[1]);
   detectCascade(c);
+  compactConfigTrustedCerts(c);
   if (!c.values.name && c.values.uagName) c.values.name = c.values.uagName;
   return result;
 }
@@ -291,6 +294,7 @@ export function importJson(text: string, base?: Config): ImportResult {
     }
   }
   detectCascade(c);
+  compactConfigTrustedCerts(c);
   if (!c.values.name && c.values.uagName) c.values.name = c.values.uagName;
   return result;
 }

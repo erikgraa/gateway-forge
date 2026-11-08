@@ -15,6 +15,7 @@ export type Rule =
   | 'urlList'
   | 'port'
   | 'thumbprints'
+  | 'pemPath'
   | 'uagName'
   | 'ipv4Port'
   | 'path'
@@ -68,6 +69,8 @@ export interface Field {
   platforms?: Platform[];
   /** Key name is inferred from a documented pattern rather than copied from the docs. */
   inferred?: boolean;
+  /** 1-based position in an ordered trustedCert1-trustedCert9 field family. */
+  trustedCertIndex?: number;
   wide?: boolean;
   /** Emit to INI only when the user sets it (not when equal to the documented default). */
   omitDefault?: boolean;
@@ -155,6 +158,22 @@ const secret = (id: string, label: string, key: string, extra: Partial<Field> = 
   ...extra
 });
 
+const trustedCertFields = (
+  idFor: (index: number) => string,
+  extra: Partial<Field> = {}
+): Field[] =>
+  Array.from({ length: 9 }, (_, offset) => {
+    const index = offset + 1;
+    return text(idFor(index), index === 1 ? 'Trusted CA certificate (PEM path)' : 'Additional trusted CA certificate (PEM path)', `trustedCert${index}`, {
+      wide: true,
+      json: false,
+      rule: 'pemPath',
+      trustedCertIndex: index,
+      placeholder: index === 1 ? 'C:\\certs\\corp-root-ca.pem' : 'C:\\certs\\intermediate-ca.pem',
+      ...extra
+    });
+  });
+
 export const AUTH_METHODS: Option[] = [
   { value: 'passthrough', label: 'Passthrough (username/password)' },
   { value: 'radius-auth', label: 'RADIUS' },
@@ -203,11 +222,11 @@ export const GROUPS: GroupDef[] = [
         placeholder: 'sha256=ad:5c:f1:…',
         help: 'Needed when the inner UAG certificate is not from a trusted CA. Use the thumbprint helper under Horizon settings.'
       }),
-      text('cascade_innerTrustedCert', 'Inner UAG trusted CA certificate (PEM path)', 'cascade_innerTrustedCert', {
+      ...trustedCertFields((n) => n === 1 ? 'cascade_innerTrustedCert' : `cascade_innerTrustedCert${n}`, {
         wide: true,
         showIf: (v) => v.cascade_role === 'outer',
         json: false,
-        help: 'Alternative to the thumbprint: trust the CA that issued the inner UAG certificate.'
+        help: 'Alternative to the thumbprint: trust the CA that issued the inner UAG certificate. Up to nine ordered PEM paths are supported.'
       }),
       bool('cascade_opswat', 'Allow OPSWAT on-demand agent download (/gateway/resources)', 'cascade_opswat', false, {
         showIf: (v) => v.cascade_role === 'outer',
@@ -443,13 +462,9 @@ export const GROUPS: GroupDef[] = [
         placeholder: 'sha256=ad:5c:f1:…',
         help: 'Only needed when the CS certificate is not issued by a trusted CA - or add that CA under Trusted CA certificate below instead. Format [alg=]xx:xx… (sha1/sha256/sha384/sha512), comma-separated.'
       }),
-      text('trustedCert1', 'Trusted CA certificate (PEM path)', 'trustedCert1', {
-        wide: true,
-        json: false,
-        placeholder: 'C:\\certs\\corp-root-ca.pem',
+      ...trustedCertFields((n) => `trustedCert${n}`, {
         help: 'Alternative to a thumbprint: add the CA that issued the Connection Server certificate to the trust store (Admin UI: Horizon settings > More > Trusted Certificates). File path read by uagdeploy at deployment time.'
       }),
-      text('trustedCert2', 'Additional trusted CA certificate (PEM path)', 'trustedCert2', { wide: true, json: false, inferred: true, help: 'Key name follows the trustedCert1 numbering pattern; verify against an exported INI.' }),
       sel('minSHAHashSize', 'Minimum SHA hash size', 'minSHAHashSize', ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512'], {
         since: '2312',
         default: 'SHA-256',
@@ -661,7 +676,9 @@ export const GROUPS: GroupDef[] = [
       text('obp_proxyUrl', 'Proxy URL', 'proxyUrl', { rule: 'url', required: true, wide: true, placeholder: 'http://proxy.corp.local:3128', json: false }),
       sel('obp_proxyType', 'Proxy type', 'proxyType', ['HTTP', 'HTTPS'], { default: 'HTTP', json: false }),
       text('obp_includedHosts1', 'Included hosts', 'includedHosts1', { wide: true, placeholder: 'api.example.com', json: false }),
-      text('obp_trustedCert1', 'Trusted CA cert (PEM path)', 'trustedCert1', { wide: true, json: false })
+      ...trustedCertFields((n) => `obp_trustedCert${n}`, {
+        help: 'CA certificates trusted for the outbound HTTPS proxy. File paths are deployment-time values.'
+      })
     ]
   },
   {
@@ -756,7 +773,9 @@ export const LISTS: ListDef[] = [
       text('landingPagePath', 'Landing page path', 'landingPagePath', { rule: 'path', default: '/' }),
       text('userNameHeader', 'User name header', 'userNameHeader', { placeholder: 'AccessPoint-User-ID' }),
       text('hostEntry1', 'Host entry (/etc/hosts)', 'hostEntry1', { placeholder: '10.0.0.5 intranet.corp.local', wide: true }),
-      text('trustedCert1', 'Trusted CA cert (PEM path)', 'trustedCert1', { wide: true, json: false })
+      ...trustedCertFields((n) => `trustedCert${n}`, {
+        help: 'CA certificates trusted when connecting to this proxy destination. File paths are deployment-time values.'
+      })
     ]
   },
   {

@@ -368,6 +368,14 @@ pre.code { flex: 1; margin: 0; padding: 14px 17px 28px; overflow: auto; color: v
 .tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .list-item { margin: 0 17px 15px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-raised); }
 .list-item .card-head { margin: -12px -12px 12px; padding: 10px 12px; background: transparent; }
+.trusted-certs { grid-column: 1 / -1; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-raised); }
+.trusted-certs-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+.trusted-certs-head > div { display: flex; flex-direction: column; gap: 2px; }
+.trusted-certs-head strong { color: var(--tx); font-size: 11px; }
+.trusted-certs-head span { color: var(--mut); font-size: 10px; }
+.trusted-cert-rows { display: flex; flex-direction: column; gap: 10px; }
+.trusted-cert-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; }
+.trusted-cert-row > button { margin-top: 20px; }
 .row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .tabs2 { display: flex; gap: 4px; margin-bottom: 10px; }
 .tabs2 button.on { border-color: var(--acc); background: var(--acc); color: #fff; }
