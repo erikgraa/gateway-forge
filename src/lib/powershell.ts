@@ -7,6 +7,8 @@ const psq = (s: string) => `'${s.replace(/'/g, "''")}'`;
 
 export type DeploymentMode = 'interactive' | 'headless';
 
+export const MISSING_PASSWORD_WARNING = 'If root and Admin UI password parameters are not provided during deployment, the UAG is not accessible through the console or Admin UI/API.';
+
 /** Run-time switches for the deploy script (not INI settings). */
 export function runtimeSwitches(c: Config): string {
   let s = '';
@@ -50,19 +52,26 @@ export function generatePowerShell(
   }
   if (secretMode === 'placeholder' && ini.includes('<REDACTED>')) out.push('# Replace every <REDACTED> value in the INI before deploying.', '');
   out.push('# 2. Deploy the appliance');
+  out.push(`# WARNING: ${MISSING_PASSWORD_WARNING}`);
   if (c.platform === 'openshift') return generateOpenShiftPowerShell(c, secretMode, deploymentMode, out);
   if (c.platform === 'nutanix') {
-    out.push('# Interactive mode: the official Nutanix script prompts for the UAG and Prism Central passwords.');
-    out.push(deploymentCommand(c, sw), '');
-    out.push('# This command also prompts for the Prism Central password.');
-    out.push('# Omnissa does not provide a verified non-interactive command on the referenced deployment page.');
+    out.push('# Interactive mode: Gateway Forge prompts for UAG passwords as SecureString values.');
+    appendInteractivePasswordPrompts(out);
+    out.push(`${invocation} -rootPwd (ConvertTo-PlainTextAtInvocation $rootPwdSecure) -adminPwd (ConvertTo-PlainTextAtInvocation $adminPwdSecure)${sw}`);
+    out.push('# The official script prompts for the Prism Central password.');
     out.push('# WARNING: the official script deletes and recreates a VM with the same name.');
-    out.push('');
+    out.push('Clear-History', '');
     return out.join('\n');
   }
   if (deploymentMode === 'interactive') {
-    out.push('# Interactive mode: the deployment script prompts for the root and Admin UI passwords.');
-    out.push(invocation + sw);
+    out.push('# Interactive mode: Gateway Forge prompts for UAG passwords as SecureString values.');
+    appendInteractivePasswordPrompts(out);
+    if (def.nonInteractive === 'positional') {
+      out.push(`${invocation} (ConvertTo-PlainTextAtInvocation $rootPwdSecure) (ConvertTo-PlainTextAtInvocation $adminPwdSecure) no${sw}`);
+    } else {
+      out.push(`${invocation} -rootPwd (ConvertTo-PlainTextAtInvocation $rootPwdSecure) -adminPwd (ConvertTo-PlainTextAtInvocation $adminPwdSecure)${sw}`);
+    }
+    out.push('Clear-History');
   } else {
     out.push('# Headless mode: passwords are read from the runtime environment and never written to this script or the INI.');
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running headless deployment.' }`);
@@ -75,6 +84,17 @@ export function generatePowerShell(
   }
   out.push('');
   return out.join('\n');
+}
+
+function appendInteractivePasswordPrompts(out: string[]): void {
+  out.push(`$rootPwdSecure = Read-Host 'UAG root password' -AsSecureString`);
+  out.push(`$adminPwdSecure = Read-Host 'UAG Admin UI password' -AsSecureString`);
+  out.push('function ConvertTo-PlainTextAtInvocation {');
+  out.push('  param([Security.SecureString] $Value)');
+  out.push('  $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Value)');
+  out.push('  try { [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }');
+  out.push('  finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }');
+  out.push('}');
 }
 
 function generateOpenShiftPowerShell(c: Config, mode: SecretMode, deploymentMode: DeploymentMode, out: string[]): string {
@@ -106,15 +126,13 @@ function generateOpenShiftPowerShell(c: Config, mode: SecretMode, deploymentMode
   }
   out.push('# 4. Deploy the VM. The script requires both uagdeployopenshift.ps1 and uagdeploy.psm1.');
   if (deploymentMode === 'interactive') {
+    appendInteractivePasswordPrompts(out);
+    const auth = mode === 'omit' || !String(c.values.ocp_bearerToken || '');
     if (mode === 'omit' || !String(c.values.ocp_bearerToken || '')) {
       out.push('# The bearer token is omitted, so provide the OpenShift password securely at runtime.');
       out.push(`$openshiftPwd = Read-Host 'OpenShift password' -AsSecureString`);
-      out.push(`$plain = { param($s) [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s)) }`);
-      out.push(`${deploymentCommand(c, sw)} -openshiftPassword (& $plain $openshiftPwd)`);
-    } else {
-      out.push('# Interactive mode: the deployment script prompts for the required UAG passwords.');
-      out.push(deploymentCommand(c, sw));
     }
+    out.push(`${deploymentCommand(c)} -rootPwd (ConvertTo-PlainTextAtInvocation $rootPwdSecure) -adminPwd (ConvertTo-PlainTextAtInvocation $adminPwdSecure) no${auth ? ' -openshiftPassword (ConvertTo-PlainTextAtInvocation $openshiftPwd)' : ''}${sw}`);
     out.push('');
   } else {
     out.push('# Headless mode: passwords are read from the runtime environment and never written to this script or the INI.');
