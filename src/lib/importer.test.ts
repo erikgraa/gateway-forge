@@ -162,6 +162,10 @@ tunnelConfigurationId=tunnel-production`;
   it('detects Azure from the [Azure] section', () => {
     expect(importIni('[General]\nuagName=x\n[Azure]\nsubscriptionID=1\nlocation=uksouth').config.platform).toBe('azure');
   });
+  it('detects Nutanix and OpenShift deployment sections', () => {
+    expect(importIni('[General]\nuagName=x\n[Nutanix]\ncluster=c1').config.platform).toBe('nutanix');
+    expect(importIni('[General]\nuagName=x\n[OpenShift]\nnamespace=uag').config.platform).toBe('openshift');
+  });
   it('accepts the documentation aliases for additional external URLs', () => {
     const r = importIni('[Horizon]\nproxyDestinationUrl=https://cs\nblastUrls=https://a.example.com,https://b.example.com\ntunnelUrls=https://c.example.com');
     expect(r.config.values).toMatchObject({

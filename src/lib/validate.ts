@@ -285,7 +285,6 @@ function lint(c: Config, push: Push): void {
   }
 
   if (v.airwatch_enabled === true) {
-    if (c.platform === 'azure') push({ level: 'error', section: 'tunnel', message: 'Workspace ONE Tunnel on UAG is documented for vSphere and Hyper-V PowerShell deployments, not Azure.' });
     if (v.airwatch_tunnelGatewayEnabled !== true) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_tunnelGatewayEnabled', message: 'Tunnel gateway must be enabled for the [Airwatch] section to configure an active Tunnel service.' });
     if (v.airwatch_outboundProxyHost && isEmpty(v.airwatch_outboundProxyPort)) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_outboundProxyPort', message: 'Outbound proxy port is required when an outbound proxy host is set.' });
     if (!!v.airwatch_outboundProxyUsername !== !!v.airwatch_outboundProxyPassword) push({ level: 'warn', section: 'tunnel', fieldId: 'airwatch_outboundProxyPassword', message: 'Outbound proxy user and password should be configured together.' });

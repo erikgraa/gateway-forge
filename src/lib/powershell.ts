@@ -1,4 +1,4 @@
-import type { Config } from './model';
+import { isEmpty, type Config } from './model';
 import { generateIni, generateJson, iniFileName, jsonFileName, platformScript, type SecretMode } from './generate';
 import { platformDef } from './versions';
 import { sshPublicKeys } from './ssh';
@@ -26,6 +26,7 @@ export function generatePowerShell(
   const script = platformScript(c);
   const def = platformDef(c.platform);
   const sw = runtimeSwitches(c);
+  const invocation = def.iniArgument === 'positional' ? `.\\${script} .\\${file}` : `.\\${script} -iniFile .\\${file}`;
   const out: string[] = [
     `# Gateway Forge - UAG ${c.version} on ${def.label}`,
     `# Prerequisites: extract the uagdeploy scripts from the Omnissa Customer Connect download`,
@@ -49,15 +50,20 @@ export function generatePowerShell(
   out.push('# 2. Deploy the appliance');
   if (deploymentMode === 'interactive') {
     out.push('# Interactive mode: the deployment script prompts for the root and Admin UI passwords.');
-    out.push((c.platform === 'azure' ? `.\\${script} .\\${file}` : `.\\${script} -iniFile .\\${file}`) + sw);
+    out.push(invocation + sw);
   } else {
     out.push('# Headless mode: passwords are read from the runtime environment and never written to this script or the INI.');
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running headless deployment.' }`);
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.' }`);
+    const needsOpenShiftPassword = c.platform === 'openshift' && isEmpty(c.values.ocp_bearerToken);
+    if (needsOpenShiftPassword) {
+      out.push(`if ([string]::IsNullOrWhiteSpace($env:OPENSHIFT_PASSWORD)) { throw 'Set OPENSHIFT_PASSWORD before running headless OpenShift deployment.' }`);
+    }
+    const openshiftPassword = needsOpenShiftPassword ? ' -openshiftPassword $env:OPENSHIFT_PASSWORD' : '';
     if (def.nonInteractive === 'positional') {
-      out.push(`.\\${script} .\\${file} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no${sw}`);
+      out.push(`${invocation} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no${sw}`);
     } else {
-      out.push(`.\\${script} -iniFile .\\${file} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD${sw}`);
+      out.push(`${invocation} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD${sw}${openshiftPassword}`);
     }
   }
   out.push('');
