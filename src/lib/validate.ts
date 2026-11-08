@@ -64,6 +64,13 @@ function validUrl(s: string, httpsOnly: boolean): boolean {
   }
 }
 
+function validHostEntries(s: string): boolean {
+  return s.split(',').map((entry) => entry.trim()).filter(Boolean).every((entry) => {
+    const parts = entry.split(/\s+/);
+    return parts.length >= 2 && parts.length <= 3 && IPV4.test(parts[0]) && parts.slice(1).every((part) => HOST.test(part));
+  });
+}
+
 const HASH_LEN: Record<string, number> = { sha1: 40, sha256: 64, sha384: 96, sha512: 128 };
 
 export function parseThumbprint(entry: string): { alg: string; hex: string } | null {
@@ -133,6 +140,8 @@ export function checkRule(rule: Rule, raw: string): string | null {
       return s.split(';').map((x) => x.trim()).filter(Boolean).every((x) => /^[A-Za-z0-9_.-]+\^[A-Za-z0-9_.-]+=.*$/.test(x))
         ? null
         : 'Use semicolon-separated Section^Parameter=Value entries';
+    case 'hostEntryList':
+      return validHostEntries(s) ? null : 'Must contain comma-separated "IP hostname [alias]" entries';
     case 'path':
       return s.startsWith('/') ? null : 'Must start with "/"';
     case 'pemPath': {
@@ -242,6 +251,15 @@ function lint(c: Config, push: Push): void {
     if (v.horizon_enabled !== true) push({ level: 'error', section: 'horizon', fieldId: 'horizon_enabled', message: 'The inner UAG of a cascade must have the Horizon edge service enabled.' });
   }
 
+  if (v.airwatch_enabled === true) {
+    if (c.platform === 'azure') push({ level: 'error', section: 'tunnel', message: 'Workspace ONE Tunnel on UAG is documented for vSphere and Hyper-V PowerShell deployments, not Azure.' });
+    if (v.airwatch_tunnelGatewayEnabled !== true) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_tunnelGatewayEnabled', message: 'Tunnel gateway must be enabled for the [Airwatch] section to configure an active Tunnel service.' });
+    if (v.airwatch_outboundProxyHost && isEmpty(v.airwatch_outboundProxyPort)) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_outboundProxyPort', message: 'Outbound proxy port is required when an outbound proxy host is set.' });
+    if (!!v.airwatch_outboundProxyUsername !== !!v.airwatch_outboundProxyPassword) push({ level: 'warn', section: 'tunnel', fieldId: 'airwatch_outboundProxyPassword', message: 'Outbound proxy user and password should be configured together.' });
+    if (v.airwatch_tunnelProxyEnabled === true || v.airwatch_airwatchOutboundProxy === true) push({ level: 'info', section: 'tunnel', message: 'Legacy 2212 proxy switches are present only for historical imports; current UAG releases do not document them.' });
+    if (v.airwatch_pacFilePath && v.airwatch_pacFileURL) push({ level: 'warn', section: 'tunnel', fieldId: 'airwatch_pacFileURL', message: 'Both PAC file path and URL are set; the 2609 reference does not document how they interact.' });
+  }
+
   if (c.syslog.length === 0) push({ level: 'warn', section: 'monitoring', message: 'No syslog server configured - events stay on the appliance.' });
   if (!nonEmpty('ntpServers')) push({ level: 'warn', section: 'network', fieldId: 'ntpServers', message: 'No NTP server configured - clock drift breaks TLS, RADIUS and SAML.' });
 
@@ -334,7 +352,7 @@ function lint(c: Config, push: Push): void {
 
 export function countBySection(issues: Issue[]): Record<SectionId, { error: number; warn: number; info: number }> {
   const out = {} as Record<SectionId, { error: number; warn: number; info: number }>;
-  for (const s of ['general', 'network', 'horizon', 'wrp', 'auth', 'tls', 'monitoring', 'templates'] as SectionId[]) out[s] = { error: 0, warn: 0, info: 0 };
+  for (const s of ['general', 'network', 'horizon', 'tunnel', 'wrp', 'auth', 'tls', 'monitoring', 'templates'] as SectionId[]) out[s] = { error: 0, warn: 0, info: 0 };
   for (const i of issues) out[i.section][i.level]++;
   return out;
 }

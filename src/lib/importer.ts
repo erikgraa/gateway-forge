@@ -100,6 +100,7 @@ function detectCascade(c: Config): void {
 export function importIni(text: string, base?: Config): ImportResult {
   const c = base ? (JSON.parse(JSON.stringify(base)) as Config) : defaultConfig();
   c.values.horizon_enabled = false;
+  c.values.airwatch_enabled = false;
   c.values.cascade_role = 'none';
   c.wrp = [];
   c.syslog = [];
@@ -138,6 +139,7 @@ export function importIni(text: string, base?: Config): ImportResult {
       continue;
     }
     if (lower === 'horizon') c.values.horizon_enabled = true;
+    if (lower === 'airwatch') c.values.airwatch_enabled = true;
     if (lower === 'radiusauth') c.values.radius_enabled = true;
     if (lower === 'snmpsettings') c.values.snmp_enabled = true;
     if (lower === 'idpexternalmetadata1') c.values.saml_enabled = true;
@@ -233,6 +235,7 @@ function applyListJson(c: Config, l: ListDef, arr: unknown[], result: ImportResu
 export function importJson(text: string, base?: Config): ImportResult {
   const c = base ? (JSON.parse(JSON.stringify(base)) as Config) : defaultConfig();
   c.values.horizon_enabled = false;
+  c.values.airwatch_enabled = false;
   c.values.cascade_role = 'none';
   c.wrp = [];
   c.syslog = [];

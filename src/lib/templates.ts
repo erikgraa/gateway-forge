@@ -207,5 +207,30 @@ export const TEMPLATES: Template[] = [
         },
         { syslog: [syslogTls] }
       )
+  },
+  {
+    id: 'workspace-one-tunnel',
+    title: 'Workspace ONE Tunnel (per-app VPN)',
+    description: 'UAG-hosted Tunnel basic endpoint on vSphere or Hyper-V, with Workspace ONE UEM bootstrap, outbound-proxy options and TLS syslog.',
+    tags: ['Workspace ONE', 'Tunnel', 'Per-app VPN'],
+    build: (b) =>
+      fresh(
+        b,
+        {
+          uagName: 'uag-tunnel-01',
+          name: 'uag-tunnel-01',
+          horizon_enabled: false,
+          airwatch_enabled: true,
+          airwatch_tunnelGatewayEnabled: true,
+          airwatch_apiServerUrl: 'https://as1234.awmdm.com',
+          airwatch_apiServerUsername: 'domain\\svc-uag-tunnel',
+          airwatch_organizationGroupCode: 'CORP',
+          airwatch_tunnelConfigurationId: 'tunnel-production',
+          airwatch_airwatchServerHostname: 'tunnel.example.com',
+          airwatch_disableAutoConfigUpdate: false,
+          airwatch_healthCheckUrl: '/favicon.ico'
+        },
+        { syslog: [syslogTls] }
+      )
   }
 ];
