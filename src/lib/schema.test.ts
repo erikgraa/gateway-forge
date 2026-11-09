@@ -28,6 +28,9 @@ describe('schema integrity', () => {
       'v6ip0',
       'eth0CustomConfig'
     ]));
+    expect(networking.fields.find((field) => field.id === 'netManagementNetwork')?.placeholder).toBe('DMZ-Management');
+    expect(networking.fields.find((field) => field.id === 'netBackendNetwork')?.placeholder).toBe('DMZ-Backend');
+    expect(networking.fields.find((field) => field.id === 'routes0')?.placeholder).toBe('10.108.172.32/32 10.108.172.253');
   });
   it('provides required addressing modes and multi-NIC IP examples', () => {
     for (const groupId of ['networking', 'native-ipv4']) {
