@@ -25,6 +25,17 @@ describe('schema integrity', () => {
     expect(field.default).toBe(false);
   });
 
+  it('explains that Workspace ONE UEM passwords are runtime-only', () => {
+    const tunnel = GROUPS.find((group) => group.id === 'airwatch')!.fields
+      .find((field) => field.id === 'airwatch_apiServerUsername')!;
+    const contentGateway = GROUPS.find((group) => group.id === 'contentGateway')!.fields
+      .find((field) => field.id === 'contentGateway_apiServerUsername')!;
+    expect(tunnel.help).toContain('UAG_WORKSPACE_ONE_UEM_API_PASSWORD');
+    expect(tunnel.help).toContain('only at PowerShell runtime');
+    expect(contentGateway.help).toContain('UAG_CONTENT_GATEWAY_API_PASSWORD');
+    expect(contentGateway.help).toContain('interactive mode');
+  });
+
   it('describes Horizon cascade roles as UAG types with standalone as the default', () => {
     const group = GROUPS.find((candidate) => candidate.id === 'cascade')!;
     const role = group.fields.find((field) => field.id === 'cascade_role')!;
