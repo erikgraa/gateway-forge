@@ -276,7 +276,7 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     L.push(`- **Content Gateway UEM password:** interactive deployment prompts for it; headless PowerShell reads \`UAG_CONTENT_GATEWAY_API_PASSWORD\` and passes the vendor \`${parameter}\` parameter. It is never written to INI or JSON.`);
   }
   if (c.adminUsers.length > 0) {
-    L.push(`- **Additional admin users (${c.adminUsers.length}):** the INI contains monitoring-role user metadata only. Both interactive and headless PowerShell require \`UAG_NEW_ADMIN_USER_PASSWORDS\` as semicolon-separated \`username:password\` pairs and pass \`-newAdminUserPwd\`. Passwords are never written to INI, JSON, or browser drafts.`);
+    L.push(`- **Additional admin users (${c.adminUsers.length}):** the INI contains monitoring-role user metadata only. Both interactive and headless PowerShell require \`UAG_NEW_ADMIN_USER_PASSWORDS\` as semicolon-separated \`username:password\` pairs and pass \`-NewAdminuserPwd\`. Passwords are never written to INI, JSON, or browser drafts.`);
   }
   L.push(`- **Deployment passwords:** ${MISSING_PASSWORD_WARNING}`);
   L.push('- **Recovery baseline:** retain the validated INI in an approved secrets-managed system and test clean redeployment. Assess break-glass recovery, monitoring, password rotation, backup and compliance requirements.');

@@ -29,7 +29,7 @@ function addContentGatewayPasswordCheck(c: Config, out: string[]): void {
 }
 
 function adminUserPasswordSwitch(c: Config): string {
-  return c.adminUsers.length > 0 ? ' -newAdminUserPwd $env:UAG_NEW_ADMIN_USER_PASSWORDS' : '';
+  return c.adminUsers.length > 0 ? ' -NewAdminuserPwd $env:UAG_NEW_ADMIN_USER_PASSWORDS' : '';
 }
 
 function addAdminUserPasswordCheck(c: Config, out: string[]): void {
@@ -83,6 +83,7 @@ export function generatePowerShell(
   }
   if (c.adminUsers.length > 0) {
     out.push('# Additional admin-user passwords are read from UAG_NEW_ADMIN_USER_PASSWORDS in username:password format, separated by semicolons.');
+    out.push("# Example: $env:UAG_NEW_ADMIN_USER_PASSWORDS = 'monitoringUser1:<password>;monitoringUser2:<password>'");
     addAdminUserPasswordCheck(c, out);
   }
   const adminSwitch = adminUserPasswordSwitch(c);
