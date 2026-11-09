@@ -8,6 +8,9 @@ This roadmap highlights current priorities and longer-running work. It is direct
 
 - 👁️ **Planned — expand contextual visibility.** Progressively reveal relevant settings, helpers, topology and configuration sections only when their prerequisite features are enabled. Extend the existing conditional controls consistently across the workflow; do not imply that all sections are already prerequisite-aware.
 - 🧠 **Planned — add Workspace ONE Intelligence support.** Verify `[WorkspaceOneIntelligenceSettings1]` and its supported keys, version/platform availability and JSON mapping against authoritative sources before adding UI, validation, import/export, topology representation and regression coverage. This integration is not currently implemented.
+- ✉️ **Planned — add `AirwatchSecureEmailGateway` support.** Verify the vendor section, supported fields, UAG version availability, shared/standalone selection, runtime credentials, JSON mapping and deployment-script parameters before implementation.
+- 🔑 **Planned — add JWT support.** Verify the UAG JWT configuration surface, supported claims/signing inputs, version and service availability, and then add source-backed schema, UI, import/export, validation and generation coverage.
+- 🌐 **Planned — add HA/VIP support.** Verify the supported high-availability topology, virtual IP ownership and failover constraints, required networking inputs, and vendor deployment/configuration surfaces before modeling multi-node output.
 
 ## 🔭 Future goals
 
