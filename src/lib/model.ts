@@ -18,6 +18,7 @@ export interface Config {
   values: Values;
   wrp: Values[];
   syslog: Values[];
+  adminUsers: Values[];
 }
 
 export function listDef(id: ListDef['id']): ListDef {
@@ -36,7 +37,8 @@ export function defaultConfig(): Config {
     platform: 'vsphere',
     values,
     wrp: [],
-    syslog: []
+    syslog: [],
+    adminUsers: []
   };
 }
 
@@ -85,6 +87,10 @@ export function stripSecrets(c: Config): Config {
   for (const key of ['rootPwd', 'adminPwd', 'rootPassword', 'adminPassword', 'UAG_ROOT_PASSWORD', 'UAG_ADMIN_PASSWORD']) {
     delete out.values[key];
   }
+  const adminFields = new Set(listDef('adminUsers').fields.map((field) => field.id));
+  out.adminUsers = out.adminUsers.map((item) => Object.fromEntries(
+    Object.entries(item).filter(([key]) => adminFields.has(key))
+  ));
   compactConfigTrustedCerts(out);
   return out;
 }
@@ -102,6 +108,13 @@ export function applyPatch(base: Config, patch: Partial<Omit<Config, 'values'>> 
     return values;
   });
   if (patch.syslog) out.syslog = patch.syslog.map((item) => ({ ...newListItem('syslog'), ...item }));
+  if (patch.adminUsers) {
+    const fields = listDef('adminUsers').fields.map((field) => field.id);
+    out.adminUsers = patch.adminUsers.map((item) => ({
+      ...newListItem('adminUsers'),
+      ...Object.fromEntries(fields.filter((key) => key in item).map((key) => [key, item[key]]))
+    }));
+  }
   compactConfigTrustedCerts(out);
   return out;
 }

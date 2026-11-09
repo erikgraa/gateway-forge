@@ -194,6 +194,22 @@ cgConfigId=cg-shared`);
     });
     expect(shared.unmapped).toEqual([]);
   });
+  it('imports numbered and compatibility additional admin-user sections', () => {
+    const r = importIni(`[AdminUser]
+name=LegacyMonitor
+enabled=true
+
+[AdminUser2]
+name=MonitorUser2
+enabled=false
+adminMonitoringPasswordPreExpired=true`);
+    expect(r.unmapped).toEqual([]);
+    expect(r.config.adminUsers).toHaveLength(2);
+    expect(r.config.adminUsers[0]).toMatchObject({ name: 'LegacyMonitor', enabled: true });
+    expect(r.config.adminUsers[1]).toMatchObject({ name: 'MonitorUser2', enabled: false, adminMonitoringPasswordPreExpired: true });
+    expect(generateIni(r.config)).toContain('[AdminUser1]\nname=LegacyMonitor');
+    expect(generateIni(r.config)).toContain('[AdminUser2]\nname=MonitorUser2');
+  });
   it('imports historical 2212 Tunnel proxy switches with version warnings', () => {
     const r = importIni('[General]\nsource=euc-unified-access-gateway-22.12.0.0-1.ova\n[Airwatch]\ntunnelProxyEnabled=true\nairwatchOutboundProxy=true');
     expect(r.config.values).toMatchObject({ airwatch_enabled: true, airwatch_tunnelProxyEnabled: true, airwatch_airwatchOutboundProxy: true });
@@ -393,6 +409,29 @@ describe('JSON import', () => {
     });
     expect(r.warnings.join('\n')).toMatch(/passwords were not imported/);
     expect(JSON.stringify(r.config)).not.toContain('secret');
+  });
+
+  it('imports admin-user JSON metadata while discarding runtime passwords', () => {
+    const r = importJson(JSON.stringify({
+      adminUsersList: {
+        adminUsersList: [{
+          name: 'MonitorUser1',
+          password: 'runtime-secret',
+          enabled: true,
+          roles: ['ROLE_MONITORING'],
+          adminMonitoringPasswordPreExpired: true
+        }]
+      }
+    }));
+    expect(r.unmapped).toEqual([]);
+    expect(r.config.adminUsers[0]).toMatchObject({
+      name: 'MonitorUser1',
+      enabled: true,
+      adminMonitoringPasswordPreExpired: true
+    });
+    expect(r.warnings.join('\n')).toMatch(/passwords were not imported/);
+    expect(JSON.stringify(r.config)).not.toContain('runtime-secret');
+    expect(generateJson(r.config)).not.toContain('MonitorUser1');
   });
 
   it('round-trips isolated WRP host-entry arrays', () => {

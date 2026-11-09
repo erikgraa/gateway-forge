@@ -28,6 +28,15 @@ function addContentGatewayPasswordCheck(c: Config, out: string[]): void {
   out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_CONTENT_GATEWAY_API_PASSWORD)) { throw 'Set UAG_CONTENT_GATEWAY_API_PASSWORD before running headless deployment.' }`);
 }
 
+function adminUserPasswordSwitch(c: Config): string {
+  return c.adminUsers.length > 0 ? ' -newAdminUserPwd $env:UAG_NEW_ADMIN_USER_PASSWORDS' : '';
+}
+
+function addAdminUserPasswordCheck(c: Config, out: string[]): void {
+  if (c.adminUsers.length === 0) return;
+  out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_NEW_ADMIN_USER_PASSWORDS)) { throw 'Set UAG_NEW_ADMIN_USER_PASSWORDS before running headless deployment.' }`);
+}
+
 /** PowerShell that writes the INI and runs the deployment script. */
 export function generatePowerShell(
   c: Config,
@@ -72,6 +81,11 @@ export function generatePowerShell(
       ? '# Interactive mode: the official script prompts for the Content Gateway Workspace ONE UEM API password.'
       : '# Headless Content Gateway mode reads the UEM API password from UAG_CONTENT_GATEWAY_API_PASSWORD.');
   }
+  if (c.adminUsers.length > 0) {
+    out.push(effectiveDeploymentMode === 'interactive'
+      ? '# Interactive mode: the official script prompts for each additional admin user password.'
+      : '# Headless admin-user mode reads username:password pairs from UAG_NEW_ADMIN_USER_PASSWORDS (separate users with semicolons).');
+  }
   if (c.platform === 'openshift') return generateOpenShiftPowerShell(c, secretMode, deploymentMode, out);
   if (c.platform === 'nutanix') {
     out.push('# Interactive mode: the official script prompts for root and Admin UI passwords.');
@@ -91,10 +105,12 @@ export function generatePowerShell(
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.' }`);
     addContentGatewayPasswordCheck(c, out);
     const contentGatewaySwitch = contentGatewayPasswordSwitch(c);
+    addAdminUserPasswordCheck(c, out);
+    const adminSwitch = adminUserPasswordSwitch(c);
     if (def.nonInteractive === 'positional') {
-      out.push(`${invocation} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no${contentGatewaySwitch}${sw}`);
+      out.push(`${invocation} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no${contentGatewaySwitch}${adminSwitch}${sw}`);
     } else {
-      out.push(`${invocation} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD${contentGatewaySwitch}${sw}`);
+      out.push(`${invocation} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD${contentGatewaySwitch}${adminSwitch}${sw}`);
     }
   }
   out.push('');
@@ -108,6 +124,7 @@ function generateOpenShiftPowerShell(c: Config, mode: SecretMode, deploymentMode
   const namespace = String(c.values.ocp_namespace || '<destination-project>');
   const sw = runtimeSwitches(c);
   const contentGatewaySwitch = contentGatewayPasswordSwitch(c);
+  const adminSwitch = adminUserPasswordSwitch(c);
   if (c.values.ocp_volumeSourceMode === 'console') {
     out.push('# 2. Prepare the local QCOW2 volume through the OpenShift web console (runbook mode).');
     out.push(`# Download the OpenShift/Nutanix QCOW2, then use Virtualization > Bootable volumes in namespace ${namespace}.`);
@@ -139,11 +156,12 @@ function generateOpenShiftPowerShell(c: Config, mode: SecretMode, deploymentMode
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running headless deployment.' }`);
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.' }`);
     addContentGatewayPasswordCheck(c, out);
+    addAdminUserPasswordCheck(c, out);
     if (mode === 'omit' || !String(c.values.ocp_bearerToken || '')) {
       out.push(`if ([string]::IsNullOrWhiteSpace($env:OPENSHIFT_PASSWORD)) { throw 'Set OPENSHIFT_PASSWORD before running headless OpenShift deployment.' }`);
-      out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no -openshiftPassword $env:OPENSHIFT_PASSWORD${contentGatewaySwitch}${sw}`);
+      out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no -openshiftPassword $env:OPENSHIFT_PASSWORD${contentGatewaySwitch}${adminSwitch}${sw}`);
     } else {
-      out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no${contentGatewaySwitch}${sw}`);
+      out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no${contentGatewaySwitch}${adminSwitch}${sw}`);
     }
   }
   out.push('Clear-History', '');

@@ -273,6 +273,9 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     const parameter = v.contentGateway_mode === 'shared' ? '-awAPIServerPwd' : '-awCGAPIServerPwd';
     L.push(`- **Content Gateway UEM password:** interactive deployment prompts for it; headless PowerShell reads \`UAG_CONTENT_GATEWAY_API_PASSWORD\` and passes the vendor \`${parameter}\` parameter. It is never written to INI or JSON.`);
   }
+  if (c.adminUsers.length > 0) {
+    L.push(`- **Additional admin users (${c.adminUsers.length}):** the INI contains monitoring-role user metadata only. Interactive deployment prompts for each password; headless PowerShell requires \`UAG_NEW_ADMIN_USER_PASSWORDS\` as semicolon-separated \`username:password\` pairs and passes \`-newAdminUserPwd\`. Passwords are never written to INI, JSON, or browser drafts.`);
+  }
   L.push(`- **Deployment passwords:** ${MISSING_PASSWORD_WARNING}`);
   L.push('- **Recovery baseline:** retain the validated INI in an approved secrets-managed system and test clean redeployment. Assess break-glass recovery, monitoring, password rotation, backup and compliance requirements.');
   L.push('- Reference: [Omnissa non-interactive deployment parameters](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters) and [Run PowerShell script to deploy](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy).');
@@ -292,6 +295,11 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   }
   for (const w of c.wrp) L.push(`- **Web reverse proxy \`${w.instanceId}\`** → ${w.proxyDestinationUrl} (auth: ${w.authMethods})`);
   if (v.horizon_enabled !== true && v.airwatch_enabled !== true && v.contentGateway_enabled !== true && cascadeRole(v) !== 'outer' && c.wrp.length === 0) L.push('- none');
+  L.push('', '## Additional admin and API users', '');
+  for (const user of c.adminUsers) {
+    L.push(`- ${user.name || '(name required)'} (${user.enabled === false ? 'disabled' : 'enabled'}; \`ROLE_MONITORING\`; pre-expired password: ${user.adminMonitoringPasswordPreExpired === false ? 'no' : 'yes'})`);
+  }
+  if (c.adminUsers.length === 0) L.push('- none');
   L.push('', '## Authentication', '');
   L.push(v.radius_enabled === true ? `- RADIUS: ${v.radius_hostName}:${v.radius_authPort} (${v.radius_authType})${v.radius_enabledAux === true ? ` + secondary ${v.radius_hostName_2}` : ''}` : '- RADIUS: off');
   L.push(v.saml_enabled === true ? `- SAML IdP: ${v.saml_entityID}` : '- SAML: off');

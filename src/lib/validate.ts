@@ -17,7 +17,7 @@ export interface Issue {
   message: string;
   fieldId?: string;
   /** For list items: list id and 0-based index. */
-  list?: { id: 'wrp' | 'syslog'; index: number };
+  list?: { id: 'wrp' | 'syslog' | 'adminUsers'; index: number };
   /** For a row within a string-backed multi-value field. */
   rowIndex?: number;
 }
@@ -219,6 +219,10 @@ export function checkRule(rule: Rule, raw: string, platform: Platform = 'vsphere
       }) ? null : 'Use comma-separated source_host:port_redirect_host:port mappings';
     case 'sourceImage':
       return validSourceImage(s, platform);
+    case 'monitoringUserName':
+      return /^[\p{L}\p{N}\p{M}\\_]+$/u.test(s) && s.length <= 35
+        ? null
+        : 'Use 1-35 letters, numbers, underscores, or backslashes; no spaces';
     case 'pemPath': {
       const absolute = /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(s);
       if (!absolute) return 'Must be an absolute local path (Windows, UNC, or Unix)';
@@ -362,6 +366,19 @@ function lint(c: Config, push: Push): void {
   const horizon = v.horizon_enabled === true && role !== 'outer';
   const nonEmpty = (k: string) => !isEmpty(v[k]);
   const def = platformDef(c.platform);
+  const hasPublishedService = role !== 'none'
+    || horizon
+    || (v.airwatch_enabled === true && v.airwatch_tunnelGatewayEnabled === true)
+    || v.contentGateway_enabled === true
+    || c.wrp.length > 0;
+
+  if (!hasPublishedService) {
+    push({
+      level: 'warn',
+      section: 'general',
+      message: 'No edge service is enabled or published; the UAG will deploy without Horizon, Workspace ONE, or web reverse proxy access.'
+    });
+  }
 
   if (c.version >= '2609' && v.adminSaml_enable === true) {
     if (v.saml_enabled !== true) push({ level: 'error', section: 'auth', fieldId: 'saml_enabled', message: 'Administrator SAML requires matching SAML identity provider metadata.' });
@@ -531,6 +548,18 @@ function lint(c: Config, push: Push): void {
   });
   c.syslog.forEach((item, index) => {
     if (item.sysLogType === 'UDP') push({ level: 'info', section: 'monitoring', list: { id: 'syslog', index }, message: `Syslog server ${index + 1} uses UDP (unencrypted, unreliable) - prefer TLS.` });
+  });
+  const adminNames = c.adminUsers.map((item) => String(item.name).toLocaleLowerCase());
+  c.adminUsers.forEach((item, index) => {
+    if (adminNames.indexOf(String(item.name).toLocaleLowerCase()) !== index && item.name) {
+      push({
+        level: 'error',
+        section: 'adminUsers',
+        list: { id: 'adminUsers', index },
+        fieldId: 'name',
+        message: `Duplicate additional admin user name "${item.name}".`
+      });
+    }
   });
 }
 

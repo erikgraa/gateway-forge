@@ -142,6 +142,21 @@ describe('INI generation', () => {
     expect(ini).toContain('instanceId=wiki');
   });
 
+  it('writes numbered additional admin users without exporting runtime passwords', () => {
+    const c = applyPatch(defaultConfig(), {
+      adminUsers: [
+        { name: 'MonitorUser1', enabled: true, adminMonitoringPasswordPreExpired: true, password: 'not-persisted' },
+        { name: 'MonitorUser2', enabled: false, adminMonitoringPasswordPreExpired: true }
+      ]
+    });
+    const ini = generateIni(c, { secrets: 'include' });
+    expect(ini).toContain('[AdminUser1]\nname=MonitorUser1\nenabled=true\nadminMonitoringPasswordPreExpired=true');
+    expect(ini).toContain('[AdminUser2]\nname=MonitorUser2\nenabled=false\nadminMonitoringPasswordPreExpired=true');
+    expect(ini).not.toContain('password');
+    expect(generateJson(c, { secrets: 'include' })).not.toMatch(/AdminUser|MonitorUser|password/i);
+    expect(JSON.stringify(stripSecrets(c))).not.toContain('not-persisted');
+  });
+
   it('emits the audited 2609 Horizon controls and preserves origin detail objects', () => {
     const c = applyPatch(radiusMfa(), {
       values: {
@@ -616,6 +631,26 @@ describe('run-time options', () => {
 });
 
 describe('PowerShell output', () => {
+  it('uses the admin-user password payload in headless mode across supported scripts', () => {
+    const config = applyPatch(radiusMfa(), { adminUsers: [{ name: 'MonitorUser1' }] });
+    for (const platform of ['vsphere', 'hyperv', 'azure', 'openshift'] as const) {
+      const ps = generatePowerShell(applyPatch(config, { platform }), 'omit', 'headless');
+      expect(ps).toContain(`throw 'Set UAG_NEW_ADMIN_USER_PASSWORDS before running headless deployment.'`);
+      expect(ps).toContain('-newAdminUserPwd $env:UAG_NEW_ADMIN_USER_PASSWORDS');
+      expect(ps).not.toContain('password=');
+    }
+  });
+
+  it('lets every interactive script prompt for additional admin-user passwords', () => {
+    const config = applyPatch(radiusMfa(), { adminUsers: [{ name: 'MonitorUser1' }] });
+    for (const platform of ['vsphere', 'hyperv', 'azure', 'nutanix', 'openshift'] as const) {
+      const ps = generatePowerShell(applyPatch(config, { platform }), 'placeholder', 'interactive');
+      expect(ps).toContain('prompts for each additional admin user password');
+      expect(ps).not.toContain('UAG_NEW_ADMIN_USER_PASSWORDS');
+      expect(ps).not.toContain('-newAdminUserPwd');
+    }
+  });
+
   it('uses the exact Content Gateway UEM password parameter in headless mode', () => {
     const standalone = generatePowerShell(contentGateway(), 'placeholder', 'headless');
     expect(standalone).toContain('UAG_CONTENT_GATEWAY_API_PASSWORD');
@@ -707,7 +742,9 @@ describe('PowerShell output', () => {
     expect(render(c, 'ps', 'placeholder', 'headless').text).toContain('UAG_ROOT_PASSWORD');
   });
   it('includes redeployment recovery and compliance guidance in the runbook', () => {
-    const docs = generateDocs(radiusMfa(), []);
+    const docs = generateDocs(applyPatch(radiusMfa(), { adminUsers: [{ name: 'MonitorUser1' }] }), []);
+    expect(docs).toContain('UAG_NEW_ADMIN_USER_PASSWORDS');
+    expect(docs).toContain('MonitorUser1');
     expect(docs).toContain('Recovery baseline');
     expect(docs).toContain('test clean redeployment');
     expect(docs).not.toContain('Admin UI and API are unavailable');

@@ -57,6 +57,10 @@ describe('field validation', () => {
     expect(checkRule('sourceImage', 'C:\\images\\uag.vhdx', 'vsphere')).toMatch(/\.ova/);
     expect(checkRule('sourceImage', 'https://images.example.com/uag.vhdx', 'hyperv')).toMatch(/local/);
     expect(checkRule('sourceImage', 'not-an-image', 'hyperv')).toMatch(/\.vhdx/);
+    expect(checkRule('monitoringUserName', 'MonitorUser_1')).toBeNull();
+    expect(checkRule('monitoringUserName', 'DOMAIN\\Monitor')).toBeNull();
+    expect(checkRule('monitoringUserName', 'Bad User!')).not.toBeNull();
+    expect(checkRule('monitoringUserName', 'a'.repeat(36))).not.toBeNull();
     expect(checkRule('hostPort', '_empty_')).toBeNull();
     expect(checkRule('hostPort', 'uag.example.com:8443')).toBeNull();
     expect(checkRule('hostPort', 'bad host')).not.toBeNull();
@@ -206,6 +210,34 @@ describe('config validation', () => {
   it('flags duplicate web reverse proxy instance IDs', () => {
     const c = applyPatch(defaultConfig(), { wrp: [{ instanceId: 'a', proxyDestinationUrl: 'https://a' }, { instanceId: 'a', proxyDestinationUrl: 'https://b' }] });
     expect(messages(c).join('\n')).toMatch(/Duplicate web reverse proxy/);
+  });
+
+  it('warns when no edge service is configured and suppresses it for each service type', () => {
+    const warning = (config: ReturnType<typeof defaultConfig>) => validateConfig(config)
+      .find((issue) => issue.message.startsWith('No edge service'));
+    expect(warning(defaultConfig())).toMatchObject({ level: 'warn', section: 'general' });
+    expect(warning(applyPatch(defaultConfig(), { values: { horizon_enabled: true } }))).toBeUndefined();
+    expect(warning(applyPatch(defaultConfig(), { values: { airwatch_enabled: true, airwatch_tunnelGatewayEnabled: true } }))).toBeUndefined();
+    expect(warning(applyPatch(defaultConfig(), { values: { contentGateway_enabled: true } }))).toBeUndefined();
+    expect(warning(applyPatch(defaultConfig(), { values: { cascade_role: 'outer' } }))).toBeUndefined();
+    expect(warning(applyPatch(defaultConfig(), { wrp: [{ instanceId: 'web' }] }))).toBeUndefined();
+  });
+
+  it('rejects missing, invalid and duplicate additional admin users', () => {
+    const c = applyPatch(defaultConfig(), {
+      adminUsers: [
+        { name: '' },
+        { name: 'MonitorUser1' },
+        { name: 'monitoruser1' },
+        { name: 'Bad User!' }
+      ]
+    });
+    const issues = validateConfig(c).filter((issue) => issue.section === 'adminUsers');
+    expect(issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ list: { id: 'adminUsers', index: 0 }, fieldId: 'name', message: expect.stringContaining('required') }),
+      expect.objectContaining({ list: { id: 'adminUsers', index: 2 }, fieldId: 'name', message: expect.stringContaining('Duplicate') }),
+      expect.objectContaining({ list: { id: 'adminUsers', index: 3 }, fieldId: 'name', message: expect.stringContaining('letters') })
+    ]));
   });
 
   it('validates DNS, search domain and NTP values independently per row', () => {

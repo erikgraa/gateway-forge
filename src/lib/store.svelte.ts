@@ -35,6 +35,7 @@ function loadDraft(): Config {
       const merged = applyPatch(defaultConfig(), { version: parsed.version, platform: parsed.platform, values: parsed.values });
       merged.wrp = (parsed.wrp ?? []).map((i) => ({ ...i }));
       merged.syslog = (parsed.syslog ?? []).map((i) => ({ ...i }));
+      merged.adminUsers = applyPatch(defaultConfig(), { adminUsers: parsed.adminUsers }).adminUsers;
       if (!isSupportedVersion(merged.version)) merged.version = DEFAULT_VERSION;
       return merged;
     }
