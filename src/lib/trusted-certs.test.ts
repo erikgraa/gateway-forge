@@ -104,4 +104,28 @@ describe('trusted CA path families', () => {
     expect(addTrustedCertPath(values, horizonFields)).toBe(9);
     expect(trustedCertPaths(values, horizonFields)).toHaveLength(9);
   });
+
+  it('rejects duplicate trusted CA paths within Horizon, Content Gateway and each WRP instance', () => {
+    const c = defaultConfig();
+    c.values.horizon_enabled = true;
+    c.values.trustedCert1 = 'C:\\Certs\\Corp-Root.pem';
+    c.values.trustedCert2 = 'c:/certs/corp-root.pem';
+    c.values.contentGateway_enabled = true;
+    c.values.contentGateway_trustedCert1 = '/certs/workspace-one-root.pem';
+    c.values.contentGateway_trustedCert2 = '/certs//workspace-one-root.pem';
+    c.wrp = [
+      { instanceId: 'one', proxyDestinationUrl: 'https://one.local', trustedCert1: '/certs/web.pem', trustedCert2: '/certs/web.pem' },
+      { instanceId: 'two', proxyDestinationUrl: 'https://two.local', trustedCert1: '/certs/web.pem' }
+    ];
+
+    const duplicates = validateConfig(c).filter((issue) => issue.message.includes('duplicate trusted CA path'));
+    expect(duplicates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ section: 'horizon', fieldId: 'trustedCert2' }),
+      expect.objectContaining({ section: 'contentGateway', fieldId: 'contentGateway_trustedCert2' }),
+      expect.objectContaining({ section: 'wrp', fieldId: 'trustedCert2', list: { id: 'wrp', index: 0 } })
+    ]));
+    expect(duplicates).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ list: { id: 'wrp', index: 1 } })
+    ]));
+  });
 });
