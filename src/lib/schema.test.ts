@@ -29,7 +29,6 @@ describe('schema integrity', () => {
       'eth0CustomConfig'
     ]));
   });
-
   it('provides required addressing modes and multi-NIC IP examples', () => {
     for (const groupId of ['networking', 'native-ipv4']) {
       const group = GROUPS.find((candidate) => candidate.id === groupId)!;
