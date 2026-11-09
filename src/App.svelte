@@ -107,6 +107,9 @@
       <button class="reset-button" onclick={resetAll} title="Reset all settings to a blank configuration">
         <span aria-hidden="true">↺</span> Reset configuration
       </button>
+      <button class="secondary-button" class:templates-active={app.section === 'templates'} aria-current={app.section === 'templates' ? 'page' : undefined} onclick={() => app.goTo('templates')}>
+        <span aria-hidden="true">▦</span> Templates
+      </button>
       <button class="secondary-button" onclick={() => (app.showImport = true)}>
         <span aria-hidden="true">↓</span> Import
       </button>
@@ -131,14 +134,14 @@
     <nav class="side" aria-label="Configuration sections">
       <div class="nav-heading"><span>Setup</span><small>{SECTIONS.filter((s) => s.id !== 'templates' && !counts[s.id].error).length}/{SECTIONS.length - 1} sections clear</small></div>
       <div class="nav-list">
-        {#each SECTIONS as s, index (s.id)}
+        {#each SECTIONS.filter((s) => s.id !== 'templates') as s, index (s.id)}
           {@const n = counts[s.id]}
           <button class:on={app.section === s.id} aria-current={app.section === s.id ? 'page' : undefined} onclick={() => app.goTo(s.id)}>
             <span class="nav-glyph" aria-hidden="true">{glyphs[s.id]}</span>
-            <span class="nav-label"><strong>{s.title}</strong><small>{s.id === 'templates' ? 'Common configurations' : `Step ${index + 1}`}</small></span>
+            <span class="nav-label"><strong>{s.title}</strong><small>Step {index + 1}</small></span>
             {#if n.error}<i class="badge error" aria-label={`${n.error} errors`}>{n.error}</i>
             {:else if n.warn}<i class="badge warn" aria-label={`${n.warn} warnings`}>{n.warn}</i>
-            {:else if s.id !== 'templates'}<span class="nav-check" aria-label="No findings">✓</span>{/if}
+            {:else}<span class="nav-check" aria-label="No findings">✓</span>{/if}
           </button>
         {/each}
       </div>
