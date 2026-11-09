@@ -17,7 +17,7 @@ references, the project evidence labels, and the source-review policy.
 
 ### Planned and investigative work
 
-The [roadmap](ROADMAP.md) includes broader prerequisite-aware visibility for settings, helpers, topology and sections; planned `[WorkspaceOneIntelligenceSettings1]` support after schema verification; and an **investigation** into native vSphere PowerShell deployment without `ovftool`. `New-VApp` or an equivalent PowerCLI approach still needs feasibility validation; it is not a supported deployment path today. These are roadmap items, not completed features.
+The [roadmap](ROADMAP.md) includes broader prerequisite-aware visibility for settings, helpers, topology and sections; planned `[WorkspaceOneIntelligenceSettings1]` support after schema verification; extended UAG 2609 certificate validation; and an **investigation** into native vSphere PowerShell deployment without `ovftool`. `Import-VApp` is the intended PowerCLI candidate, but that deployment path still needs feasibility validation and is not supported today. These are roadmap items, not completed features.
 
 ## ✨ Features
 
@@ -30,12 +30,13 @@ The [roadmap](ROADMAP.md) includes broader prerequisite-aware visibility for set
 - 📥 **Import** an existing INI or settings JSON (paste or file) with a preview of what was recognised/ignored; the UAG version is detected from the image file name.
 - ✅ **Validation + best-practice lint** (required fields, IPv4/URL/port/thumbprint formats, RADIUS timing, duplicate IPs, TLS 1.0/1.1, SSH, missing syslog/NTP, no MFA on an external gateway, SHA-1 thumbprints …). Click a finding to jump to the field.
 - 🗺️ **Topology diagram** that updates live, 📋 **templates** (e.g. *Horizon external access with RADIUS MFA*), 📝 **Docs** tab (Markdown runbook summary), ⌨️ **command palette** (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd>).
+- 📂 **Collapsible sections** keep configuration groups, live topology, validation, templates and each list instance open by default while letting you reduce visual noise on demand.
 - 🌗 **Light/dark theme** - follows `prefers-color-scheme` by default, your choice is remembered.
 - **Administrator access:** UAG 2609 `[adminSAMLSettings]` configuration and separate management/Admin UI TLS certificate paths in `[SSLCertAdmin]`.
 
-| Light theme | RADIUS & validation |
+| Light theme & Networking subsection | Authentication & validation |
 | --- | --- |
-| ![Light](docs/screenshots/builder-light.png) | ![RADIUS](docs/screenshots/radius.png) |
+| ![Light](docs/screenshots/builder-light.png) | ![Authentication](docs/screenshots/radius.png) |
 | **JSON output** | **Command palette** |
 | ![JSON](docs/screenshots/json.png) | ![Palette](docs/screenshots/palette.png) |
 | **Import** |
@@ -44,7 +45,7 @@ The [roadmap](ROADMAP.md) includes broader prerequisite-aware visibility for set
 
 ## 🛡️ Supported UAG versions
 
-Gateway Forge supports every Omnissa UAG release that is **not end-of-life** according to the [Omnissa Lifecycle Matrix](https://docs.omnissa.com/bundle/Product-Lifecycle-Matrix/page/lifecyclematrix.html) (snapshot **2026-10-30**; UAG inherits the lifecycle of the product it is integrated with):
+Gateway Forge offers schema targets for releases from UAG 2212 through 2609. Current support status still depends on the [Omnissa Lifecycle Matrix](https://docs.omnissa.com/bundle/Product-Lifecycle-Matrix/page/lifecyclematrix.html) and the product with which that UAG release is integrated; older releases remain available for migration and maintenance, but may no longer be supported (snapshot **2026-10-30**):
 
 `2212 · 2303 · 2306 · 2309 · 2312 · 2406 · 2412 · 2503 · 2506 · 2512 · 2603 · 2606 · 2609`
 
@@ -144,6 +145,7 @@ npm test          # Vitest: generation, import/parsing, validation, thumbprints
 npm run check     # svelte-check / TypeScript
 npm run build     # static site in dist/ (relative base - host it anywhere)
 npm run preview   # serve the production build locally
+npm run screenshots -- http://localhost:4173/  # refresh all README captures with local Chrome
 ```
 
 Stack: Vite + Svelte 5 + TypeScript. Layout:

@@ -204,5 +204,10 @@ describe('UAG workflow follow-ups', () => {
     expect(renderField('ip1', 'threenic')).toContain('NIC1 Management-only IPv4');
     expect(renderField('ip2', 'threenic')).toContain('NIC2 Backend-only IPv4');
     expect(renderField('netManagementNetwork', 'twonic')).toContain('Management / Backend network (NIC1)');
+    expect(render(FieldInput, { props: {
+      field: fields.find((field) => field.id === 'ipmode1')!,
+      values: { deploymentOption: 'twonic', ipmode1: 'STATICV4' },
+      platform: 'vsphere'
+    } }).body).toContain('required=""');
   });
 });
