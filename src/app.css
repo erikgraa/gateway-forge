@@ -360,8 +360,6 @@ h1 { margin: 0; font-size: clamp(24px, 2.3vw, 32px); font-weight: 680; letter-sp
 .field-details-tooltip dl > div { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 8px; }
 .field-details-tooltip dt { color: var(--subtle); }
 .field-details-tooltip dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
-.field-details-tooltip a { color: var(--acc); font-weight: 600; text-decoration: none; }
-.field-details-tooltip a:hover { text-decoration: underline; }
 .secret-wrap { display: flex; gap: 6px; }
 .toggle { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--mut); }
 .toggle input { accent-color: var(--acc); }
