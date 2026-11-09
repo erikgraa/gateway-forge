@@ -163,6 +163,15 @@ Gateway passwords are deployment runtime inputs and are never persisted in
 INI, JSON, or browser drafts. The same module establishes WRP `hostEntryN`
 handling; Gateway Forge's six-row cap is a project UI limit.
 
+The same UAG 2609 module's `GetNewAdminUserSettings`,
+`GetAdminUserSetting`, `ValidateMonitorUserName`, and `ReadPwdToHash`
+functions establish `[AdminUserN]` metadata, the fixed `ROLE_MONITORING`
+role, 1-35 character usernames, `-newAdminUserPwd` handling, and the
+semicolon-separated `username:password` runtime format. Gateway Forge
+keeps those passwords out of INI, settings JSON, and browser drafts. The
+unnumbered `[AdminUser]` compatibility form is accepted on import because
+the vendor loop includes it as index zero.
+
 For the NIC deployment mapping, the UAG 2609
 [secure DMZ guide](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/SecureDMZdesignwithmultiplenetworkinterfaces)
 states that the first NIC is Internet-facing and that a two-NIC deployment

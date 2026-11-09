@@ -17,6 +17,7 @@
 
   const descriptions: Record<SectionId, { eyebrow: string; description: string }> = {
     general: { eyebrow: 'Appliance profile', description: 'Define the appliance identity and administrative hardening baseline.' },
+    adminUsers: { eyebrow: 'Administrative access', description: 'Create additional monitoring-role Admin UI and API users without storing their passwords.' },
     network: { eyebrow: 'Platform & connectivity', description: 'Set deployment targets, addressing, DNS, and time synchronization.' },
     horizon: { eyebrow: 'Edge service', description: 'Publish Horizon securely through the UAG with client protocol endpoints.' },
     tunnel: { eyebrow: 'Workspace ONE edge service', description: 'Connect the UAG-hosted Tunnel gateway to Workspace ONE UEM for per-app VPN access.' },
@@ -29,7 +30,7 @@
   };
 
   const glyphs: Record<SectionId, string> = {
-    general: 'AG', network: 'NW', horizon: 'HZ', tunnel: 'TN', contentGateway: 'CG', wrp: 'WP', auth: 'ID', tls: 'TS', monitoring: 'OP', templates: 'TP'
+    general: 'AG', adminUsers: 'AU', network: 'NW', horizon: 'HZ', tunnel: 'TN', contentGateway: 'CG', wrp: 'WP', auth: 'ID', tls: 'TS', monitoring: 'OP', templates: 'TP'
   };
   const issues = $derived(validateConfig(app.config));
   const counts = $derived(countBySection(issues));

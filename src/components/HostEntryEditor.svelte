@@ -8,7 +8,7 @@
     values: Values;
     issues: Issue[];
     uid?: string;
-    list?: { id: 'wrp' | 'syslog'; index: number };
+    list?: { id: 'wrp' | 'syslog' | 'adminUsers'; index: number };
   }
   let { fields, values = $bindable(), issues, uid, list }: Props = $props();
   let requested = $state(1);

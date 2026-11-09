@@ -37,9 +37,10 @@ export type Rule =
   | 'hostPortList'
   | 'hostEntry'
   | 'redirectMappings'
-  | 'sourceImage';
+  | 'sourceImage'
+  | 'monitoringUserName';
 
-export type SectionId = 'general' | 'network' | 'horizon' | 'tunnel' | 'contentGateway' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
+export type SectionId = 'general' | 'adminUsers' | 'network' | 'horizon' | 'tunnel' | 'contentGateway' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
 
 export type Target =
   | 'system'
@@ -53,6 +54,7 @@ export type Target =
   | 'snmp'
   | 'syslog'
   | 'certs'
+  | 'adminUsers'
   | 'azure'
   | 'oidc'
   | 'securid'
@@ -144,7 +146,7 @@ export interface GroupDef {
 }
 
 export interface ListDef {
-  id: 'wrp' | 'syslog';
+  id: 'wrp' | 'syslog' | 'adminUsers';
   title: string;
   itemLabel: string;
   section: SectionId;
@@ -163,6 +165,7 @@ export interface SectionDef {
 
 export const SECTIONS: SectionDef[] = [
   { id: 'general', title: 'General', icon: '⚙' },
+  { id: 'adminUsers', title: 'Additional admin users', icon: '👤' },
   { id: 'network', title: 'Network & deploy', icon: '🌐' },
   { id: 'horizon', title: 'Horizon', icon: '🖥' },
   { id: 'tunnel', title: 'Workspace ONE Tunnel', icon: '🚇' },
@@ -1593,6 +1596,31 @@ export const GROUPS: GroupDef[] = [
 ];
 
 export const LISTS: ListDef[] = [
+  {
+    id: 'adminUsers',
+    title: 'Additional admin and API users',
+    itemLabel: 'Admin user',
+    section: 'adminUsers',
+    target: 'adminUsers',
+    iniSection: (n) => `AdminUser${n}`,
+    max: 99,
+    help: 'Creates additional UAG Admin UI / API users with the vendor-managed ROLE_MONITORING role. Usernames and flags are written to INI; passwords are supplied at deployment time and are never stored in the browser or exported.',
+    fields: [
+      text('name', 'User name', 'name', {
+        rule: 'monitoringUserName',
+        required: true,
+        maxLength: 35,
+        placeholder: 'MonitorUser1',
+        help: '1-35 letters, numbers, combining marks, underscores, or backslashes; no spaces.'
+      }),
+      bool('enabled', 'Enabled', 'enabled', true, {
+        help: 'Disabled users are created but cannot authenticate until enabled.'
+      }),
+      bool('adminMonitoringPasswordPreExpired', 'Require password change on first sign-in', 'adminMonitoringPasswordPreExpired', true, {
+        help: 'Marks the runtime-supplied password as pre-expired for the monitoring user.'
+      })
+    ]
+  },
   {
     id: 'wrp',
     title: 'Web reverse proxy instances',
