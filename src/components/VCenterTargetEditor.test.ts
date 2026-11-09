@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
 import VCenterTargetEditor from './VCenterTargetEditor.svelte';
-import { parseVCenterTarget, buildVCenterTarget } from '../lib/vcenterTarget';
+import { parseVCenterTarget, buildVCenterTarget, vCenterTargetFeedback } from '../lib/vcenterTarget';
 import { defaultConfig, applyPatch } from '../lib/model';
 import { GROUPS } from '../lib/schema';
 import { generateIni } from '../lib/generate';
@@ -52,6 +52,46 @@ describe('guided vCenter target', () => {
     expect(body).toContain('vi:// is added automatically');
     expect(body).toContain('separate VM folder setting');
     expect(body).toContain('Edit full locator');
+  });
+
+  it('flags missing parts and incomplete UPNs without rejecting other supported account formats', () => {
+    expect(Object.keys(vCenterTargetFeedback({ username: '', server: '', inventoryPath: '' }))).toEqual(['username', 'server', 'inventoryPath']);
+    const valid = { username: 'user@corp.local', server: 'vc.corp.local', inventoryPath: 'DC/host/Cluster' };
+    expect(vCenterTargetFeedback(valid)).toEqual({});
+    expect(vCenterTargetFeedback({ ...valid, username: 'user@' }).username?.warning).toBe(true);
+    expect(vCenterTargetFeedback({ ...valid, username: '@corp.local' }).username?.warning).toBe(true);
+    expect(vCenterTargetFeedback({ ...valid, username: 'CORP\\user' }).username?.warning).toBe(false);
+    expect(vCenterTargetFeedback({ ...valid, username: 'user' }).username?.warning).toBe(false);
+    expect(vCenterTargetFeedback({ ...valid, inventoryPath: '///' }).inventoryPath?.warning).toBe(true);
+  });
+
+  it.each(['vi://vc.corp.local', 'https://vc.corp.local', 'HTTP://vc.corp.local', 'vc.corp.local/DC/host/Cluster'])('explains pasted server protocols or paths without rewriting %s', (server) => {
+    const parts = { username: 'user@corp.local', server, inventoryPath: 'DC/host/Cluster' };
+    expect(vCenterTargetFeedback(parts).server?.warning).toBe(true);
+    expect(parts.server).toBe(server);
+  });
+
+  it('connects feedback to fields and previews the exact stored locator', () => {
+    const target = 'vi://user@@vc.corp.local/';
+    const { body } = render(VCenterTargetEditor, { props: { field, values: { target } } });
+    expect(body).toContain('aria-describedby="f-target-username-help f-target-username-feedback"');
+    expect(body).toContain('aria-invalid="true"');
+    expect(body).toContain('This UPN looks incomplete');
+    expect(body).toContain('Enter the compute inventory path');
+    expect(body).toContain('Assembled target (current value)');
+    expect(body).toContain(`${target}</code>`);
+  });
+
+  it('does not duplicate a password-bearing advanced locator in a target preview', () => {
+    const { body } = render(VCenterTargetEditor, { props: { field, values: { target: 'vi://user:password@vc/DC/host/Cluster' } } });
+    expect(body).toContain('Full OVF Tool locator');
+    expect(body).not.toContain('Assembled target');
+    expect(body).toContain('disabled');
+  });
+
+  it.each(['vi://user@vc/DC%20One/host/Compute%20Folder/Cluster', 'vi://user:password@vc/DC/host/Cluster', 'legacy-target'])('preserves advanced and imported spelling through INI: %s', (target) => {
+    const config = applyPatch(defaultConfig(), { values: { target } });
+    expect(importIni(generateIni(config)).config.values.target).toBe(target);
   });
 
   it('round-trips the assembled locator and separate VM folder without adding configuration keys', () => {

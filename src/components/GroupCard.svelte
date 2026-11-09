@@ -1,6 +1,7 @@
 <script lang="ts">
   import { app } from '../lib/store.svelte';
   import { fieldAvailable, groupAvailable, groupEnabled } from '../lib/model';
+  import { hiddenSettings } from '../lib/conditional-settings';
   import type { Field, GroupDef, Values } from '../lib/schema';
   import type { Issue } from '../lib/validate';
   import FieldInput from './FieldInput.svelte';
@@ -25,6 +26,7 @@
   const hostFields = $derived(visible.filter((f) => f.hostEntryIndex !== undefined));
   const renderedFields = $derived(visible.filter((f) => f.id !== group.enabledBy));
   const hiddenByVersion = $derived(group.fields.filter((f) => f.since && c.version < f.since).length);
+  const conditional = $derived(hiddenSettings(group.fields, c));
 
   function err(fieldId: string): string | undefined {
     return issues.find((i) => i.fieldId === fieldId && !i.list && i.level === 'error')?.message;
@@ -78,6 +80,17 @@
           {/if}
         {/each}
       </div>
+      {#if conditional.length > 0}
+        <details class="notice conditional-settings">
+          <summary>Hidden settings — how to enable them</summary>
+          <p>Hidden values are kept in your configuration. Existing output rules still apply.</p>
+          <ul>
+            {#each conditional as entry}
+              <li><strong>{entry.prerequisite}</strong> Hidden: {entry.fields.map((field) => field.label).join(', ')}.</li>
+            {/each}
+          </ul>
+        </details>
+      {/if}
       {#if hiddenByVersion > 0}
         <div class="notice">{hiddenByVersion} setting{hiddenByVersion > 1 ? 's' : ''} in this group {hiddenByVersion > 1 ? 'are' : 'is'} not available in UAG {c.version} and {hiddenByVersion > 1 ? 'are' : 'is'} hidden.</div>
       {/if}
@@ -86,3 +99,9 @@
     {/if}
   </details>
 {/if}
+
+<style>
+  .conditional-settings summary { cursor: pointer; color: var(--info); }
+  .conditional-settings li + li { margin-top: .6rem; }
+  .conditional-settings ul { padding-left: 1.2rem; }
+</style>

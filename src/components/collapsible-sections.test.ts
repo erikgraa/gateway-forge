@@ -33,6 +33,25 @@ describe('collapsible section cards', () => {
     expect(render(Templates).body).toMatch(/<details class="card collapsible-card" open(?:=""|)>/);
   });
 
+  it('explains hidden SSH controls and removes explanations when prerequisites are enabled', () => {
+    const group = GROUPS.find((candidate) => candidate.id === 'appliance')!;
+    const previous = { ...app.config.values };
+    try {
+      app.config.values.sshEnabled = false;
+      let body = render(GroupCard, { props: { group, issues: [] } }).body;
+      expect(body).toContain('Hidden settings — how to enable them');
+      expect(body).toContain('Enable SSH and SSH key access');
+      expect(body).not.toContain('id="f-sshPort"');
+      app.config.values.sshEnabled = true;
+      app.config.values.sshKeyAccessEnabled = true;
+      body = render(GroupCard, { props: { group, issues: [] } }).body;
+      expect(body).toContain('id="f-sshPort"');
+      expect(body).not.toContain('Hidden settings — how to enable them');
+    } finally {
+      app.config.values = previous;
+    }
+  });
+
   it('renders list instances open by default inside a collapsible list', () => {
     const list = LISTS.find((candidate) => candidate.id === 'wrp')!;
     const previous = [...app.config.wrp];
