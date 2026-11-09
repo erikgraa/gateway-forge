@@ -676,9 +676,10 @@ describe('PowerShell output', () => {
       for (const platform of ['vsphere', 'hyperv', 'azure', 'nutanix', 'openshift'] as const) {
         if (mode === 'headless' && platform === 'nutanix') continue;
         const ps = generatePowerShell(applyPatch(tunnel(), { platform }), 'omit', mode);
-        expect(ps).toContain(`throw 'Set UAG_TUNNEL_GATEWAY_API_PASSWORD before running deployment.'`);
-        expect(ps).toContain("# Set: $env:UAG_TUNNEL_GATEWAY_API_PASSWORD = '<Workspace ONE UEM API password>'");
-        expect(ps).toContain('-awTunnelGatewayAPIServerPwd $env:UAG_TUNNEL_GATEWAY_API_PASSWORD');
+        expect(ps).toContain(`throw 'Set UAG_WORKSPACE_ONE_UEM_API_PASSWORD before running deployment.'`);
+        expect(ps).toContain("# Set: $env:UAG_WORKSPACE_ONE_UEM_API_PASSWORD = '<Workspace ONE UEM API password>'");
+        expect(ps).toContain('-awAPIServerPwd $env:UAG_WORKSPACE_ONE_UEM_API_PASSWORD');
+        expect(ps).not.toContain('-awTunnelGatewayAPIServerPwd');
         expect(ps).not.toContain('apiServerPassword=');
       }
     }
@@ -704,14 +705,16 @@ describe('PowerShell output', () => {
     const shared = generatePowerShell(applyPatch(tunnel(), {
       values: { contentGateway_enabled: true, contentGateway_mode: 'shared' }
     }), 'placeholder', 'headless');
-    expect(shared).toContain('-awAPIServerPwd $env:UAG_CONTENT_GATEWAY_API_PASSWORD');
+    expect(shared).toContain('-awAPIServerPwd $env:UAG_WORKSPACE_ONE_UEM_API_PASSWORD');
     expect(shared).not.toContain('-awCGAPIServerPwd $env:UAG_CONTENT_GATEWAY_API_PASSWORD');
+    expect(shared.match(/-awAPIServerPwd/g)).toHaveLength(1);
   });
 
-  it('lets the vendor prompt for the Content Gateway API password interactively', () => {
+  it('lets the vendor prompt for the standalone Content Gateway API password interactively', () => {
     const ps = generatePowerShell(contentGateway(), 'placeholder', 'interactive');
     expect(ps).toContain('prompts for the Content Gateway Workspace ONE UEM API password');
     expect(ps).not.toContain('-awCGAPIServerPwd');
+    expect(ps).not.toContain('-awAPIServerPwd');
     expect(ps).not.toContain('UAG_CONTENT_GATEWAY_API_PASSWORD');
   });
 

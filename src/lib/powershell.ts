@@ -17,26 +17,26 @@ export function runtimeSwitches(c: Config): string {
   return s;
 }
 
-function contentGatewayPasswordSwitch(c: Config): string {
-  if (c.values.contentGateway_enabled !== true) return '';
-  const parameter = c.values.contentGateway_mode === 'shared' ? '-awAPIServerPwd' : '-awCGAPIServerPwd';
-  return ` ${parameter} $env:UAG_CONTENT_GATEWAY_API_PASSWORD`;
-}
-
-function addContentGatewayPasswordCheck(c: Config, out: string[]): void {
-  if (c.values.contentGateway_enabled !== true) return;
-  out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_CONTENT_GATEWAY_API_PASSWORD)) { throw 'Set UAG_CONTENT_GATEWAY_API_PASSWORD before running headless deployment.' }`);
-}
-
-function tunnelPasswordSwitch(c: Config): string {
-  return c.values.airwatch_enabled === true
-    ? ' -awTunnelGatewayAPIServerPwd $env:UAG_TUNNEL_GATEWAY_API_PASSWORD'
+function standaloneContentGatewayPasswordSwitch(c: Config, deploymentMode: DeploymentMode): string {
+  return deploymentMode === 'headless' && c.values.contentGateway_enabled === true && c.values.contentGateway_mode !== 'shared'
+    ? ' -awCGAPIServerPwd $env:UAG_CONTENT_GATEWAY_API_PASSWORD'
     : '';
 }
 
-function addTunnelPasswordCheck(c: Config, out: string[]): void {
+function addStandaloneContentGatewayPasswordCheck(c: Config, out: string[]): void {
+  if (c.values.contentGateway_enabled !== true || c.values.contentGateway_mode === 'shared') return;
+  out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_CONTENT_GATEWAY_API_PASSWORD)) { throw 'Set UAG_CONTENT_GATEWAY_API_PASSWORD before running headless deployment.' }`);
+}
+
+function sharedAirwatchPasswordSwitch(c: Config): string {
+  return c.values.airwatch_enabled === true
+    ? ' -awAPIServerPwd $env:UAG_WORKSPACE_ONE_UEM_API_PASSWORD'
+    : '';
+}
+
+function addSharedAirwatchPasswordCheck(c: Config, out: string[]): void {
   if (c.values.airwatch_enabled !== true) return;
-  out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_TUNNEL_GATEWAY_API_PASSWORD)) { throw 'Set UAG_TUNNEL_GATEWAY_API_PASSWORD before running deployment.' }`);
+  out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_WORKSPACE_ONE_UEM_API_PASSWORD)) { throw 'Set UAG_WORKSPACE_ONE_UEM_API_PASSWORD before running deployment.' }`);
 }
 
 function adminUserPasswordSwitch(c: Config): string {
@@ -87,15 +87,18 @@ export function generatePowerShell(
   if (secretMode === 'placeholder' && ini.includes('<REDACTED>')) out.push('# Replace every <REDACTED> value in the INI before deploying.', '');
   out.push('# 2. Deploy the appliance');
   out.push(`# ${MISSING_PASSWORD_WARNING}`);
-  if (c.values.contentGateway_enabled === true) {
+  if (c.values.contentGateway_enabled === true && c.values.contentGateway_mode !== 'shared') {
     out.push(effectiveDeploymentMode === 'interactive'
       ? '# Interactive mode: the official script prompts for the Content Gateway Workspace ONE UEM API password.'
       : '# Headless Content Gateway mode reads the UEM API password from UAG_CONTENT_GATEWAY_API_PASSWORD.');
   }
   if (c.values.airwatch_enabled === true) {
-    out.push('# Workspace ONE Tunnel UEM API passwords are supplied at runtime and never written to INI, JSON, or browser drafts.');
-    out.push("# Set: $env:UAG_TUNNEL_GATEWAY_API_PASSWORD = '<Workspace ONE UEM API password>'");
-    addTunnelPasswordCheck(c, out);
+    out.push('# Shared [Airwatch] UEM passwords cover Tunnel and shared Content Gateway and are supplied at runtime only.');
+    out.push("# Set: $env:UAG_WORKSPACE_ONE_UEM_API_PASSWORD = '<Workspace ONE UEM API password>'");
+    addSharedAirwatchPasswordCheck(c, out);
+  }
+  if (effectiveDeploymentMode === 'headless' && c.values.contentGateway_enabled === true && c.values.contentGateway_mode !== 'shared') {
+    addStandaloneContentGatewayPasswordCheck(c, out);
   }
   if (c.adminUsers.length > 0) {
     out.push('# Additional admin-user passwords are read from UAG_NEW_ADMIN_USER_PASSWORDS in username:password format, separated by semicolons.');
@@ -103,11 +106,12 @@ export function generatePowerShell(
     addAdminUserPasswordCheck(c, out);
   }
   const adminSwitch = adminUserPasswordSwitch(c);
-  const tunnelSwitch = tunnelPasswordSwitch(c);
+  const sharedAirwatchSwitch = sharedAirwatchPasswordSwitch(c);
+  const standaloneContentGatewaySwitch = standaloneContentGatewayPasswordSwitch(c, effectiveDeploymentMode);
   if (c.platform === 'openshift') return generateOpenShiftPowerShell(c, secretMode, deploymentMode, out);
   if (c.platform === 'nutanix') {
     out.push('# Interactive mode: the official script prompts for root and Admin UI passwords.');
-    out.push(`${invocation}${tunnelSwitch}${adminSwitch}${sw}`);
+    out.push(`${invocation}${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`);
     out.push('# The official script prompts for the Prism Central password.');
     out.push('# WARNING: the official script deletes and recreates a VM with the same name.');
     out.push('Clear-History', '');
@@ -115,18 +119,16 @@ export function generatePowerShell(
   }
   if (effectiveDeploymentMode === 'interactive') {
     out.push('# Interactive mode: the official script prompts for root and Admin UI passwords.');
-    out.push(`${invocation}${tunnelSwitch}${adminSwitch}${sw}`);
+    out.push(`${invocation}${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`);
     out.push('Clear-History');
   } else {
     out.push('# Headless mode: passwords are read from the runtime environment and never written to this script or the INI.');
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running headless deployment.' }`);
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.' }`);
-    addContentGatewayPasswordCheck(c, out);
-    const contentGatewaySwitch = contentGatewayPasswordSwitch(c);
     if (def.nonInteractive === 'positional') {
-      out.push(`${invocation} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no${contentGatewaySwitch}${tunnelSwitch}${adminSwitch}${sw}`);
+      out.push(`${invocation} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`);
     } else {
-      out.push(`${invocation} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD${contentGatewaySwitch}${tunnelSwitch}${adminSwitch}${sw}`);
+      out.push(`${invocation} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`);
     }
   }
   out.push('');
@@ -139,8 +141,8 @@ function generateOpenShiftPowerShell(c: Config, mode: SecretMode, deploymentMode
   const volume = String(c.values.ocp_volume || '<volume-name>');
   const namespace = String(c.values.ocp_namespace || '<destination-project>');
   const sw = runtimeSwitches(c);
-  const contentGatewaySwitch = contentGatewayPasswordSwitch(c);
-  const tunnelSwitch = tunnelPasswordSwitch(c);
+  const sharedAirwatchSwitch = sharedAirwatchPasswordSwitch(c);
+  const standaloneContentGatewaySwitch = standaloneContentGatewayPasswordSwitch(c, deploymentMode);
   const adminSwitch = adminUserPasswordSwitch(c);
   if (c.values.ocp_volumeSourceMode === 'console') {
     out.push('# 2. Prepare the local QCOW2 volume through the OpenShift web console (runbook mode).');
@@ -166,18 +168,17 @@ function generateOpenShiftPowerShell(c: Config, mode: SecretMode, deploymentMode
   out.push('# 4. Deploy the VM. The script requires both uagdeployopenshift.ps1 and uagdeploy.psm1.');
   if (deploymentMode === 'interactive') {
     out.push('# The official script prompts for root, Admin UI and any required OpenShift password.');
-    out.push(`${deploymentCommand(c)}${tunnelSwitch}${adminSwitch}${sw}`);
+    out.push(`${deploymentCommand(c)}${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`);
     out.push('');
   } else {
     out.push('# Headless mode: passwords are read from the runtime environment and never written to this script or the INI.');
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running headless deployment.' }`);
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.' }`);
-    addContentGatewayPasswordCheck(c, out);
     if (mode === 'omit' || !String(c.values.ocp_bearerToken || '')) {
       out.push(`if ([string]::IsNullOrWhiteSpace($env:OPENSHIFT_PASSWORD)) { throw 'Set OPENSHIFT_PASSWORD before running headless OpenShift deployment.' }`);
-      out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no -openshiftPassword $env:OPENSHIFT_PASSWORD${contentGatewaySwitch}${tunnelSwitch}${adminSwitch}${sw}`);
+      out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no -openshiftPassword $env:OPENSHIFT_PASSWORD${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`);
     } else {
-      out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no${contentGatewaySwitch}${tunnelSwitch}${adminSwitch}${sw}`);
+      out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`);
     }
   }
   out.push('Clear-History', '');
