@@ -1,4 +1,4 @@
-import { nicUsesStaticIpv4, type Config } from './model';
+import { activeWrpItems, nicUsesStaticIpv4, type Config } from './model';
 import { deploymentNicCount } from './schema';
 import { FORWARD_FLAGS, cascadeRole } from './cascade';
 import { collectBlocks, deploymentCommand } from './generate';
@@ -33,6 +33,7 @@ function host(url: unknown): string {
 
 export function buildTopology(c: Config): Topology {
   const v = c.values;
+  const wrp = activeWrpItems(c);
   const role = cascadeRole(v);
   const def = platformDef(c.platform);
   const deployment = String(v.deploymentOption || 'onenic');
@@ -49,7 +50,7 @@ export function buildTopology(c: Config): Topology {
       v.pcoipEnabled === true ? 'PCoIP TCP+UDP 4172' : ''
     ].filter(Boolean) : [];
   const protocolLabel = horizonProtocols.join(' · ');
-  const hasPublishedService = role === 'outer' || role === 'inner' || v.horizon_enabled === true || v.contentGateway_enabled === true || c.wrp.length > 0;
+  const hasPublishedService = role === 'outer' || role === 'inner' || v.horizon_enabled === true || v.contentGateway_enabled === true || wrp.length > 0;
   const nodes: TopologyNode[] = [];
   if (hasPublishedService) {
     nodes.push({
@@ -112,7 +113,7 @@ export function buildTopology(c: Config): Topology {
     });
     edges.push({ from: 'uag', to: 'cs', label: 'HTTPS · XML-API', kind: 'service' });
   }
-  c.wrp.forEach((item, i) => {
+  wrp.forEach((item, i) => {
     nodes.push({
       id: `wrp${i}`,
       label: String(item.instanceId || `Web proxy ${i + 1}`),
@@ -217,7 +218,7 @@ export function buildTopology(c: Config): Topology {
     `${nicCount}-NIC deployment: ${nicRoles}`,
     role === 'none' ? 'Direct publishing topology' : `${role === 'outer' ? 'Outer' : 'Inner'} cascade role`,
     v.horizon_enabled === true ? `Horizon protocols: ${horizonProtocols.join(', ')}` : 'Horizon edge service disabled',
-    `${c.wrp.length} web reverse proxy instance${c.wrp.length === 1 ? '' : 's'}`,
+    `${wrp.length} web reverse proxy instance${wrp.length === 1 ? '' : 's'}`,
     `Identity: ${[v.radius_enabled === true ? 'RADIUS' : '', v.saml_enabled === true ? 'SAML' : ''].filter(Boolean).join(', ') || 'none enabled'}`
   ];
   const description = [
@@ -235,6 +236,7 @@ export function buildTopology(c: Config): Topology {
 /** Markdown documentation of the configuration, suitable for runbooks and change tickets. */
 export function generateDocs(c: Config, issues: Issue[]): string {
   const v = c.values;
+  const wrp = activeWrpItems(c);
   const def = platformDef(c.platform);
   const L: string[] = [];
   L.push(`# ${v.uagName || 'UAG'} - configuration summary`, '');
@@ -293,8 +295,8 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     const shared = v.contentGateway_mode === 'shared';
     L.push(`- **Workspace ONE Content Gateway** (${shared ? 'shared [Airwatch]' : 'standalone [AirwatchContentGateway]'}) → ${shared ? v.airwatch_airwatchServerHostname || '(not set)' : v.contentGateway_airwatchServerHostname || '(not set)'}; UEM API ${shared ? v.airwatch_apiServerUrl || '(not set)' : v.contentGateway_apiServerUrl || '(not set)'}`);
   }
-  for (const w of c.wrp) L.push(`- **Web reverse proxy \`${w.instanceId}\`** → ${w.proxyDestinationUrl} (auth: ${w.authMethods})`);
-  if (v.horizon_enabled !== true && v.airwatch_enabled !== true && v.contentGateway_enabled !== true && cascadeRole(v) !== 'outer' && c.wrp.length === 0) L.push('- none');
+  for (const w of wrp) L.push(`- **Web reverse proxy \`${w.instanceId}\`** → ${w.proxyDestinationUrl} (auth: ${w.authMethods})`);
+  if (v.horizon_enabled !== true && v.airwatch_enabled !== true && v.contentGateway_enabled !== true && cascadeRole(v) !== 'outer' && wrp.length === 0) L.push('- none');
   L.push('', '## Additional admin and API users', '');
   for (const user of c.adminUsers) {
     L.push(`- ${user.name || '(name required)'} (${user.enabled === false ? 'disabled' : 'enabled'}; \`ROLE_MONITORING\`; pre-expired password: ${user.adminMonitoringPasswordPreExpired === false ? 'no' : 'yes'})`);

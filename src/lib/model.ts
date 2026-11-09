@@ -6,6 +6,7 @@ import {
   type Field,
   type GroupDef,
   type ListDef,
+  type SectionId,
   type Values
 } from './schema';
 import { DEFAULT_VERSION, inVersion, type Platform } from './versions';
@@ -19,6 +20,41 @@ export interface Config {
   wrp: Values[];
   syslog: Values[];
   adminUsers: Values[];
+}
+
+export type SelectableService = 'horizon' | 'tunnel' | 'contentGateway' | 'wrp';
+
+export function activeWrpItems(c: Config): Values[] {
+  return c.wrp.filter((item) => item.enabled !== false);
+}
+
+export function setServiceSelected(c: Config, service: SelectableService, selected: boolean): void {
+  if (service === 'horizon') c.values.horizon_enabled = selected;
+  else if (service === 'tunnel') c.values.airwatch_enabled = selected;
+  else if (service === 'contentGateway') c.values.contentGateway_enabled = selected;
+  else if (selected) {
+    if (c.wrp.length === 0) c.wrp.push(newListItem('wrp'));
+    c.wrp.forEach((item) => { item.enabled = true; });
+  } else {
+    c.wrp.forEach((item) => { item.enabled = false; });
+  }
+}
+
+export function sectionSelected(c: Config, section: SectionId): boolean {
+  if (section === 'horizon') return c.values.horizon_enabled === true;
+  if (section === 'tunnel') return c.values.airwatch_enabled === true;
+  if (section === 'contentGateway') return c.values.contentGateway_enabled === true;
+  if (section === 'wrp') return activeWrpItems(c).length > 0;
+  if (section === 'auth') {
+    return GROUPS.some((group) =>
+      group.section === 'auth'
+      && !!group.enabledBy
+      && c.values[group.enabledBy] === true
+    );
+  }
+  if (section === 'monitoring') return c.values.snmp_enabled === true || c.syslog.length > 0;
+  if (section === 'adminUsers') return c.adminUsers.length > 0;
+  return true;
 }
 
 export function listDef(id: ListDef['id']): ListDef {

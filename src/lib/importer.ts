@@ -313,6 +313,7 @@ function applyListJson(c: Config, l: ListDef, arr: unknown[], result: ImportResu
     if (!raw || typeof raw !== 'object') continue;
     const item = { ...newListItem(l.id) };
     const obj = raw as Record<string, unknown>;
+    if (l.id === 'wrp') item.enabled = obj.enabled !== false;
     const hostFields = l.fields.filter((field) => field.hostEntryIndex !== undefined);
     if (Array.isArray(obj.hostEntries)) {
       const hostEntries = obj.hostEntries;
