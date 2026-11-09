@@ -540,12 +540,14 @@ export const GROUPS: GroupDef[] = [
         platforms: vsphereHyperv,
         required: true,
         showIf: (v) => deploymentNicCount(v) >= 2,
+        placeholder: 'DMZ-Management',
         help: 'Two NICs: NIC1 carries management and backend traffic. Three NICs: NIC1 is management-only; NIC2 is backend-only.'
       }),
       text('netBackendNetwork', 'Backend network (NIC2)', 'netBackendNetwork', {
         platforms: vsphereHyperv,
         required: true,
         showIf: (v) => deploymentNicCount(v) === 3,
+        placeholder: 'DMZ-Backend',
         help: 'The dedicated Backend interface is available only with threenic.'
       }),
       text('ip0', 'NIC0 Internet IPv4 address', 'ip0', {
@@ -604,7 +606,7 @@ export const GROUPS: GroupDef[] = [
         platforms: vsphereHyperv,
         since: '2306',
         wide: true,
-        placeholder: '10.108.172.32/32 10.108.172.253,192.168.20.0/24 10.0.0.1',
+        placeholder: '10.108.172.32/32 10.108.172.253',
         help: 'Comma-separated CIDR-and-gateway pairs. Format: IPv4-network/prefix gateway-IPv4.'
       }),
       text('routes1', 'NIC1 static routes', 'routes1', {
