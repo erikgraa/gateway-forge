@@ -10,6 +10,7 @@ import { render } from './render';
 
 const radiusMfa = () => TEMPLATES.find((t) => t.id === 'horizon-radius')!.build(defaultConfig());
 const tunnel = () => TEMPLATES.find((t) => t.id === 'workspace-one-tunnel')!.build(defaultConfig());
+const contentGateway = () => TEMPLATES.find((t) => t.id === 'workspace-one-content-gateway')!.build(defaultConfig());
 const SSH_PUBLIC_KEY = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7 test@workstation';
 
 describe('INI generation', () => {
@@ -369,6 +370,62 @@ describe('INI generation', () => {
     }
   });
 
+  it('writes standalone Content Gateway fields, host entries and trusted certificates', () => {
+    const c = applyPatch(contentGateway(), {
+      values: {
+        contentGateway_hostEntry1: '10.0.0.30 content-api.corp.local',
+        contentGateway_trustedCert1: 'C:\\certs\\content-ca.pem',
+        contentGateway_trustedCert2: 'C:\\certs\\uem-ca.pem',
+        contentGateway_outboundProxyHost: 'proxy.corp.local',
+        contentGateway_outboundProxyPort: 3128,
+        contentGateway_outboundProxyUsername: 'proxy-user'
+      }
+    });
+    const ini = generateIni(c, { secrets: 'include' });
+    expect(ini).toMatch(/\[AirwatchContentGateway\][\s\S]*apiServerUsername=domain\\svc-uag-content/);
+    expect(ini).toContain('cgConfigId=content-gateway-production');
+    expect(ini).toContain('hostEntry1=10.0.0.30 content-api.corp.local');
+    expect(ini).toContain('trustedCert1=C:\\certs\\content-ca.pem');
+    expect(ini).toContain('trustedCert2=C:\\certs\\uem-ca.pem');
+    expect(ini).not.toContain('apiServerPassword=');
+    expect(ini).not.toContain('outboundProxyPassword=');
+  });
+
+  it('adds Content Gateway to a shared [Airwatch] section without a standalone block', () => {
+    const c = applyPatch(tunnel(), {
+      values: {
+        contentGateway_enabled: true,
+        contentGateway_mode: 'shared',
+        contentGateway_cgConfigId: 'cg-shared',
+        airwatch_tunnelGatewayEnabled: false
+      }
+    });
+    const ini = generateIni(c);
+    expect(ini).toMatch(/\[Airwatch\][\s\S]*contentGatewayEnabled=true/);
+    expect(ini).toContain('cgConfigId=cg-shared');
+    expect(ini).not.toContain('[AirwatchContentGateway]');
+  });
+
+  it('maps Content Gateway settings JSON and keeps runtime credentials and certificate paths out', () => {
+    const c = applyPatch(contentGateway(), {
+      values: {
+        contentGateway_hostEntry1: '10.0.0.30 content-api.corp.local',
+        contentGateway_trustedCert1: 'C:\\certs\\content-ca.pem'
+      }
+    });
+    const edge = (generateJsonObject(c) as any).edgeServiceSettingsList.edgeServiceSettingsList[0];
+    expect(edge).toMatchObject({
+      identifier: 'CONTENT_GATEWAY',
+      airwatchComponentsInstalled: 'CG',
+      apiServerUrl: 'https://as1234.awmdm.com',
+      cgConfigurationId: 'content-gateway-production',
+      hostEntries: ['10.0.0.30 content-api.corp.local']
+    });
+    expect(edge).not.toHaveProperty('apiServerPassword');
+    expect(edge).not.toHaveProperty('trustedCertificates');
+    expect(JSON.stringify(edge)).not.toContain('C:\\\\certs');
+  });
+
   it('writes Nutanix and OpenShift platform sections from official deployment keys', () => {
     const nutanix = applyPatch(tunnel(), {
       platform: 'nutanix',
@@ -559,6 +616,26 @@ describe('run-time options', () => {
 });
 
 describe('PowerShell output', () => {
+  it('uses the exact Content Gateway UEM password parameter in headless mode', () => {
+    const standalone = generatePowerShell(contentGateway(), 'placeholder', 'headless');
+    expect(standalone).toContain('UAG_CONTENT_GATEWAY_API_PASSWORD');
+    expect(standalone).toContain('-awCGAPIServerPwd $env:UAG_CONTENT_GATEWAY_API_PASSWORD');
+    expect(standalone).not.toContain('-awAPIServerPwd $env:UAG_CONTENT_GATEWAY_API_PASSWORD');
+
+    const shared = generatePowerShell(applyPatch(tunnel(), {
+      values: { contentGateway_enabled: true, contentGateway_mode: 'shared' }
+    }), 'placeholder', 'headless');
+    expect(shared).toContain('-awAPIServerPwd $env:UAG_CONTENT_GATEWAY_API_PASSWORD');
+    expect(shared).not.toContain('-awCGAPIServerPwd $env:UAG_CONTENT_GATEWAY_API_PASSWORD');
+  });
+
+  it('lets the vendor prompt for the Content Gateway API password interactively', () => {
+    const ps = generatePowerShell(contentGateway(), 'placeholder', 'interactive');
+    expect(ps).toContain('prompts for the Content Gateway Workspace ONE UEM API password');
+    expect(ps).not.toContain('-awCGAPIServerPwd');
+    expect(ps).not.toContain('UAG_CONTENT_GATEWAY_API_PASSWORD');
+  });
+
   it('delegates Interactive root and admin password prompts to the official script', () => {
     const c = radiusMfa();
     c.values.radius_sharedSecret = 's3cret';

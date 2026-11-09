@@ -51,6 +51,20 @@ describe('topology model', () => {
     expect(topology.edges.find((edge) => edge.kind === 'access')).toBeUndefined();
   });
 
+  it('shows Content Gateway clients and the selected UEM connection', () => {
+    const topology = buildTopology(applyPatch(defaultConfig(), {
+      values: {
+        contentGateway_enabled: true,
+        contentGateway_mode: 'standalone',
+        contentGateway_apiServerUrl: 'https://uem.example.com',
+        contentGateway_airwatchServerHostname: 'content.example.com'
+      }
+    }));
+    expect(topology.nodes).toContainEqual(expect.objectContaining({ id: 'content-gateway-client', sub: 'content.example.com' }));
+    expect(topology.nodes).toContainEqual(expect.objectContaining({ id: 'content-uem', sub: 'uem.example.com' }));
+    expect(topology.edges).toContainEqual(expect.objectContaining({ from: 'content-gateway-client', to: 'uag' }));
+  });
+
   it('routes an inner cascade through an external outer-UAG peer', () => {
     const topology = buildTopology(applyPatch(defaultConfig(), {
       values: {

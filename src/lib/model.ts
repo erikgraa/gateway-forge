@@ -96,8 +96,12 @@ export function applyPatch(base: Config, patch: Partial<Omit<Config, 'values'>> 
   if (patch.platform) out.platform = patch.platform;
   if (patch.values) Object.assign(out.values, patch.values);
   for (const group of GROUPS) normalizeHostEntries(out.values, group.fields);
-  if (patch.wrp) out.wrp = patch.wrp.map((i) => ({ ...newListItem('wrp'), ...i }));
-  if (patch.syslog) out.syslog = patch.syslog.map((i) => ({ ...newListItem('syslog'), ...i }));
+  if (patch.wrp) out.wrp = patch.wrp.map((item) => {
+    const values = { ...newListItem('wrp'), ...item };
+    normalizeHostEntries(values, listDef('wrp').fields);
+    return values;
+  });
+  if (patch.syslog) out.syslog = patch.syslog.map((item) => ({ ...newListItem('syslog'), ...item }));
   compactConfigTrustedCerts(out);
   return out;
 }

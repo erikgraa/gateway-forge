@@ -404,6 +404,37 @@ describe('config validation', () => {
     expect(m).toMatch(/Both PAC file path and URL/);
   });
 
+  it('validates standalone and shared Content Gateway prerequisites', () => {
+    const standalone = applyPatch(defaultConfig(), { values: { contentGateway_enabled: true } });
+    expect(messages(standalone).join('\n')).toMatch(/Workspace ONE UEM API server URL is required/);
+    expect(messages(standalone).join('\n')).toMatch(/Content Gateway hostname is required/);
+
+    const shared = applyPatch(defaultConfig(), {
+      values: {
+        contentGateway_enabled: true,
+        contentGateway_mode: 'shared'
+      }
+    });
+    expect(messages(shared).join('\n')).toMatch(/Shared Content Gateway requires the \[Airwatch\]/);
+
+    const proxy = applyPatch(standalone, {
+      values: { contentGateway_outboundProxyHost: 'proxy.corp.local' }
+    });
+    expect(messages(proxy).join('\n')).toMatch(/Outbound proxy port is required/);
+  });
+
+  it('validates host entries independently for every WRP instance', () => {
+    const c = applyPatch(defaultConfig(), {
+      wrp: [
+        { instanceId: 'one', proxyDestinationUrl: 'https://one.local', hostEntry1: 'not-an-ip one.local' },
+        { instanceId: 'two', proxyDestinationUrl: 'https://two.local', hostEntry1: '10.0.0.2 two.local' }
+      ]
+    });
+    const hostIssues = validateConfig(c).filter((issue) => issue.fieldId === 'hostEntry1');
+    expect(hostIssues).toHaveLength(1);
+    expect(hostIssues[0].list).toEqual({ id: 'wrp', index: 0 });
+  });
+
   it('requires a valid SSH public key only while key access is enabled', () => {
     const appliance = GROUPS.find((g) => g.id === 'appliance')!;
     const keyField = appliance.fields.find((f) => f.id === 'sshPublicKeys')!;

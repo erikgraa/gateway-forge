@@ -234,6 +234,30 @@ export const TEMPLATES: Template[] = [
       )
   },
   {
+    id: 'workspace-one-content-gateway',
+    title: 'Workspace ONE Content Gateway',
+    description: 'Standalone UAG-hosted Content Gateway with a dedicated Workspace ONE UEM connection, UEM configuration ID and TLS syslog.',
+    tags: ['Workspace ONE', 'Content Gateway', 'Managed content'],
+    build: (b) =>
+      fresh(
+        b,
+        {
+          uagName: 'uag-content-01',
+          name: 'uag-content-01',
+          horizon_enabled: false,
+          contentGateway_enabled: true,
+          contentGateway_mode: 'standalone',
+          contentGateway_apiServerUrl: 'https://as1234.awmdm.com',
+          contentGateway_apiServerUsername: 'domain\\svc-uag-content',
+          contentGateway_organizationGroupCode: 'CORP',
+          contentGateway_cgConfigId: 'content-gateway-production',
+          contentGateway_airwatchServerHostname: 'content.example.com',
+          contentGateway_disableAutoConfigUpdate: false
+        },
+        { syslog: [syslogTls] }
+      )
+  },
+  {
     id: 'nutanix-ahv',
     title: 'Nutanix AHV (QCOW2 / PowerShell)',
     description: 'UAG 2609 on Nutanix AHV. Generates the [Nutanix] INI section and uagdeployntnx.ps1 command; the QCOW2 image, cluster and subnets must already exist in Prism Central.',

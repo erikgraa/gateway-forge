@@ -1,7 +1,7 @@
 import { render } from 'svelte/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyPatch, defaultConfig } from './model';
-import { GROUPS } from './schema';
+import { GROUPS, LISTS } from './schema';
 import { generateIni, generateJsonObject } from './generate';
 import { importIni, importJson } from './importer';
 import { validateConfig } from './validate';
@@ -142,6 +142,24 @@ describe('UAG workflow follow-ups', () => {
     } });
     expect(validateConfig(oversized)).toContainEqual(expect.objectContaining({ message: expect.stringContaining('maximum of six') }));
     expect(oversized.values.airwatch_hostEntry6).toContain('host7.example.com');
+  });
+
+  it('keeps WRP host-entry rows isolated and exports contiguous keys per instance', () => {
+    const wrpFields = LISTS.find((list) => list.id === 'wrp')!.fields;
+    const c = applyPatch(defaultConfig(), {
+      wrp: [
+        { instanceId: 'one', proxyDestinationUrl: 'https://one.local', hostEntry1: '10.0.0.1 one.local', hostEntry6: '10.0.0.6 six-one.local' },
+        { instanceId: 'two', proxyDestinationUrl: 'https://two.local', hostEntry1: '10.0.0.2 two.local' }
+      ]
+    });
+    expect(render(HostEntryEditor, {
+      props: { fields: wrpFields.filter((field) => field.hostEntryIndex !== undefined), values: c.wrp[0], issues: [], uid: 'wrp0', list: { id: 'wrp', index: 0 } }
+    }).body).toContain('2 of 6');
+    expect(c.wrp[0]).toMatchObject({ hostEntry1: '10.0.0.1 one.local', hostEntry2: '10.0.0.6 six-one.local' });
+    expect(c.wrp[1].hostEntry2).toBe('');
+    const ini = generateIni(c);
+    expect(ini).toMatch(/\[WebReverseProxy1\][\s\S]*hostEntry1=10\.0\.0\.1 one\.local\nhostEntry2=10\.0\.0\.6 six-one\.local/);
+    expect(ini).toMatch(/\[WebReverseProxy2\][\s\S]*hostEntry1=10\.0\.0\.2 two\.local/);
   });
 
   it('edits Additional Blast URLs as rows while preserving INI/JSON representations and validation', () => {

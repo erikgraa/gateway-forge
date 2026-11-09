@@ -111,6 +111,7 @@ export function importIni(text: string, base?: Config): ImportResult {
   const c = base ? (JSON.parse(JSON.stringify(base)) as Config) : defaultConfig();
   c.values.horizon_enabled = false;
   c.values.airwatch_enabled = false;
+  c.values.contentGateway_enabled = false;
   c.values.cascade_role = 'none';
   c.wrp = [];
   c.syslog = [];
@@ -169,7 +170,16 @@ export function importIni(text: string, base?: Config): ImportResult {
       continue;
     }
     if (lower === 'horizon') c.values.horizon_enabled = true;
-    if (lower === 'airwatch') c.values.airwatch_enabled = true;
+    if (lower === 'airwatch') {
+      c.values.airwatch_enabled = true;
+      if (!sec.entries.some((entry) => entry.key.toLowerCase() === 'tunnelgatewayenabled')) {
+        c.values.airwatch_tunnelGatewayEnabled = false;
+      }
+    }
+    if (lower === 'airwatchcontentgateway') {
+      c.values.contentGateway_enabled = true;
+      c.values.contentGateway_mode = 'standalone';
+    }
     if (lower === 'radiusauth') c.values.radius_enabled = true;
     if (lower === 'snmpsettings') c.values.snmp_enabled = true;
     if (lower === 'idpexternalmetadata1') c.values.saml_enabled = true;
@@ -192,6 +202,21 @@ export function importIni(text: string, base?: Config): ImportResult {
         continue;
       }
       if (lower === 'horizon' && e.key.toLowerCase() === 'originheaderdetailslist') continue;
+      if (lower === 'airwatch' && e.key.toLowerCase() === 'contentgatewayenabled') {
+        c.values.contentGateway_enabled = /^true$/i.test(e.value);
+        c.values.contentGateway_mode = 'shared';
+        result.mapped++;
+        continue;
+      }
+      if (lower === 'airwatch' && e.key.toLowerCase() === 'cgconfigid') {
+        const f = GROUPS.find((group) => group.id === 'contentGateway')!.fields.find((field) => field.key === 'cgConfigId')!;
+        setField(c, c.values, f, e.value, result, `[${sec.section}]`);
+        continue;
+      }
+      if (lower === 'airwatchcontentgateway' && ['apiserverpassword', 'outboundproxypassword'].includes(e.key.toLowerCase())) {
+        result.warnings.push(`[${sec.section}]: "${e.key}" is a runtime secret and was not imported.`);
+        continue;
+      }
       const sshKey = /^sshPublicKey(\d+)$/i.exec(e.key);
       if (lower === 'general' && sshKey) {
         importedSshPublicKeys.push({ index: Number(sshKey[1]), value: e.value });
@@ -210,6 +235,7 @@ export function importIni(text: string, base?: Config): ImportResult {
 
   c.wrp = [...listItems.wrp.entries()].sort((a, b) => a[0] - b[0]).map((x) => x[1]);
   c.syslog = [...listItems.syslog.entries()].sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+  for (const item of c.wrp) normalizeHostEntries(item, LISTS.find((list) => list.id === 'wrp')!.fields);
   if (originDetails.length) {
     c.values.origin = formatOriginHeaderDetails(originDetails.sort((a, b) => a.index - b.index));
   }
@@ -266,11 +292,29 @@ function applyJsonObject(
 }
 
 function applyListJson(c: Config, l: ListDef, arr: unknown[], result: ImportResult, where: string): void {
-  const idx: JsonIndex = new Map(l.fields.filter((f) => f.json !== false).map((f) => [String(f.json ?? f.key).toLowerCase(), { field: f }]));
+  const idx: JsonIndex = new Map(l.fields.filter((f) => f.json !== false && f.hostEntryIndex === undefined).map((f) => [String(f.json ?? f.key).toLowerCase(), { field: f }]));
   for (const raw of arr) {
     if (!raw || typeof raw !== 'object') continue;
     const item = { ...newListItem(l.id) };
-    applyJsonObject(c, raw as Record<string, unknown>, idx, item, where, result, ['enabled', 'identifier', 'name']);
+    const obj = raw as Record<string, unknown>;
+    const hostFields = l.fields.filter((field) => field.hostEntryIndex !== undefined);
+    if (Array.isArray(obj.hostEntries)) {
+      const hostEntries = obj.hostEntries;
+      hostFields.forEach((field, index) => {
+        item[field.id] = typeof hostEntries[index] === 'string' ? hostEntries[index] : '';
+      });
+      result.mapped += Math.min(hostEntries.length, hostFields.length);
+      hostEntries.slice(hostFields.length).forEach((value, index) => {
+        result.unmapped.push({ where: `${where}.hostEntries`, key: String(hostFields.length + index + 1), value: String(value) });
+      });
+    } else {
+      for (const field of hostFields) {
+        if (obj[field.key] === undefined) continue;
+        setField(c, item, field, obj[field.key], result, where);
+      }
+    }
+    applyJsonObject(c, obj, idx, item, where, result, ['enabled', 'identifier', 'name', 'hostEntries', ...hostFields.map((field) => field.key)]);
+    normalizeHostEntries(item, l.fields);
     c[l.id].push(item);
   }
 }
@@ -279,6 +323,7 @@ export function importJson(text: string, base?: Config): ImportResult {
   const c = base ? (JSON.parse(JSON.stringify(base)) as Config) : defaultConfig();
   c.values.horizon_enabled = false;
   c.values.airwatch_enabled = false;
+  c.values.contentGateway_enabled = false;
   c.values.cascade_role = 'none';
   c.wrp = [];
   c.syslog = [];
@@ -348,6 +393,32 @@ export function importJson(text: string, base?: Config): ImportResult {
             applyJsonObject(c, e, buildJsonIndex(['horizon']), c.values, 'edgeService VIEW', result, ['identifier', 'enabled', 'originHeaderDetailsList', 'hostEntries']);
           } else if (e.identifier === 'WEB_REVERSE_PROXY') {
             applyListJson(c, LISTS.find((l) => l.id === 'wrp')!, [e], result, 'edgeService WEB_REVERSE_PROXY');
+          } else if (e.identifier === 'CONTENT_GATEWAY') {
+            c.values.contentGateway_enabled = e.enabled !== false;
+            c.values.contentGateway_mode = 'standalone';
+            if (Array.isArray(e.hostEntries)) {
+              const hostEntries = e.hostEntries;
+              const fields = GROUPS.find((group) => group.id === 'contentGateway')!.fields.filter((field) => field.hostEntryIndex !== undefined);
+              fields.forEach((field, index) => {
+                c.values[field.id] = typeof hostEntries[index] === 'string' ? hostEntries[index] : '';
+              });
+              result.mapped += Math.min(hostEntries.length, fields.length);
+              hostEntries.slice(fields.length).forEach((value, index) => {
+                result.unmapped.push({ where: 'edgeService CONTENT_GATEWAY.hostEntries', key: String(fields.length + index + 1), value: String(value) });
+              });
+            }
+            if (e.apiServerPassword !== undefined || e.outboundProxyPassword !== undefined) {
+              result.warnings.push('edgeService CONTENT_GATEWAY: runtime service passwords were not imported.');
+            }
+            applyJsonObject(
+              c,
+              e,
+              buildJsonIndex(['airwatchContentGateway']),
+              c.values,
+              'edgeService CONTENT_GATEWAY',
+              result,
+              ['identifier', 'enabled', 'airwatchComponentsInstalled', 'airwatchAgentStartUpMode', 'proxyDestinationUrl', 'hostEntries', 'apiServerPassword', 'outboundProxyPassword', 'trustedCertificates']
+            );
           } else {
             result.unmapped.push({ where: 'edgeServiceSettingsList', key: `identifier=${String(e.identifier)}` });
           }
