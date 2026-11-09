@@ -245,7 +245,7 @@ describe('config validation', () => {
 
   it('validates source images against the selected platform inline', () => {
     const vsphere = applyPatch(defaultConfig(), { values: { source: 'https://images.example.com/uag.vhdx' } });
-    expect(messages(vsphere).join('\n')).toMatch(/Source image: vSphere source image URLs must point to a \.ova/);
+    expect(messages(vsphere).join('\n')).toMatch(/Source image: VMware source image URLs must point to a \.ova/);
     const hyperv = applyPatch(defaultConfig(), { platform: 'hyperv', values: { source: 'C:\\images\\uag.ova' } });
     expect(messages(hyperv).join('\n')).toMatch(/Source image: Hyper-V source images must be local \.vhdx paths/);
   });

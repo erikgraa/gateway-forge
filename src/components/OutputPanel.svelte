@@ -96,7 +96,7 @@
               checked={app.config.values.run_disableVerification === true}
               onchange={(e) => (app.config.values.run_disableVerification = e.currentTarget.checked)}
             />
-            <span><strong>Skip OVA/OVF signature verification</strong><small>Adds <code>-disableVerification</code> (vSphere)</small></span>
+            <span><strong>Skip OVA/OVF signature verification</strong><small>Adds <code>-disableVerification</code> (VMware)</small></span>
           </label>
         {/if}
       </div>

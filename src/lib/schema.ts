@@ -499,7 +499,7 @@ export const GROUPS: GroupDef[] = [
         placeholder: 'C:\\ova\\euc-unified-access-gateway-26.09.0.0-xxxxxxxx_OVF10.ova',
         platforms: vsphereHyperv,
         help: (platform) => platform === 'hyperv'
-          ? 'Local Hyper-V .vhdx path. URLs and vSphere .ova files are not supported.'
+          ? 'Local Hyper-V .vhdx path. URLs and VMware .ova files are not supported.'
           : 'Local .ova path or HTTP(S) URL ending in .ova.'
       }),
       text('target', 'vCenter target', 'target', {
@@ -875,7 +875,7 @@ export const GROUPS: GroupDef[] = [
     target: 'azure',
     iniSection: 'Azure',
     platforms: ['azure'],
-    help: 'The [Azure] section replaces the vSphere/Hyper-V network keys. Use uagdeployaz.ps1.',
+    help: 'The [Azure] section replaces the VMware/Hyper-V network keys. Use uagdeployaz.ps1.',
     fields: [
       text('az_subscriptionID', 'Subscription ID', 'subscriptionID', { required: true, placeholder: '12345678-1234-1234-1234-123456788901', json: false }),
       text('az_resourceGroupName', 'Resource group', 'resourceGroupName', { required: true, json: false }),

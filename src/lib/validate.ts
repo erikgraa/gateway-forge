@@ -68,8 +68,8 @@ function validSourceImage(s: string, platform: Platform): string | null {
     if (platform === 'hyperv') return 'Hyper-V source images must be local .vhdx paths, not URLs';
     try {
       const url = new URL(s);
-      if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) return 'vSphere source image URLs must use http:// or https://';
-      if (!url.pathname.toLowerCase().endsWith(extension)) return 'vSphere source image URLs must point to a .ova file';
+      if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) return 'VMware source image URLs must use http:// or https://';
+      if (!url.pathname.toLowerCase().endsWith(extension)) return 'VMware source image URLs must point to a .ova file';
       return null;
     } catch {
       return 'Not a valid source image URL';
@@ -79,7 +79,7 @@ function validSourceImage(s: string, platform: Platform): string | null {
   if (!s.toLowerCase().endsWith(extension)) {
     return platform === 'hyperv'
       ? 'Hyper-V source images must be local .vhdx paths'
-      : 'vSphere source images must be local .ova paths or HTTP(S) URLs';
+      : 'VMware source images must be local .ova paths or HTTP(S) URLs';
   }
   return null;
 }
