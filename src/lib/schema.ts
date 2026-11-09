@@ -135,8 +135,10 @@ export interface Field {
   /** Edit a string-backed value as individually validated rows. */
   rows?: {
     itemLabel: string;
-    rule: 'ipv4' | 'dnsDomain' | 'hostOrIp' | 'hostPort' | 'httpsUrl' | 'staticRoutes';
-    separator?: 'space' | 'comma';
+    rule?: 'ipv4' | 'dnsDomain' | 'hostOrIp' | 'hostPort' | 'httpsUrl' | 'staticRoutes' | 'sshPublicKeys';
+    separator?: 'space' | 'comma' | 'newline';
+    /** Keep imported per-row names aligned when rows are edited or removed. */
+    namesField?: string;
   };
   /** Render the encoded Horizon origin detail records as structured rows. */
   originDetails?: boolean;
@@ -429,13 +431,14 @@ export const GROUPS: GroupDef[] = [
       text('sshPublicKeys', 'SSH public keys', 'sshPublicKey1', {
         type: 'textarea',
         wide: true,
+        rows: { itemLabel: 'SSH public key', rule: 'sshPublicKeys', separator: 'newline', namesField: 'sshPublicKeyNames' },
         rule: 'sshPublicKeys',
         json: 'sshPublicKeys',
         customOutput: true,
         required: (v) => v.sshEnabled === true && v.sshKeyAccessEnabled === true,
         showIf: (v) => v.sshEnabled === true && v.sshKeyAccessEnabled === true,
         placeholder: 'ssh-rsa AAAAB3NzaC1yc2E... administrator@workstation',
-        help: 'Paste one OpenSSH RSA public key or existing .pub file path per line. INI uses numbered sshPublicKeyN file paths; PowerShell writes pasted keys as companion files.'
+        help: 'Add one OpenSSH RSA public key or existing .pub file path per row; paste multiple lines to add several keys. INI uses numbered sshPublicKeyN file paths; PowerShell writes pasted keys as companion files.'
       }),
       text('sshLoginBannerText', 'Login banner text', 'sshLoginBannerText', {
         type: 'textarea',
@@ -463,8 +466,10 @@ export const GROUPS: GroupDef[] = [
       }),
       text('headersToBeLogged', 'Headers to be logged', 'headersToBeLogged', {
         since: '2312',
-        placeholder: 'X-Forwarded-For,host',
-        help: 'Comma-separated list. Default is X-Forwarded-For.'
+        wide: true,
+        rows: { itemLabel: 'Header', separator: 'comma' },
+        placeholder: 'X-Forwarded-For',
+        help: 'Add one header name per row, or paste a comma-separated list. Exported as a comma-separated list. Default is X-Forwarded-For.'
       }),
       bool('unrecognizedSessionsMonitoringEnabled', 'Monitor unrecognized sessions', 'unrecognizedSessionsMonitoringEnabled', true, {
         since: '2406'
