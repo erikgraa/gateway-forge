@@ -360,6 +360,9 @@ summary.card-head::marker { display: none; content: ''; }
 .row-list-item { display: flex; align-items: flex-start; gap: 7px; }
 .row-list-input { display: flex; flex: 1; flex-direction: column; gap: 4px; }
 .row-list-item > button { margin-top: 2px; }
+.static-route-item { align-items: flex-start; }
+.static-route-fields { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(160px, .8fr); flex: 1; gap: 7px; }
+.static-route-fields > .err { grid-column: 1 / -1; }
 .row-list-field > .err, .row-list-field > .hint { margin-top: 1px; }
 .origin-row-item { align-items: flex-end; flex-wrap: wrap; }
 .origin-row-options { display: flex; align-items: center; gap: 12px; min-height: 36px; }

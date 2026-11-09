@@ -385,7 +385,13 @@ describe('config validation', () => {
 
     for (const [deploymentOption, nicCount] of options) {
       const blank = applyPatch(defaultConfig(), {
-        values: { ...Object.fromEntries(topologyIds.map((id) => [id, ''])), deploymentOption }
+        values: {
+          ...Object.fromEntries(topologyIds.map((id) => [id, ''])),
+          deploymentOption,
+          ipmode0: 'STATICV4',
+          ipmode1: 'STATICV4',
+          ipmode2: 'STATICV4'
+        }
       });
       const missing = validateConfig(blank)
         .filter((i) => i.level === 'error' && i.fieldId && topologyIds.includes(i.fieldId))
@@ -437,6 +443,9 @@ describe('config validation', () => {
     const c = applyPatch(defaultConfig(), {
       values: {
         deploymentOption: 'threenic',
+        ipmode0: 'STATICV4',
+        ipmode1: 'STATICV4',
+        ipmode2: 'STATICV4',
         netmask0: '255.255.0.255',
         netmask1: '255.255.254.1',
         netmask2: '255.255.255.0'
