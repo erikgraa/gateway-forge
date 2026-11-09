@@ -1445,6 +1445,7 @@ export const GROUPS: GroupDef[] = [
       bool('saml_allowUnencrypted', 'Allow unencrypted assertions', 'allowUnencrypted', false),
       text('saml_idpUrlThumbprints', 'IdP URL thumbprints (optional)', 'idpUrlThumbprints', {
         rule: 'thumbprints', wide: true, json: false,
+        placeholder: 'sha256=AD:5C:F1:7B:9E:42:...',
         help: 'Optional comma-separated SHA thumbprints for the metadata Artifact Resolution Service URL. Values such as sha1:xx xx ... are preserved. Trusted CA rows do not require a thumbprint. INI-only: uagdeploy derives idpURL from the metadata XML.'
       }),
       ...trustedCertFields((n) => `saml_trustedCert${n}`, {

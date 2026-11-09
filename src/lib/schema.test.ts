@@ -51,6 +51,11 @@ describe('schema integrity', () => {
     expect(wrp.fields.find((field) => field.id === 'proxyDestinationUrlThumbprints')?.placeholder)
       .toContain('sha256=');
   });
+  it('shows an optional URL thumbprint example for SAML identity providers', () => {
+    const saml = GROUPS.find((group) => group.id === 'saml')!;
+    expect(saml.fields.find((field) => field.id === 'saml_idpUrlThumbprints')?.placeholder)
+      .toContain('sha256=');
+  });
   it('shows and validates Syslog TLS certificate examples as PEM paths', () => {
     const fields = LISTS.find((list) => list.id === 'syslog')!.fields;
     for (const id of ['syslogServerCACertPemV2', 'syslogClientCertPemV2', 'syslogClientCertKeyPemV2']) {
