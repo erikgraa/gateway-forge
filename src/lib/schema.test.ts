@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GROUPS } from './schema';
+import { GROUPS, LISTS } from './schema';
 
 describe('schema integrity', () => {
   it('uses unique field and select-option keys within each group', () => {
@@ -36,24 +36,37 @@ describe('schema integrity', () => {
     for (const groupId of ['networking', 'native-ipv4']) {
       const group = GROUPS.find((candidate) => candidate.id === groupId)!;
       const modePrefix = groupId === 'networking' ? 'ipmode' : 'ipMode';
-      expect(group.fields.find((field) => field.id === `${modePrefix}0`)?.default).toBe('STATICV4');
-      expect(group.fields.find((field) => field.id === `${modePrefix}1`)?.default).toBe('STATICV4');
-      expect(group.fields.find((field) => field.id === `${modePrefix}2`)?.default).toBe('STATICV4');
-      expect(group.fields.find((field) => field.id === `${modePrefix}0`)?.options?.some((option) => option.value === '')).toBe(false);
+      expect(group.fields.find((field) => field.id === `${modePrefix}0`)?.default).toBeUndefined();
+      expect(group.fields.find((field) => field.id === `${modePrefix}1`)?.default).toBeUndefined();
+      expect(group.fields.find((field) => field.id === `${modePrefix}2`)?.default).toBeUndefined();
+      expect(group.fields.find((field) => field.id === `${modePrefix}0`)?.options?.some((option) => option.value === '')).toBe(true);
       expect(group.fields.find((field) => field.id === 'ip1')?.placeholder).toBe('10.20.10.21');
       expect(group.fields.find((field) => field.id === 'netmask1')?.placeholder).toBe('255.255.255.0');
       expect(group.fields.find((field) => field.id === 'ip2')?.placeholder).toBe('172.16.10.21');
       expect(group.fields.find((field) => field.id === 'netmask2')?.placeholder).toBe('255.255.255.0');
     }
   });
+  it('shows a thumbprint example for web reverse proxy destinations', () => {
+    const wrp = LISTS.find((list) => list.id === 'wrp')!;
+    expect(wrp.fields.find((field) => field.id === 'proxyDestinationUrlThumbprints')?.placeholder)
+      .toContain('sha256=');
+  });
+  it('shows and validates Syslog TLS certificate examples as PEM paths', () => {
+    const fields = LISTS.find((list) => list.id === 'syslog')!.fields;
+    for (const id of ['syslogServerCACertPemV2', 'syslogClientCertPemV2', 'syslogClientCertKeyPemV2']) {
+      const field = fields.find((candidate) => candidate.id === id)!;
+      expect(field.rule).toBe('pemPath');
+      expect(field.placeholder).toMatch(/\.(pem|crt|cer)$/i);
+    }
+  });
   it('provides required addressing modes and multi-NIC IP examples', () => {
     for (const groupId of ['networking', 'native-ipv4']) {
       const group = GROUPS.find((candidate) => candidate.id === groupId)!;
       const modePrefix = groupId === 'networking' ? 'ipmode' : 'ipMode';
-      expect(group.fields.find((field) => field.id === `${modePrefix}0`)?.default).toBe('STATICV4');
-      expect(group.fields.find((field) => field.id === `${modePrefix}1`)?.default).toBe('STATICV4');
-      expect(group.fields.find((field) => field.id === `${modePrefix}2`)?.default).toBe('STATICV4');
-      expect(group.fields.find((field) => field.id === `${modePrefix}0`)?.options?.some((option) => option.value === '')).toBe(false);
+      expect(group.fields.find((field) => field.id === `${modePrefix}0`)?.default).toBeUndefined();
+      expect(group.fields.find((field) => field.id === `${modePrefix}1`)?.default).toBeUndefined();
+      expect(group.fields.find((field) => field.id === `${modePrefix}2`)?.default).toBeUndefined();
+      expect(group.fields.find((field) => field.id === `${modePrefix}0`)?.options?.some((option) => option.value === '')).toBe(true);
       expect(group.fields.find((field) => field.id === 'ip1')?.placeholder).toBe('10.20.10.21');
       expect(group.fields.find((field) => field.id === 'netmask1')?.placeholder).toBe('255.255.255.0');
       expect(group.fields.find((field) => field.id === 'ip2')?.placeholder).toBe('172.16.10.21');

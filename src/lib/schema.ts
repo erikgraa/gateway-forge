@@ -83,7 +83,7 @@ export function displayFieldLabel(field: Field, values: Values): string {
 
 function usesStaticIpv4(v: Values, nic: 0 | 1 | 2): boolean {
   const mode = String(v[`ipmode${nic}`] ?? '');
-  return mode === '' || mode.includes('STATICV4');
+  return mode.includes('STATICV4');
 }
 
 export interface Option {
@@ -626,7 +626,7 @@ export const GROUPS: GroupDef[] = [
         since: '2306',
         wide: true,
         placeholder: '10.108.172.32/32 10.108.172.253',
-        help: 'Comma-separated CIDR-and-gateway pairs. Format: IPv4-network/prefix gateway-IPv4.'
+        help: 'Enter the destination network/CIDR and gateway separately for each route. Exported as comma-separated CIDR-and-gateway pairs.'
       }),
       text('routes1', 'NIC1 static routes', 'routes1', {
         rule: 'staticRoutes',
@@ -636,7 +636,7 @@ export const GROUPS: GroupDef[] = [
         wide: true,
         showIf: (v) => deploymentNicCount(v) >= 2,
         placeholder: '192.168.20.0/24 192.168.10.1',
-        help: 'Available only on two- and three-NIC deployments; same comma-separated CIDR-and-gateway format as routes0.'
+        help: 'Available only on two- and three-NIC deployments. Each route has its own destination network and gateway.'
       }),
       text('routes2', 'NIC2 static routes', 'routes2', {
         rule: 'staticRoutes',
@@ -646,25 +646,22 @@ export const GROUPS: GroupDef[] = [
         wide: true,
         showIf: (v) => deploymentNicCount(v) === 3,
         placeholder: '172.16.0.0/12 10.2.0.1',
-        help: 'Available only on three-NIC deployments; same comma-separated CIDR-and-gateway format as routes0.'
+        help: 'Available only on three-NIC deployments. Each route has its own destination network and gateway.'
       }),
-      sel('ipmode0', 'NIC0 addressing mode', 'ipmode0', UAG_IP_MODES, {
-        default: 'STATICV4',
+      sel('ipmode0', 'NIC0 addressing mode', 'ipmode0', [{ value: '', label: 'Select addressing mode' }, ...UAG_IP_MODES], {
         required: true,
         platforms: vsphereHyperv,
         since: '2306',
         help: 'Addressing mode for NIC0 / eth0.'
       }),
-      sel('ipmode1', 'NIC1 addressing mode', 'ipmode1', UAG_IP_MODES, {
-        default: 'STATICV4',
+      sel('ipmode1', 'NIC1 addressing mode', 'ipmode1', [{ value: '', label: 'Select addressing mode' }, ...UAG_IP_MODES], {
         required: (v) => deploymentNicCount(v) >= 2,
         platforms: vsphereHyperv,
         since: '2306',
         showIf: (v) => deploymentNicCount(v) >= 2,
         help: 'Addressing mode for NIC1 / eth1.'
       }),
-      sel('ipmode2', 'NIC2 addressing mode', 'ipmode2', UAG_IP_MODES, {
-        default: 'STATICV4',
+      sel('ipmode2', 'NIC2 addressing mode', 'ipmode2', [{ value: '', label: 'Select addressing mode' }, ...UAG_IP_MODES], {
         required: (v) => deploymentNicCount(v) === 3,
         platforms: vsphereHyperv,
         since: '2306',
@@ -726,8 +723,7 @@ export const GROUPS: GroupDef[] = [
     platforms: ['nutanix', 'openshift'],
     help: 'Nutanix and OpenShift use the shared numeric ipModeN/ipN/netmaskN convention. DHCP suppresses stale static values; STATICV4 requires an address and netmask for that NIC.',
     fields: [
-      sel('ipMode0', 'NIC0 IP mode', 'ipMode0', ['DHCPV4', 'STATICV4'], {
-        default: 'STATICV4',
+      sel('ipMode0', 'NIC0 IP mode', 'ipMode0', [{ value: '', label: 'Select IP mode' }, 'DHCPV4', 'STATICV4'], {
         required: true,
         json: false,
         help: 'NIC0 maps to eth0 and the first subnet/NAD.'
@@ -752,8 +748,7 @@ export const GROUPS: GroupDef[] = [
         ipMode: 0,
         json: false
       }),
-      sel('ipMode1', 'NIC1 IP mode', 'ipMode1', ['DHCPV4', 'STATICV4'], {
-        default: 'STATICV4',
+      sel('ipMode1', 'NIC1 IP mode', 'ipMode1', [{ value: '', label: 'Select IP mode' }, 'DHCPV4', 'STATICV4'], {
         showIf: (v) => deploymentNicCount(v) >= 2,
         required: (v) => deploymentNicCount(v) >= 2,
         json: false,
@@ -775,8 +770,7 @@ export const GROUPS: GroupDef[] = [
         required: (v) => v.ipMode1 === 'STATICV4',
         json: false
       }),
-      sel('ipMode2', 'NIC2 IP mode', 'ipMode2', ['DHCPV4', 'STATICV4'], {
-        default: 'STATICV4',
+      sel('ipMode2', 'NIC2 IP mode', 'ipMode2', [{ value: '', label: 'Select IP mode' }, 'DHCPV4', 'STATICV4'], {
         showIf: (v) => deploymentNicCount(v) === 3,
         required: (v) => deploymentNicCount(v) === 3,
         json: false,
@@ -1686,7 +1680,11 @@ export const LISTS: ListDef[] = [
     fields: [
       text('instanceId', 'Instance ID', 'instanceId', { required: true, placeholder: 'intranet', help: 'Unique name for this proxy instance.' }),
       text('proxyDestinationUrl', 'Proxy destination URL', 'proxyDestinationUrl', { rule: 'httpsUrl', required: true, wide: true, placeholder: 'https://intranet.corp.local' }),
-      text('proxyDestinationUrlThumbprints', 'Destination thumbprint(s)', 'proxyDestinationUrlThumbprints', { rule: 'thumbprints', wide: true }),
+      text('proxyDestinationUrlThumbprints', 'Destination thumbprint(s)', 'proxyDestinationUrlThumbprints', {
+        rule: 'thumbprints',
+        wide: true,
+        placeholder: 'sha256=AD:5C:F1:7B:9E:42:...'
+      }),
       text('proxyPattern', 'Proxy pattern (regex)', 'proxyPattern', { required: true, default: '/(.*)', wide: true }),
       sel('authMethods', 'Auth method', 'authMethods', AUTH_METHODS, { default: 'passthrough' }),
       text('healthCheckUrl', 'Health check URI', 'healthCheckUrl', { rule: 'path', placeholder: '/favicon.ico' }),
@@ -1728,9 +1726,15 @@ export const LISTS: ListDef[] = [
       num('port', 'Port', 'port', { rule: 'port', default: 6514, showIf: (v) => v.sysLogType === 'TLS' }),
       bool('syslogSystemMessagesEnabledV2', 'Include system messages', 'syslogSystemMessagesEnabledV2', false),
       text('syslogSettingName', 'Setting name', 'syslogSettingName', { placeholder: 'siem-primary' }),
-      text('syslogServerCACertPemV2', 'Server CA cert (PEM path)', 'syslogServerCACertPemV2', { wide: true, json: false, showIf: (v) => v.sysLogType === 'TLS' }),
-      text('syslogClientCertPemV2', 'Client cert (PEM path)', 'syslogClientCertPemV2', { wide: true, json: false, showIf: (v) => v.sysLogType === 'TLS' }),
-      text('syslogClientCertKeyPemV2', 'Client key (PEM path)', 'syslogClientCertKeyPemV2', { wide: true, json: false, showIf: (v) => v.sysLogType === 'TLS' }),
+      text('syslogServerCACertPemV2', 'Server CA cert (PEM path)', 'syslogServerCACertPemV2', {
+        rule: 'pemPath', wide: true, json: false, placeholder: 'C:\\certs\\syslog-ca.pem', showIf: (v) => v.sysLogType === 'TLS'
+      }),
+      text('syslogClientCertPemV2', 'Client cert (PEM path)', 'syslogClientCertPemV2', {
+        rule: 'pemPath', wide: true, json: false, placeholder: 'C:\\certs\\syslog-client.crt', showIf: (v) => v.sysLogType === 'TLS'
+      }),
+      text('syslogClientCertKeyPemV2', 'Client key (PEM path)', 'syslogClientCertKeyPemV2', {
+        rule: 'pemPath', wide: true, json: false, placeholder: 'C:\\certs\\syslog-client-key.pem', showIf: (v) => v.sysLogType === 'TLS'
+      }),
       text('mqttTopic', 'MQTT topic', 'mqttTopic', { showIf: (v) => v.sysLogType === 'MQTT' })
     ]
   }

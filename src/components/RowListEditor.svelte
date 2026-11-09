@@ -16,6 +16,7 @@
 
   const definition = $derived(field.rows!);
   const separator = $derived(definition.separator ?? 'space');
+  const isStaticRoute = $derived(definition.rule === 'staticRoutes');
   const help = $derived(fieldHelp(field, platform));
   const initial = untrack(() => String(values[field.id] ?? ''));
   const initialSeparator = untrack(() => field.rows?.separator ?? 'space');
@@ -39,6 +40,21 @@
     const pasted = parseListValue((event.currentTarget as HTMLInputElement).value, separator);
     if (pasted.length > 1) rows.splice(index, 1, ...pasted);
     else rows[index] = pasted[0] ?? '';
+    commit();
+  }
+
+  function routeParts(row: string): { network: string; gateway: string } {
+    const [network = '', gateway = ''] = row.trim().split(/\s+/);
+    return { network, gateway };
+  }
+
+  function updateRoute(index: number, part: 'network' | 'gateway', value: string) {
+    const route = routeParts(rows[index] ?? '');
+    if (part === 'network') {
+      rows[index] = value.trim() ? `${value.trim()}${route.gateway ? ` ${route.gateway}` : ''}` : '';
+    } else {
+      rows[index] = route.network ? `${route.network}${value.trim() ? ` ${value.trim()}` : ''}` : '';
+    }
     commit();
   }
 
@@ -79,26 +95,68 @@
   </legend>
   <div class="row-list" id={`f-${field.id}`} tabindex="-1">
     {#each rows as row, index (index)}
-      <div class="row-list-item">
-        <label class="row-list-input">
-          <span class="sr-only">{definition.itemLabel} {index + 1}</span>
-          <input
-            id={`f-${field.id}-${index}`}
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-            value={row}
-            class:bad={!!rowError(index)}
-            placeholder={field.placeholder}
-            aria-label={`${definition.itemLabel} ${index + 1}`}
-            aria-invalid={rowError(index) ? 'true' : undefined}
-            aria-describedby={rowError(index) ? `f-${field.id}-${index}-error` : undefined}
-            oninput={(event) => update(index, event)}
-          />
-          {#if rowError(index)}
-            <span class="err" id={`f-${field.id}-${index}-error`}>{rowError(index)}</span>
-          {/if}
-        </label>
+      {@const route = isStaticRoute ? routeParts(row) : null}
+      <div class="row-list-item" class:static-route-item={isStaticRoute}>
+        {#if route}
+          <div class="static-route-fields">
+            <label class="row-list-input">
+              <span class="lbl">Network / CIDR</span>
+              <input
+                id={`f-${field.id}-${index}-network`}
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                value={route.network}
+                class:bad={!!rowError(index)}
+                placeholder="10.108.172.32/32"
+                aria-label={`${definition.itemLabel} ${index + 1} network`}
+                aria-invalid={rowError(index) ? 'true' : undefined}
+                aria-describedby={rowError(index) ? `f-${field.id}-${index}-error` : undefined}
+                oninput={(event) => updateRoute(index, 'network', event.currentTarget.value)}
+              />
+            </label>
+            <label class="row-list-input">
+              <span class="lbl">Gateway</span>
+              <input
+                id={`f-${field.id}-${index}-gateway`}
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                value={route.gateway}
+                disabled={!route.network}
+                class:bad={!!rowError(index)}
+                placeholder="10.108.172.253"
+                aria-label={`${definition.itemLabel} ${index + 1} gateway`}
+                aria-invalid={rowError(index) ? 'true' : undefined}
+                aria-describedby={rowError(index) ? `f-${field.id}-${index}-error` : undefined}
+                oninput={(event) => updateRoute(index, 'gateway', event.currentTarget.value)}
+              />
+            </label>
+            {#if rowError(index)}
+              <span class="err" id={`f-${field.id}-${index}-error`}>{rowError(index)}</span>
+            {/if}
+          </div>
+        {:else}
+          <label class="row-list-input">
+            <span class="sr-only">{definition.itemLabel} {index + 1}</span>
+            <input
+              id={`f-${field.id}-${index}`}
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              value={row}
+              class:bad={!!rowError(index)}
+              placeholder={field.placeholder}
+              aria-label={`${definition.itemLabel} ${index + 1}`}
+              aria-invalid={rowError(index) ? 'true' : undefined}
+              aria-describedby={rowError(index) ? `f-${field.id}-${index}-error` : undefined}
+              oninput={(event) => update(index, event)}
+            />
+            {#if rowError(index)}
+              <span class="err" id={`f-${field.id}-${index}-error`}>{rowError(index)}</span>
+            {/if}
+          </label>
+        {/if}
         <button
           type="button"
           class="small danger"
