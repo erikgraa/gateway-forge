@@ -1189,11 +1189,6 @@ export const GROUPS: GroupDef[] = [
         json: false,
         help: 'Console admin account used for initial configuration; Console Administrator privileges are required at minimum.'
       }),
-      secret('airwatch_apiServerPassword', 'Workspace ONE UEM API password', 'apiServerPassword', {
-        required: true,
-        json: false,
-        help: 'Used to save the initial Tunnel service configuration. It is not retained in Gateway Forge drafts.'
-      }),
       text('airwatch_organizationGroupCode', 'Organization Group ID', 'organizationGroupCode', {
         placeholder: 'CORP',
         json: false,

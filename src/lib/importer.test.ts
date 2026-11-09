@@ -154,7 +154,8 @@ tunnelConfigurationId=tunnel-production`;
       airwatch_trustedCert2: 'C:\\certs\\uem-issuer.pem'
     });
     expect(generateIni(r.config)).toContain('trustedCert1=C:\\certs\\uem.pem\ntrustedCert2=C:\\certs\\uem-issuer.pem');
-    expect(r.config.values.airwatch_apiServerPassword).toBe('');
+    expect(r.config.values.airwatch_apiServerPassword).toBeUndefined();
+    expect(r.warnings).toContain('[Airwatch]: "apiServerPassword" is a runtime secret and was not imported.');
     expect(r.config.values.airwatch_outboundProxyPassword).toBe('');
   });
   it('does not enable Airwatch when the section is absent', () => {

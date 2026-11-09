@@ -275,6 +275,9 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     const parameter = v.contentGateway_mode === 'shared' ? '-awAPIServerPwd' : '-awCGAPIServerPwd';
     L.push(`- **Content Gateway UEM password:** interactive deployment prompts for it; headless PowerShell reads \`UAG_CONTENT_GATEWAY_API_PASSWORD\` and passes the vendor \`${parameter}\` parameter. It is never written to INI or JSON.`);
   }
+  if (v.airwatch_enabled === true) {
+    L.push('- **Workspace ONE Tunnel UEM password:** both interactive and headless PowerShell require `UAG_TUNNEL_GATEWAY_API_PASSWORD` and pass it through `-awTunnelGatewayAPIServerPwd`. It is never written to INI, JSON, browser drafts, or the generated script.');
+  }
   if (c.adminUsers.length > 0) {
     L.push(`- **Additional admin users (${c.adminUsers.length}):** the INI contains monitoring-role user metadata only. Both interactive and headless PowerShell require \`UAG_NEW_ADMIN_USER_PASSWORDS\` as semicolon-separated \`username:password\` pairs and pass \`-NewAdminuserPwd\`. Passwords are never written to INI, JSON, or browser drafts.`);
   }
