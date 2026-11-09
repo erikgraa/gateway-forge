@@ -483,7 +483,7 @@ function lint(c: Config, push: Push): void {
 
   if (cmpVersion(c.version, TLS_LEGACY_UNTIL) < 0 && (v.tls10Enabled === true || v.tls11Enabled === true)) push({ level: 'warn', section: 'tls', fieldId: 'tls11Enabled', message: 'TLS 1.0/1.1 are enabled - disable them.' });
   if (v.tls12Enabled !== true && (v.tls13Enabled !== true || c.version < '2412')) push({ level: 'error', section: 'tls', fieldId: 'tls12Enabled', message: 'No modern TLS version enabled (TLS 1.2 or 1.3 required).' });
-  if (!nonEmpty('cert_pemCerts') && !nonEmpty('cert_pfxCerts')) push({ level: 'info', section: 'tls', message: 'No server certificate configured - the appliance keeps its self-signed certificate. Use a CA-signed cert in production.' });
+  if (!nonEmpty('cert_pemCerts') && !nonEmpty('cert_pfxCerts')) push({ level: 'warn', section: 'tls', message: 'No server certificate configured - the appliance keeps its self-signed certificate. Use a CA-signed cert in production.' });
 
   if (v.sshEnabled === true) {
     push({ level: 'warn', section: 'general', fieldId: 'sshEnabled', message: 'SSH is enabled - restrict TCP/22 to admin source IPs or use console access.' });

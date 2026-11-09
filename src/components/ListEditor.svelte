@@ -28,21 +28,27 @@
   }
 </script>
 
-<section class="card">
-  <div class="card-head">
+<details class="card collapsible-card" open>
+  <summary class="card-head">
     <h3>{list.title}</h3>
-    <button class="small primary" onclick={add} disabled={items.length >= list.max}>+ Add {list.itemLabel.toLowerCase()}</button>
-  </div>
+    <span class="card-summary-actions">
+      <button class="small primary" onclick={(event) => { event.stopPropagation(); add(); }} disabled={items.length >= list.max}>+ Add {list.itemLabel.toLowerCase()}</button>
+      <span class="collapse-indicator" aria-hidden="true"></span>
+    </span>
+  </summary>
   {#if list.help}<p class="help">{list.help}</p>{/if}
   {#each items as item, i (i)}
     {@const availableFields = list.fields.filter((f) => fieldAvailable(f, c.version, c.platform, item))}
     {@const trustedFields = availableFields.filter((f) => f.trustedCertIndex !== undefined)}
     {@const hostFields = availableFields.filter((f) => f.hostEntryIndex !== undefined)}
-    <div class="list-item">
-      <div class="card-head">
+    <details class="list-item collapsible-item" open>
+      <summary class="card-head">
         <strong>{list.itemLabel} {i + 1}</strong>
-        <button class="small danger" onclick={() => remove(i)}>Remove</button>
-      </div>
+        <span class="card-summary-actions">
+          <button class="small danger" onclick={(event) => { event.stopPropagation(); remove(i); }}>Remove</button>
+          <span class="collapse-indicator" aria-hidden="true"></span>
+        </span>
+      </summary>
       <div class="grid">
         {#each availableFields.filter((f) => f.trustedCertIndex === undefined && f.hostEntryIndex === undefined) as f (f.id)}
           <FieldInput field={f} platform={c.platform} uid={`${list.id}${i}_${f.id}`} bind:values={app.config[list.id][i]} error={err(i, f.id)} />
@@ -54,8 +60,8 @@
           <HostEntryEditor fields={hostFields} bind:values={app.config[list.id][i]} {issues} uid={`${list.id}${i}`} platform={c.platform} list={{ id: list.id, index: i }} />
         {/if}
       </div>
-    </div>
+    </details>
   {:else}
     <p class="help">None configured.</p>
   {/each}
-</section>
+</details>

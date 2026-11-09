@@ -332,6 +332,18 @@ h1 { margin: 0; font-size: clamp(24px, 2.3vw, 32px); font-weight: 680; letter-sp
 }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 14px 17px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel-raised) 48%, transparent); }
 .card-head h3 { margin: 0; color: var(--tx); font-size: 12px; font-weight: 700; letter-spacing: .02em; text-transform: none; }
+summary.card-head { list-style: none; cursor: pointer; }
+summary.card-head::-webkit-details-marker { display: none; }
+summary.card-head::marker { display: none; content: ''; }
+.collapsible-card:not([open]) > .card-head, .collapsible-item:not([open]) > .card-head { border-bottom: 0; }
+.card-summary-actions { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
+.collapse-indicator {
+  flex: 0 0 auto; width: 7px; height: 7px; border-right: 1.5px solid var(--subtle); border-bottom: 1.5px solid var(--subtle);
+  transform: rotate(45deg) translate(-1px, -2px); transition: transform .15s ease;
+}
+.collapsible-card:not([open]) > summary .collapse-indicator, .collapsible-item:not([open]) > summary .collapse-indicator {
+  transform: rotate(-45deg) translate(-1px, -1px);
+}
 .card > .help { margin: 0; padding: 12px 17px 0; }
 .card > .grid { padding: 17px; }
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px 18px; }
@@ -507,6 +519,7 @@ pre.code { flex: 1; margin: 0; padding: 14px 17px 28px; overflow: auto; color: v
 .tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .list-item { margin: 0 17px 15px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-raised); }
 .list-item .card-head { margin: -12px -12px 12px; padding: 10px 12px; background: transparent; }
+.list-item:not([open]) .card-head { margin-bottom: -12px; }
 .trusted-certs { grid-column: 1 / -1; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-raised); }
 .trusted-certs-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
 .trusted-certs-head > div { display: flex; flex-direction: column; gap: 2px; }
