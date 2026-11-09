@@ -289,7 +289,7 @@ describe('config validation', () => {
   });
 
   it('shows only addressing-mode controls for NICs in the active topology', () => {
-    const fields = GROUPS.find((group) => group.id === 'deploy')!.fields
+    const fields = GROUPS.find((group) => group.id === 'networking')!.fields
       .filter((field) => /^ipmode[0-2]$/.test(field.id));
     const available = (deploymentOption: string) => fields
       .filter((field) => fieldAvailable(field, '2609', 'vsphere', { deploymentOption }))

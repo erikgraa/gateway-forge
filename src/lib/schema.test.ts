@@ -14,4 +14,19 @@ describe('schema integrity', () => {
       }
     }
   });
+
+  it('keeps network addressing separate from deployment target settings', () => {
+    const deploy = GROUPS.find((group) => group.id === 'deploy')!;
+    const networking = GROUPS.find((group) => group.id === 'networking')!;
+    expect(deploy.fields.map((field) => field.id)).not.toContain('netInternet');
+    expect(networking.fields.map((field) => field.id)).toEqual(expect.arrayContaining([
+      'netInternet',
+      'ip0',
+      'defaultGateway',
+      'routes0',
+      'ipmode0',
+      'v6ip0',
+      'eth0CustomConfig'
+    ]));
+  });
 });
