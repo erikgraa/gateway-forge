@@ -2,6 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { GROUPS, LISTS } from './schema';
 
 describe('schema integrity', () => {
+  it('describes Horizon cascade roles as UAG types with standalone as the default', () => {
+    const group = GROUPS.find((candidate) => candidate.id === 'cascade')!;
+    const role = group.fields.find((field) => field.id === 'cascade_role')!;
+    expect(group.title).toBe('UAG type');
+    expect(role.label).toBe('UAG type');
+    expect(role.default).toBe('none');
+    expect(role.options?.find((option) => option.value === 'none')?.label).toContain('default');
+  });
+
   it('uses unique field and select-option keys within each group', () => {
     expect(new Set(GROUPS.map((group) => group.id)).size).toBe(GROUPS.length);
     for (const group of GROUPS) {

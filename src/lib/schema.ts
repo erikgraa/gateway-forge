@@ -331,20 +331,20 @@ const vsphereHyperv: Platform[] = ['vsphere', 'hyperv'];
 export const GROUPS: GroupDef[] = [
   {
     id: 'cascade',
-    title: 'Cascading (double DMZ)',
+    title: 'UAG type',
     section: 'horizon',
     target: 'cascade',
     iniSection: 'Cascade',
-    help: 'For environments that mandate two DMZs: the OUTER UAG (DMZ 1) is only a web reverse proxy for the Horizon protocols and forwards to the INNER UAG (DMZ 2), which is a standard Horizon edge service. Create one config per appliance.',
+    help: 'Standalone is the default. For a double-DMZ cascade, configure the OUTER UAG (DMZ 1) as the reverse proxy and the INNER UAG (DMZ 2) as the Horizon edge service. Create one configuration per appliance.',
     fields: [
       sel(
         'cascade_role',
-        'This UAG is',
+        'UAG type',
         'cascade_role',
         [
-          { value: 'none', label: 'Standalone (single DMZ)' },
-          { value: 'outer', label: 'Outer UAG - DMZ 1 (reverse proxy to inner UAG)' },
-          { value: 'inner', label: 'Inner UAG - DMZ 2 (standard Horizon edge)' }
+          { value: 'none', label: 'Standalone (default)' },
+          { value: 'outer', label: 'Outer UAG - DMZ 1 (cascade reverse proxy)' },
+          { value: 'inner', label: 'Inner UAG - DMZ 2 (cascade Horizon edge)' }
         ],
         { default: 'none', json: false }
       ),
