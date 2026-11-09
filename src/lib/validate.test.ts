@@ -6,7 +6,7 @@ import { checkRule, countBySection, parseThumbprint, validThumbprints, validateC
 import { certToDer, powershellThumbprintCommand, thumbprints, uagThumbprint } from './thumbprint';
 import { TEST_CERT_PEM } from './testcert';
 import { fieldAvailable } from './model';
-import { GROUPS } from './schema';
+import { GROUPS, SECTIONS } from './schema';
 
 const messages = (c: ReturnType<typeof defaultConfig>) => validateConfig(c).map((i) => `${i.level}:${i.message}`);
 
@@ -357,6 +357,7 @@ describe('config validation', () => {
     const counts = countBySection(validateConfig(defaultConfig()));
     expect(counts.horizon.error).toBe(0);
     expect(counts.network.error).toBeGreaterThan(0);
+    expect(Object.keys(counts)).toEqual(SECTIONS.map((section) => section.id));
   });
 
   it('validates required Workspace ONE Tunnel settings and proxy inputs', () => {
