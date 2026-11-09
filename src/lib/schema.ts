@@ -183,15 +183,15 @@ export interface SectionDef {
 export const SECTIONS: SectionDef[] = [
   { id: 'general', title: 'General', icon: '⚙' },
   { id: 'network', title: 'Network & deploy', icon: '🌐' },
+  { id: 'tls', title: 'TLS & certs', icon: '🔒' },
+  { id: 'auth', title: 'Authentication', icon: '🔐' },
+  { id: 'monitoring', title: 'Syslog & SNMP', icon: '📈' },
+  { id: 'adminUsers', title: 'Additional admin users', icon: '👤' },
   { id: 'services', title: 'Edge services', icon: '◫' },
   { id: 'horizon', title: 'Horizon', icon: '🖥' },
   { id: 'tunnel', title: 'Workspace ONE Tunnel', icon: '🚇' },
   { id: 'contentGateway', title: 'Workspace ONE Content Gateway', icon: '▣' },
   { id: 'wrp', title: 'Web reverse proxy', icon: '🔀' },
-  { id: 'auth', title: 'Authentication', icon: '🔐' },
-  { id: 'tls', title: 'TLS & certs', icon: '🔒' },
-  { id: 'monitoring', title: 'Syslog & SNMP', icon: '📈' },
-  { id: 'adminUsers', title: 'Additional admin users', icon: '👤' },
   { id: 'templates', title: 'Templates', icon: '📋' }
 ];
 

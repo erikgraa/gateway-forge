@@ -142,7 +142,8 @@
           <button class:on={app.section === s.id} class:optional-service={optionalSection} aria-current={app.section === s.id ? 'page' : undefined} onclick={() => app.goTo(s.id)}>
             <span class="nav-glyph" aria-hidden="true">{s.icon}</span>
             <span class="nav-label"><strong>{s.title}</strong><small>{optionalSection ? 'Optional · not configured' : `Step ${index + 1}`}</small></span>
-            {#if n.error}<i class="badge error" aria-label={`${n.error} errors`}>{n.error}</i>
+            {#if optionalSection}<span class="nav-optional" aria-label="Optional, not configured">⊖</span>
+            {:else if n.error}<i class="badge error" aria-label={`${n.error} errors`}>{n.error}</i>
             {:else if n.warn}<i class="badge warn" aria-label={`${n.warn} warnings`}>{n.warn}</i>
             {:else}<span class="nav-check" aria-label="No findings">✓</span>{/if}
           </button>
