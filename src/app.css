@@ -13,6 +13,7 @@
   --acc-strong: #78a4ff;
   --acc-soft: #17294b;
   --teal: #35c5a2;
+  --templates: #c4b5fd;
   --bad: #ff7185;
   --warn: #e8b84a;
   --ok: #3bd09d;
@@ -39,6 +40,7 @@
   --acc-strong: #174ebc;
   --acc-soft: #eaf1ff;
   --teal: #087e69;
+  --templates: #6d28d9;
   --bad: #c9374f;
   --warn: #9a6500;
   --ok: #087d56;
@@ -155,10 +157,17 @@ kbd { border: 1px solid var(--line); border-bottom-color: var(--line-strong); bo
 .top-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .icon-button { width: 34px; height: 34px; padding: 0; font-size: 17px; }
 .secondary-button { background: transparent; }
-.secondary-button.templates-active {
-  border-color: var(--acc);
-  background: color-mix(in srgb, var(--acc) 12%, var(--panel));
-  color: var(--acc-strong);
+.templates-button {
+  border-color: color-mix(in srgb, var(--templates) 55%, var(--line));
+  background: color-mix(in srgb, var(--templates) 9%, var(--panel));
+  color: var(--templates);
+}
+.templates-button:hover:not(:disabled), .templates-button.templates-active {
+  border-color: var(--templates);
+  background: color-mix(in srgb, var(--templates) 16%, var(--panel));
+}
+.templates-button:focus-visible {
+  outline-color: var(--templates);
 }
 .reset-button {
   display: inline-flex; align-items: center; gap: 6px;

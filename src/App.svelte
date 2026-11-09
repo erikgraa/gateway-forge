@@ -109,7 +109,7 @@
       <button class="reset-button" onclick={resetAll} title="Reset all settings to a blank configuration">
         <span aria-hidden="true">↺</span> Reset configuration
       </button>
-      <button class="secondary-button" class:templates-active={app.section === 'templates'} aria-current={app.section === 'templates' ? 'page' : undefined} onclick={() => app.goTo('templates')}>
+      <button class="templates-button" class:templates-active={app.section === 'templates'} aria-current={app.section === 'templates' ? 'page' : undefined} onclick={() => app.goTo('templates')}>
         <span aria-hidden="true">▦</span> Templates
       </button>
       <button class="secondary-button" onclick={() => (app.showImport = true)}>
