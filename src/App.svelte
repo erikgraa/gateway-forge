@@ -104,6 +104,9 @@
       <button class="icon-button" onclick={() => app.toggleTheme()} aria-label="Toggle color theme" title="Toggle color theme">
         <span aria-hidden="true">{app.theme === 'dark' ? '☀' : '◐'}</span>
       </button>
+      <button class="reset-button" onclick={resetAll} title="Reset all settings to a blank configuration">
+        <span aria-hidden="true">↺</span> Reset configuration
+      </button>
       <button class="secondary-button" onclick={() => (app.showImport = true)}>
         <span aria-hidden="true">↓</span> Import
       </button>
@@ -142,7 +145,6 @@
       <div class="nav-assurance">
         <span class="lock-mark" aria-hidden="true"></span>
         <div><strong>Browser-only workspace</strong><p>No telemetry. Drafts are saved locally with secrets stripped.</p></div>
-        <button class="text-button" onclick={resetAll}>Reset configuration</button>
       </div>
     </nav>
 
