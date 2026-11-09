@@ -346,7 +346,7 @@ export function validateConfig(c: Config): Issue[] {
           continue;
         }
         rows.forEach((row, index) => {
-          const error = checkRule(f.rows!.rule, row, c.platform);
+          const error = f.rows!.rule ? checkRule(f.rows!.rule, row, c.platform) : null;
           if (error) push({
             level: 'error',
             section: g.section,

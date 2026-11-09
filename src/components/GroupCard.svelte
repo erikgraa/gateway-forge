@@ -4,6 +4,7 @@
   import type { Field, GroupDef, Values } from '../lib/schema';
   import type { Issue } from '../lib/validate';
   import FieldInput from './FieldInput.svelte';
+  import VCenterTargetEditor from './VCenterTargetEditor.svelte';
   import TrustedCertEditor from './TrustedCertEditor.svelte';
   import RowListEditor from './RowListEditor.svelte';
   import HostEntryEditor from './HostEntryEditor.svelte';
@@ -60,7 +61,7 @@
     </summary>
     {#if group.help}<p class="help">{group.help}</p>{/if}
     {#if enabled}
-      <div class="grid">
+      <div class="grid" class:policy-grid={group.id === 'timeouts'}>
         {#each renderedFields as f (f.id)}
           {#if f.trustedCertIndex === 1 && trustedFields.length}
             <TrustedCertEditor fields={trustedFields} bind:values={app.config.values as Values} {issues} uid={group.id} platform={c.platform} />
@@ -70,6 +71,8 @@
             <RowListEditor field={f} platform={c.platform} bind:values={app.config.values as Values} {issues} />
           {:else if f.originDetails}
             <AllowedOriginEditor field={f} platform={c.platform} bind:values={app.config.values as Values} {issues} />
+          {:else if f.id === 'target' && c.platform === 'vsphere'}
+            <VCenterTargetEditor field={f} bind:values={app.config.values as Values} error={err(f.id)} />
           {:else if f.trustedCertIndex === undefined && f.hostEntryIndex === undefined}
             <FieldInput field={f} platform={c.platform} bind:values={app.config.values as Values} error={err(f.id)} />
           {/if}

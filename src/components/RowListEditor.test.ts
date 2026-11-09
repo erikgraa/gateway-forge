@@ -8,6 +8,26 @@ const field = GROUPS.find((group) => group.id === 'dns')!.fields.find((item) => 
 const blastField = GROUPS.find((group) => group.id === 'horizon')!.fields.find((item) => item.id === 'blastAllowedHostHeaderValues')!;
 
 describe('RowListEditor', () => {
+  it('renders SSH keys with spaces intact and a conditional required indicator', () => {
+    const keyField = GROUPS.find((group) => group.id === 'appliance')!.fields.find((item) => item.id === 'sshPublicKeys')!;
+    const values = { ...defaultConfig().values, sshEnabled: true, sshKeyAccessEnabled: true, sshPublicKeys: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7 admin@host\nC:\\SSH keys\\backup.pub' };
+    const { body } = render(RowListEditor, { props: { field: keyField, values, issues: [], platform: 'vsphere' } });
+    expect(body).toContain('aria-label="Add ssh public key"');
+    expect(body).toContain('aria-label="SSH public key 2"');
+    expect(body).toContain('value="C:\\SSH keys\\backup.pub"');
+    expect(body).toContain('title="Required"');
+    expect(body.match(/type="text"/g)).toHaveLength(2);
+  });
+
+  it('renders imported header names as separate rows', () => {
+    const headerField = GROUPS.find((group) => group.id === 'appliance')!.fields.find((item) => item.id === 'headersToBeLogged')!;
+    const values = { ...defaultConfig().values, headersToBeLogged: 'X-Forwarded-For,host' };
+    const { body } = render(RowListEditor, { props: { field: headerField, values, issues: [], platform: 'vsphere' } });
+    expect(body).toContain('aria-label="Add header"');
+    expect(body).toContain('value="X-Forwarded-For"');
+    expect(body).toContain('value="host"');
+    expect(body).toContain('aria-label="Remove header 2"');
+  });
   it('renders accessible DNS search domain add and remove rows', () => {
     const values = { ...defaultConfig().values, dnsSearch: 'corp.local example.local' };
     const { body } = render(RowListEditor, { props: { field, values, issues: [] } });

@@ -163,6 +163,19 @@ Gateway passwords are deployment runtime inputs and are never persisted in
 INI, JSON, or browser drafts. The same module establishes WRP `hostEntryN`
 handling; Gateway Forge's six-row cap is a project UI limit.
 
+**Blank UEM password key check (2026-11-09):** the public
+[deployment module's `GetEdgeServiceSettingsAWCommon`](https://github.com/euc-oss/euc-samples/blob/b75247f2f149fab9c4a3f6d3dca622d7a4f77450/UAG-Samples/uag-terraform/uagdeploy.psm1#L2474-L2500)
+receives `$pwd` from the deployment parameter, prompts only if it is absent,
+and inserts a nonempty password into the deployment payload. It does not read
+`apiServerPassword` from the INI. Its Airwatch and standalone Content Gateway
+callers pass `awAPIServerPwd` and `awCGAPIServerPwd`, respectively. Therefore
+an explicit blank `apiServerPassword=` INI entry is not required by this
+public reference, and Gateway Forge continues to omit it. This public snapshot
+was last updated on 2025-08-14; this check does **not** independently establish
+the same behavior for the downloaded UAG 2609 package, which was unavailable
+in this workspace. Recheck the exact release module before treating this as
+a release-specific guarantee.
+
 The same UAG 2609 module's `GetNewAdminUserSettings`,
 `GetAdminUserSetting`, `ValidateMonitorUserName`, and `ReadPwdToHash`
 functions establish `[AdminUserN]` metadata, the fixed `ROLE_MONITORING`

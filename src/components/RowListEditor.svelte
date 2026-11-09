@@ -18,29 +18,55 @@
   const separator = $derived(definition.separator ?? 'space');
   const isStaticRoute = $derived(definition.rule === 'staticRoutes');
   const help = $derived(fieldHelp(field, platform));
+  const required = $derived(typeof field.required === 'function' ? field.required(values) : field.required === true);
+  const namesField = $derived(definition.namesField);
   const initial = untrack(() => String(values[field.id] ?? ''));
   const initialSeparator = untrack(() => field.rows?.separator ?? 'space');
   let emitted = $state(initial);
   let rows = $state<string[]>(parseListValue(initial, initialSeparator));
+  let emittedNames = $state(untrack(() => String(field.rows?.namesField ? values[field.rows.namesField] ?? '' : '')));
+  let names = $state<string[]>(untrack(() => emittedNames.split(/\r?\n/)));
 
   $effect(() => {
     const external = String(values[field.id] ?? '');
-    if (external !== emitted) {
+    const externalNames = String(namesField ? values[namesField] ?? '' : '');
+    if (external !== emitted || externalNames !== emittedNames) {
       rows = parseListValue(external, separator);
+      names = externalNames.split(/\r?\n/);
       emitted = external;
+      emittedNames = externalNames;
     }
   });
 
   function commit() {
     emitted = serializeListValue(rows, separator);
     values[field.id] = emitted;
+    if (namesField) {
+      emittedNames = rows.flatMap((row, index) => row.trim() ? [names[index] ?? ''] : []).join('\n');
+      values[namesField] = emittedNames;
+    }
+  }
+
+  function updateValue(index: number, raw: string) {
+    const pasted = parseListValue(raw, separator);
+    if (pasted.length > 1) {
+      rows.splice(index, 1, ...pasted);
+      names.splice(index, 1, names[index] ?? '', ...pasted.slice(1).map(() => ''));
+    } else rows[index] = separator === 'newline' ? raw : pasted[0] ?? '';
+    commit();
   }
 
   function update(index: number, event: Event) {
-    const pasted = parseListValue((event.currentTarget as HTMLInputElement).value, separator);
-    if (pasted.length > 1) rows.splice(index, 1, ...pasted);
-    else rows[index] = pasted[0] ?? '';
-    commit();
+    updateValue(index, (event.currentTarget as HTMLInputElement).value);
+  }
+
+  function paste(index: number, event: ClipboardEvent) {
+    if (separator !== 'newline') return;
+    const text = event.clipboardData?.getData('text/plain') ?? '';
+    if (parseListValue(text, separator).length > 1) {
+      event.preventDefault();
+      updateValue(index, text);
+    }
   }
 
   function routeParts(row: string): { network: string; gateway: string } {
@@ -60,17 +86,21 @@
 
   function add() {
     rows.push('');
+    names[rows.length - 1] = '';
   }
 
   function remove(index: number) {
     rows.splice(index, 1);
+    names.splice(index, 1);
     commit();
   }
 
   function rowError(index: number): string | undefined {
+    if (!rows[index]?.trim()) return undefined;
+    const populatedIndex = rows.slice(0, index).filter((row) => row.trim()).length;
     return issues.find((issue) =>
       issue.fieldId === field.id &&
-      issue.rowIndex === index &&
+      issue.rowIndex === populatedIndex &&
       !issue.list &&
       issue.level === 'error'
     )?.message.replace(/^[^:]+ \d+: /, '');
@@ -88,7 +118,7 @@
   <legend class="lbl">
     {field.label}
     <FieldDetails {field} {platform} />
-    {#if field.required === true}<span class="req" title="Required">*</span>{/if}
+    {#if required}<span class="req" title="Required">*</span>{/if}
     <button type="button" class="small primary" onclick={add} aria-label={`Add ${definition.itemLabel.toLowerCase()}`}>
       + Add {definition.itemLabel.toLowerCase()}
     </button>
@@ -151,6 +181,7 @@
               aria-invalid={rowError(index) ? 'true' : undefined}
               aria-describedby={rowError(index) ? `f-${field.id}-${index}-error` : undefined}
               oninput={(event) => update(index, event)}
+              onpaste={(event) => paste(index, event)}
             />
             {#if rowError(index)}
               <span class="err" id={`f-${field.id}-${index}-error`}>{rowError(index)}</span>

@@ -37,7 +37,7 @@
     </span>
   </label>
 {:else}
-  <label class="field" class:wide={field.wide} for={id}>
+  <label class="field" class:wide={field.wide} class:compact-number={field.type === 'number'} class:compact-select={field.id === 'secureRandomSource' || field.id === 'sshInterface'} for={id}>
     <span class="lbl">
       {label}
       <FieldDetails {field} {platform} {uid} />
