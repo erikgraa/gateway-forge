@@ -65,7 +65,7 @@
             placeholder={field.placeholder}
             aria-describedby={`${id}-help`}
           />
-          <span id={`${id}-help`} class:err={!!message} class="hint">{message ?? 'Absolute local .pem path read by uagdeploy.'}</span>
+          <span id={`${id}-help`} class:err={!!message} class="hint">{message ?? 'Absolute local .pem, .crt, or .cer path read by uagdeploy.'}</span>
         </label>
         {#if rowCount > 1}
           <button type="button" class="small danger" onclick={() => remove(index)} aria-label={`Remove trusted CA certificate path ${index + 1}`}>Remove</button>

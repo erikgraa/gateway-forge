@@ -97,7 +97,7 @@ describe('trusted CA path families', () => {
     c.values.trustedCert2 = 'C:\\certs\\root.txt';
     const messages = validateConfig(c).map((issue) => `${issue.fieldId}:${issue.message}`).join('\n');
     expect(messages).toContain('trustedCert1:Trusted CA certificate (PEM path): Must be an absolute local path');
-    expect(messages).toContain('trustedCert2:Additional trusted CA certificate (PEM path): Must point to a .pem file');
+    expect(messages).toContain('trustedCert2:Additional trusted CA certificate (PEM path): Must point to a .pem, .crt, or .cer file');
 
     const values = defaultConfig().values;
     for (let index = 1; index <= 9; index++) values[`trustedCert${index}`] = `/certs/${index}.pem`;

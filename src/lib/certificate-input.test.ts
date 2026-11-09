@@ -53,6 +53,20 @@ describe('source-backed certificate input modes', () => {
     expect(validateConfig(result.config)).toContainEqual(expect.objectContaining({ fieldId: 'cert_mode', level: 'error' }));
   });
 
+  it.each(['cert', 'adminCert', 'samlSigning', 'samlEncryption', 'samlIdp'])('requires separate %s PEM certificate and private-key files', (prefix) => {
+    const selector = GROUPS.flatMap((group) => group.fields).find((field) => field.id === `${prefix}_mode`)!;
+    const input = selector.certificateInput!;
+    const c = samlConfig();
+    c.values[selector.id] = 'PEM';
+    c.values[input.pemCert] = 'C:\\Certs\\gateway.pem';
+    c.values[input.pemKey] = 'c:/certs/gateway.pem';
+    expect(validateConfig(c)).toContainEqual(expect.objectContaining({
+      level: 'error',
+      fieldId: input.pemKey,
+      message: expect.stringContaining('separate files')
+    }));
+  });
+
   it('does not accept or serialize an invented PFX password key, even with secrets included', () => {
     const result = importIni('[SSLCert]\npfxCerts=cert.pfx\npfxPassword=example-not-a-real-password');
     expect(result.unmapped).toContainEqual(expect.objectContaining({ key: 'pfxPassword' }));

@@ -6,7 +6,7 @@ import { parseOriginHeaderDetails } from './generate';
 import { sshPublicKeyValidationError } from './ssh';
 import { parseListValue } from './listValue';
 import { HOST_ENTRY_MAX, hostEntryValues } from './host-entries';
-import { certificateMode } from './certificate-input';
+import { certificateMode, certificatePathsMatch } from './certificate-input';
 
 export type Level = 'error' | 'warn' | 'info';
 
@@ -222,7 +222,7 @@ export function checkRule(rule: Rule, raw: string, platform: Platform = 'vsphere
     case 'pemPath': {
       const absolute = /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(s);
       if (!absolute) return 'Must be an absolute local path (Windows, UNC, or Unix)';
-      if (!/\.pem$/i.test(s)) return 'Must point to a .pem file';
+      if (!/\.(?:pem|crt|cer)$/i.test(s)) return 'Must point to a .pem, .crt, or .cer file';
       return null;
     }
     case 'int':
@@ -283,6 +283,14 @@ export function validateConfig(c: Config): Issue[] {
         if (/\.p(?:fx|12)$/i.test(String(v[fieldId] ?? '').trim())) {
           push({ level: 'error', section: g.section, fieldId, message: `${selector.label}: a PFX/PKCS#12 file cannot be used as a PEM certificate or private key.` });
         }
+      }
+      if (certificatePathsMatch(v[input.pemCert], v[input.pemKey])) {
+        push({
+          level: 'error',
+          section: g.section,
+          fieldId: input.pemKey,
+          message: `${selector.label}: certificate and private key must reference separate files.`
+        });
       }
       if (input.pfx && !isEmpty(v[input.pfx]) && hasPem) {
         push({ level: 'error', section: g.section, fieldId: selector.id, message: `${selector.label}: choose either PEM or PFX, not both. Select a mode to clear incompatible paths.` });

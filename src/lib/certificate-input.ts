@@ -26,3 +26,14 @@ export function selectCertificateMode(values: Values, selector: string, input: C
     if (input.alias) values[input.alias] = '';
   }
 }
+
+export function certificatePathsMatch(certPath: unknown, keyPath: unknown): boolean {
+  const normalize = (path: unknown) => String(path ?? '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/\/+/g, '/')
+    .toLowerCase();
+  const cert = normalize(certPath);
+  const key = normalize(keyPath);
+  return cert.length > 0 && cert === key;
+}
