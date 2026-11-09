@@ -165,22 +165,46 @@
       </header>
 
       <section class="environment-bar" aria-label="Target environment">
-        <div class="environment-item">
+        <div class="environment-item environment-release">
           <span class="environment-label">Release</span>
-          <label class="sr-only" for="uag-version">Target UAG release</label>
-          <select id="uag-version" bind:value={app.config.version} title={`Supported releases per the Omnissa Lifecycle Matrix (${LIFECYCLE_SNAPSHOT})`}>
-            {#each [...VERSIONS].reverse() as v (v.id)}
-              <option value={v.id}>UAG {v.id}{v.latest ? ' · recommended security baseline' : ' · older supported release'}</option>
-            {/each}
-          </select>
+          <div class="environment-picker release-picker" role="group" aria-label="Target UAG release" title={`Supported releases per the Omnissa Lifecycle Matrix (${LIFECYCLE_SNAPSHOT})`}>
+            <button
+              type="button"
+              class="environment-choice release-choice"
+              class:active={app.config.version === latestVersion.id}
+              aria-pressed={app.config.version === latestVersion.id}
+              onclick={useLatestVersion}
+            >
+              <span>UAG {latestVersion.id}</span><small>Recommended</small>
+            </button>
+            <label class="sr-only" for="uag-version">Older supported UAG release</label>
+            <select
+              id="uag-version"
+              value={app.config.version === latestVersion.id ? '' : app.config.version}
+              onchange={(event) => (app.config.version = event.currentTarget.value)}
+              aria-label="Older supported UAG release"
+            >
+              <option value="" disabled>Older supported release</option>
+              {#each [...VERSIONS].reverse().filter((v) => !v.latest) as v (v.id)}
+                <option value={v.id}>UAG {v.id}</option>
+              {/each}
+            </select>
+          </div>
         </div>
-        <div class="environment-divider"></div>
-        <div class="environment-item">
+        <div class="environment-item environment-platform">
           <span class="environment-label">Platform</span>
-          <label class="sr-only" for="platform">Deployment platform</label>
-          <select id="platform" bind:value={app.config.platform}>
-            {#each PLATFORMS as p (p.id)}<option value={p.id} disabled={!platformAvailable(p.id, app.config.version)}>{p.label}</option>{/each}
-          </select>
+          <div class="environment-picker platform-picker" role="group" aria-label="Deployment platform">
+            {#each PLATFORMS as p (p.id)}
+              <button
+                type="button"
+                class="environment-choice"
+                class:active={app.config.platform === p.id}
+                aria-pressed={app.config.platform === p.id}
+                disabled={!platformAvailable(p.id, app.config.version)}
+                onclick={() => (app.config.platform = p.id)}
+              >{p.label}</button>
+            {/each}
+          </div>
         </div>
         <div class="environment-summary">
           <span>Artifact</span><strong>{app.config.values.uagName || 'Unnamed appliance'}</strong>
