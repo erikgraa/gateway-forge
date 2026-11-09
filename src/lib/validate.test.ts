@@ -20,6 +20,10 @@ describe('field validation', () => {
     expect(checkRule('netmask', '255.255.0.255')).not.toBeNull();
     expect(checkRule('netmask', '255.0.255.0')).not.toBeNull();
     expect(checkRule('netmask', '24')).not.toBeNull();
+    expect(checkRule('pemPath', 'C:\\certs\\chain.pem')).toBeNull();
+    expect(checkRule('pemPath', 'C:\\certs\\chain.crt')).toBeNull();
+    expect(checkRule('pemPath', 'C:\\certs\\chain.cer')).toBeNull();
+    expect(checkRule('pemPath', 'C:\\certs\\chain.txt')).not.toBeNull();
     expect(checkRule('hostOrIp', 'syslog.corp.local:514')).toBeNull();
     expect(checkRule('hostOrIp', 'bad host')).not.toBeNull();
     expect(checkRule('httpsUrl', 'https://cs01.corp.local')).toBeNull();
