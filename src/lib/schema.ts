@@ -140,6 +140,8 @@ export interface Field {
   originDetails?: boolean;
   /** Store UI line breaks as literal \n sequences when exporting and decode them on import. */
   escapeNewlines?: boolean;
+  /** Render select options as accessible buttons instead of a dropdown. */
+  buttonOptions?: boolean;
 }
 
 export function fieldHelp(field: Field, platform: Platform): string | undefined {
@@ -346,7 +348,7 @@ export const GROUPS: GroupDef[] = [
           { value: 'outer', label: 'Outer UAG - DMZ 1 (cascade reverse proxy)' },
           { value: 'inner', label: 'Inner UAG - DMZ 2 (cascade Horizon edge)' }
         ],
-        { default: 'none', json: false }
+        { default: 'none', json: false, buttonOptions: true, wide: true }
       ),
       text('cascade_innerUrl', 'Inner UAG URL', 'cascade_innerUrl', {
         rule: 'httpsUrl',
