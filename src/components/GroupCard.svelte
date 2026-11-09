@@ -21,7 +21,7 @@
   const visible = $derived(group.fields.filter((f) => fieldAvailable(f, c.version, c.platform, c.values)));
   const trustedFields = $derived(visible.filter((f) => f.trustedCertIndex !== undefined));
   const hostFields = $derived(visible.filter((f) => f.hostEntryIndex !== undefined));
-  const regularFields = $derived(visible.filter((f) => f.trustedCertIndex === undefined && f.hostEntryIndex === undefined && f.id !== group.enabledBy));
+  const renderedFields = $derived(visible.filter((f) => f.id !== group.enabledBy));
   const hiddenByVersion = $derived(group.fields.filter((f) => f.since && c.version < f.since).length);
 
   function err(fieldId: string): string | undefined {
@@ -57,19 +57,17 @@
     {#if group.help}<p class="help">{group.help}</p>{/if}
     {#if enabled}
       <div class="grid">
-        {#each regularFields as f (f.id)}
-          {#if f.rows}
+        {#each renderedFields as f (f.id)}
+          {#if f.trustedCertIndex === 1 && trustedFields.length}
+            <TrustedCertEditor fields={trustedFields} bind:values={app.config.values as Values} {issues} uid={group.id} platform={c.platform} />
+          {:else if f.hostEntryIndex === 1 && hostFields.length}
+            <HostEntryEditor fields={hostFields} bind:values={app.config.values as Values} {issues} platform={c.platform} />
+          {:else if f.trustedCertIndex === undefined && f.hostEntryIndex === undefined && f.rows}
             <RowListEditor field={f} platform={c.platform} bind:values={app.config.values as Values} {issues} />
-          {:else}
+          {:else if f.trustedCertIndex === undefined && f.hostEntryIndex === undefined}
             <FieldInput field={f} platform={c.platform} bind:values={app.config.values as Values} error={err(f.id)} />
           {/if}
         {/each}
-        {#if trustedFields.length}
-          <TrustedCertEditor fields={trustedFields} bind:values={app.config.values as Values} {issues} uid={group.id} platform={c.platform} />
-        {/if}
-        {#if hostFields.length}
-          <HostEntryEditor fields={hostFields} bind:values={app.config.values as Values} {issues} platform={c.platform} />
-        {/if}
       </div>
       {#if hiddenByVersion > 0}
         <div class="notice">{hiddenByVersion} setting{hiddenByVersion > 1 ? 's' : ''} in this group {hiddenByVersion > 1 ? 'are' : 'is'} not available in UAG {c.version} and {hiddenByVersion > 1 ? 'are' : 'is'} hidden.</div>

@@ -1190,9 +1190,7 @@ export const GROUPS: GroupDef[] = [
         json: false,
         help: 'IP address, hostname, and optional alias, separated by spaces.'
       })),
-      text('airwatch_trustedCert1', 'Trusted CA certificate (PEM path)', 'trustedCert1', {
-        wide: true,
-        rule: 'pemPath',
+      ...trustedCertFields((n) => `airwatch_trustedCert${n}`, {
         placeholder: 'C:\\certs\\workspace-one-ca.pem',
         json: false,
         help: 'PEM certificate file added to the UAG trust store by the deployment script.'

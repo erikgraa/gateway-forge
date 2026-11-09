@@ -11,7 +11,7 @@ const wrpFields = LISTS.find((list) => list.id === 'wrp')!.fields;
 
 describe('trusted CA path families', () => {
   it('defines trustedCert1 through trustedCert9 for every verified target', () => {
-    const targets = ['horizon', 'wrp', 'outboundproxy', 'cascade'];
+    const targets = ['horizon', 'airwatch', 'wrp', 'outboundproxy', 'cascade'];
     for (const target of targets) {
       const fields = target === 'wrp'
         ? wrpFields
@@ -38,6 +38,18 @@ describe('trusted CA path families', () => {
     expect(ini).toContain('trustedCert1=C:\\certs\\root.pem\ntrustedCert2=C:\\certs\\nine.pem');
     expect(ini).not.toContain('trustedCert3=');
     expect(ini).toContain('trustedCert1=/certs/one.pem\ntrustedCert2=/certs/four.pem');
+  });
+
+  it('keeps Tunnel host entries before PAC paths and renders nine trust rows', () => {
+    const fields = GROUPS.find((group) => group.id === 'airwatch')!.fields;
+    const firstHost = fields.findIndex((field) => field.hostEntryIndex === 1);
+    const lastHost = fields.findIndex((field) => field.hostEntryIndex === 6);
+    const pacPath = fields.findIndex((field) => field.id === 'airwatch_pacFilePath');
+    expect(firstHost).toBeGreaterThan(-1);
+    expect(lastHost).toBeGreaterThan(firstHost);
+    expect(pacPath).toBeGreaterThan(lastHost);
+    expect(fields.filter((field) => field.trustedCertIndex).map((field) => field.key))
+      .toEqual(Array.from({ length: 9 }, (_, index) => `trustedCert${index + 1}`));
   });
 
   it('imports sparse INI paths in documented order without empty slots', () => {
@@ -113,6 +125,9 @@ describe('trusted CA path families', () => {
     c.values.contentGateway_enabled = true;
     c.values.contentGateway_trustedCert1 = '/certs/workspace-one-root.pem';
     c.values.contentGateway_trustedCert2 = '/certs//workspace-one-root.pem';
+    c.values.airwatch_enabled = true;
+    c.values.airwatch_trustedCert1 = 'C:\\certs\\tunnel-root.pem';
+    c.values.airwatch_trustedCert2 = 'c:/certs/tunnel-root.pem';
     c.wrp = [
       { instanceId: 'one', proxyDestinationUrl: 'https://one.local', trustedCert1: '/certs/web.pem', trustedCert2: '/certs/web.pem' },
       { instanceId: 'two', proxyDestinationUrl: 'https://two.local', trustedCert1: '/certs/web.pem' }
@@ -122,6 +137,7 @@ describe('trusted CA path families', () => {
     expect(duplicates).toEqual(expect.arrayContaining([
       expect.objectContaining({ section: 'horizon', fieldId: 'trustedCert2' }),
       expect.objectContaining({ section: 'contentGateway', fieldId: 'contentGateway_trustedCert2' }),
+      expect.objectContaining({ section: 'tunnel', fieldId: 'airwatch_trustedCert2' }),
       expect.objectContaining({ section: 'wrp', fieldId: 'trustedCert2', list: { id: 'wrp', index: 0 } })
     ]));
     expect(duplicates).not.toEqual(expect.arrayContaining([

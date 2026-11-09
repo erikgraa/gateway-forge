@@ -357,6 +357,7 @@ describe('INI generation', () => {
         airwatch_ntlmAuthentication: true,
         airwatch_hostEntry1: '10.0.0.20 api.corp.local api-alias',
         airwatch_trustedCert1: 'C:\\certs\\uem-ca.pem',
+        airwatch_trustedCert9: 'C:\\certs\\uem-issuer.pem',
         airwatch_pacFilePath: 'C:\\pac\\tunnel.pac'
       }
     });
@@ -374,7 +375,8 @@ describe('INI generation', () => {
     expect(ini).toContain('ntlmAuthentication=true');
     expect(ini).toContain('pacFilePath=C:\\pac\\tunnel.pac');
     expect(ini).toContain('hostEntry1=10.0.0.20 api.corp.local api-alias');
-    expect(ini).toContain('trustedCert1=C:\\certs\\uem-ca.pem');
+    expect(ini).toContain('trustedCert1=C:\\certs\\uem-ca.pem\ntrustedCert2=C:\\certs\\uem-issuer.pem');
+    expect(ini).not.toContain('trustedCert3=C:');
   });
 
   it('emits Tunnel on every supported deployment platform and omits it when disabled', () => {

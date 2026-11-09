@@ -131,6 +131,7 @@ outboundProxyPassword=*****
 reinitializeGatewayProcess=false
 airwatchServerHostname=tunnel.example.com
 trustedCert1=C:\\certs\\uem.pem
+trustedCert9=C:\\certs\\uem-issuer.pem
 hostEntry1=10.0.0.20 api.corp.local
 tunnelConfigurationId=tunnel-production`;
     const r = importIni(input);
@@ -148,8 +149,11 @@ tunnelConfigurationId=tunnel-production`;
       airwatch_outboundProxyHost: 'proxy.corp.local',
       airwatch_outboundProxyPort: 3128,
       airwatch_airwatchServerHostname: 'tunnel.example.com',
-      airwatch_tunnelConfigurationId: 'tunnel-production'
+      airwatch_tunnelConfigurationId: 'tunnel-production',
+      airwatch_trustedCert1: 'C:\\certs\\uem.pem',
+      airwatch_trustedCert2: 'C:\\certs\\uem-issuer.pem'
     });
+    expect(generateIni(r.config)).toContain('trustedCert1=C:\\certs\\uem.pem\ntrustedCert2=C:\\certs\\uem-issuer.pem');
     expect(r.config.values.airwatch_apiServerPassword).toBe('');
     expect(r.config.values.airwatch_outboundProxyPassword).toBe('');
   });
