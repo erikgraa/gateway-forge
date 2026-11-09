@@ -21,7 +21,7 @@ describe('topology model', () => {
     }));
 
     expect(topology.nodes.find((node) => node.id === 'uag')).toMatchObject({
-      sub: 'vSphere · UAG 2609 · 3-NIC',
+      sub: 'VMware · UAG 2609 · 3-NIC',
       detail: expect.stringContaining('NIC0 internet · NIC1 management · NIC2 backend')
     });
     expect(topology.edges.find((edge) => edge.from === 'client' && edge.to === 'uag')?.label)

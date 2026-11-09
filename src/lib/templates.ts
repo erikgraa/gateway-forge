@@ -211,7 +211,7 @@ export const TEMPLATES: Template[] = [
   {
     id: 'workspace-one-tunnel',
     title: 'Workspace ONE Tunnel (per-app VPN)',
-    description: 'UAG-hosted Tunnel basic endpoint on vSphere or Hyper-V, with Workspace ONE UEM bootstrap, outbound-proxy options and TLS syslog.',
+    description: 'UAG-hosted Tunnel basic endpoint on VMware or Hyper-V, with Workspace ONE UEM bootstrap, outbound-proxy options and TLS syslog.',
     tags: ['Workspace ONE', 'Tunnel', 'Per-app VPN'],
     build: (b) =>
       fresh(
