@@ -21,6 +21,8 @@ export type Rule =
   | 'port'
   | 'thumbprints'
   | 'pemPath'
+  | 'pemKeyPath'
+  | 'pfxPath'
   | 'sshPublicKeys'
   | 'uagName'
   | 'osLoginUsername'
@@ -263,6 +265,7 @@ function certificateFields(
     ...(keys.alias ? { alias: `${prefix}_${keys.alias}` } : {})
   };
   const mode = (v: Values) => certificateMode(v, selector, input);
+  const pathStem = prefix === 'cert' ? 'internet-facing' : prefix === 'adminCert' ? 'management' : undefined;
   return [
     sel(selector, `${label} input mode`, keys.mode ?? selector, [
       { value: 'NONE', label: keys.mode ? 'No dedicated certificate' : 'Use appliance certificate' },
@@ -276,14 +279,17 @@ function certificateFields(
         : 'The deployment script accepts PEM only for this dedicated SAML certificate. PFX is not supported. Metadata XML is configured separately.'
     }),
     text(input.pemCert, `${label} certificate chain (PEM path)`, keys.cert, {
-      wide: true, json: false, showIf: (v) => mode(v) === 'PEM', required: (v) => mode(v) === 'PEM'
+      wide: true, rule: 'pemPath', json: false, showIf: (v) => mode(v) === 'PEM', required: (v) => mode(v) === 'PEM',
+      ...(pathStem ? { placeholder: `C:\\certs\\${pathStem}-chain.pem` } : {})
     }),
     text(input.pemKey, `${label} private key (PEM path)`, keys.key, {
-      wide: true, json: false, showIf: (v) => mode(v) === 'PEM', required: (v) => mode(v) === 'PEM'
+      wide: true, rule: 'pemKeyPath', json: false, showIf: (v) => mode(v) === 'PEM', required: (v) => mode(v) === 'PEM',
+      ...(pathStem ? { placeholder: `C:\\certs\\${pathStem}-key.pem` } : {})
     }),
     ...(input.pfx && keys.pfx ? [
       text(input.pfx, `${label} PFX file`, keys.pfx, {
-        wide: true, json: false, showIf: (v) => mode(v) === 'PFX', required: (v) => mode(v) === 'PFX'
+        wide: true, rule: 'pfxPath', json: false, showIf: (v) => mode(v) === 'PFX', required: (v) => mode(v) === 'PFX',
+        ...(pathStem ? { placeholder: `C:\\certs\\${pathStem}.pfx` } : {})
       }),
       ...(input.alias && keys.alias ? [text(input.alias, `${label} PFX alias`, keys.alias, {
         json: false, showIf: (v) => mode(v) === 'PFX'
@@ -1184,8 +1190,7 @@ export const GROUPS: GroupDef[] = [
         json: false,
         help: 'IP address, hostname, and optional alias, separated by spaces.'
       })),
-      text('airwatch_trustedCert1', 'Trusted CA certificate (PEM path)', 'trustedCert1', {
-        wide: true,
+      ...trustedCertFields((n) => `airwatch_trustedCert${n}`, {
         placeholder: 'C:\\certs\\workspace-one-ca.pem',
         json: false,
         help: 'PEM certificate file added to the UAG trust store by the deployment script.'

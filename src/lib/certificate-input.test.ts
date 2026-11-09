@@ -17,6 +17,16 @@ const samlConfig = () => applyPatch(defaultConfig(), { values: {
 } });
 
 describe('source-backed certificate input modes', () => {
+  it('shows separate internet-facing and management PEM/PFX path examples', () => {
+    const fields = GROUPS.flatMap((group) => group.fields);
+    expect(fields.find((field) => field.id === 'cert_pemCerts')?.placeholder).toBe('C:\\certs\\internet-facing-chain.pem');
+    expect(fields.find((field) => field.id === 'cert_pemPrivKey')?.placeholder).toBe('C:\\certs\\internet-facing-key.pem');
+    expect(fields.find((field) => field.id === 'cert_pfxCerts')?.placeholder).toBe('C:\\certs\\internet-facing.pfx');
+    expect(fields.find((field) => field.id === 'adminCert_pemCerts')?.placeholder).toBe('C:\\certs\\management-chain.pem');
+    expect(fields.find((field) => field.id === 'adminCert_pemPrivKey')?.placeholder).toBe('C:\\certs\\management-key.pem');
+    expect(fields.find((field) => field.id === 'adminCert_pfxCerts')?.placeholder).toBe('C:\\certs\\management.pfx');
+  });
+
   it.each(['cert', 'adminCert'])('infers %s mode from imported paths and clears incompatible values on explicit selection', (prefix) => {
     const selector = GROUPS.flatMap((g) => g.fields).find((f) => f.id === `${prefix}_mode`)!;
     const input = selector.certificateInput!;
@@ -31,6 +41,31 @@ describe('source-backed certificate input modes', () => {
     expect(values[input.alias!]).toBe('');
     selectCertificateMode(values, selector.id, input, 'NONE');
     expect(certificateMode(values, selector.id, input)).toBe('NONE');
+  });
+
+  it('validates PEM and PFX extension guardrails on TLS certificate inputs', () => {
+    const pem = applyPatch(defaultConfig(), {
+      values: {
+        cert_mode: 'PEM',
+        cert_pemCerts: 'C:\\certs\\internet.txt',
+        cert_pemPrivKey: 'C:\\certs\\internet.pem'
+      }
+    });
+    expect(validateConfig(pem)).toContainEqual(expect.objectContaining({
+      fieldId: 'cert_pemCerts',
+      message: expect.stringContaining('.pem, .crt, or .cer')
+    }));
+
+    const pfx = applyPatch(defaultConfig(), {
+      values: {
+        adminCert_mode: 'PFX',
+        adminCert_pfxCerts: 'C:\\certs\\management.pem'
+      }
+    });
+    expect(validateConfig(pfx)).toContainEqual(expect.objectContaining({
+      fieldId: 'adminCert_pfxCerts',
+      message: expect.stringContaining('.pfx or .p12')
+    }));
   });
 
   it.each(['cert', 'adminCert'])('rejects mixed, incomplete and alias-only %s inputs', (prefix) => {
@@ -97,8 +132,8 @@ describe('source-backed certificate input modes', () => {
     c.values[selector.id] = 'PEM';
     expect(validateConfig(c)).toContainEqual(expect.objectContaining({ fieldId: input.pemCert, level: 'error' }));
     expect(validateConfig(c)).toContainEqual(expect.objectContaining({ fieldId: input.pemKey, level: 'error' }));
-    c.values[input.pemCert] = 'chain.pem';
-    c.values[input.pemKey] = 'key.pem';
+    c.values[input.pemCert] = 'C:\\certs\\chain.pem';
+    c.values[input.pemKey] = 'C:\\certs\\key.key';
     expect(validateConfig(c).filter((i) => i.fieldId?.startsWith(prefix))).toEqual([]);
     c.values[input.pemCert] = 'wrong.pfx';
     expect(validateConfig(c)).toContainEqual(expect.objectContaining({ fieldId: input.pemCert, level: 'error' }));
@@ -107,13 +142,13 @@ describe('source-backed certificate input modes', () => {
   });
 
   it('round-trips the vendor signing/encryption keys and dedicated IdP PEM section', () => {
-    const source = '[IDPExternalMetadata1]\nentityID=example-idp\nmetadataXmlFile=idp.xml\nsigningCertificateType=pem\nsigningPrivateKeyPem=sign.key\nsigningCertChainPem=sign.pem\nencryptionCertificateType=PEM\nprivateKeyPem=enc.key\ncertChainPem=enc.pem\n[SAMLIdentityProviderMetadata]\npemCerts=idp.pem\npemPrivKey=idp.key';
+    const source = '[IDPExternalMetadata1]\nentityID=example-idp\nmetadataXmlFile=C:\\certs\\idp.xml\nsigningCertificateType=pem\nsigningPrivateKeyPem=C:\\certs\\sign.key\nsigningCertChainPem=C:\\certs\\sign.pem\nencryptionCertificateType=PEM\nprivateKeyPem=C:\\certs\\enc.key\ncertChainPem=C:\\certs\\enc.pem\n[SAMLIdentityProviderMetadata]\npemCerts=C:\\certs\\idp.pem\npemPrivKey=C:\\certs\\idp.key';
     const result = importIni(source);
     expect(result.unmapped).toEqual([]);
     const ini = generateIni(result.config);
-    expect(ini).toContain('signingCertificateType=PEM\nsigningCertChainPem=sign.pem\nsigningPrivateKeyPem=sign.key');
-    expect(ini).toContain('encryptionCertificateType=PEM\ncertChainPem=enc.pem\nprivateKeyPem=enc.key');
-    expect(ini).toContain('[SAMLIdentityProviderMetadata]\npemCerts=idp.pem\npemPrivKey=idp.key');
+    expect(ini).toContain('signingCertificateType=PEM\nsigningCertChainPem=C:\\certs\\sign.pem\nsigningPrivateKeyPem=C:\\certs\\sign.key');
+    expect(ini).toContain('encryptionCertificateType=PEM\ncertChainPem=C:\\certs\\enc.pem\nprivateKeyPem=C:\\certs\\enc.key');
+    expect(ini).toContain('[SAMLIdentityProviderMetadata]\npemCerts=C:\\certs\\idp.pem\npemPrivKey=C:\\certs\\idp.key');
     expect(validateConfig(result.config).filter((i) => i.fieldId?.startsWith('saml'))).toEqual([]);
     expect(JSON.stringify(generateJsonObject(result.config))).not.toMatch(/sign\.key|sign\.pem|enc\.key|enc\.pem|idp\.key|idp\.pem|CertificateType/);
   });

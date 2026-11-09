@@ -24,6 +24,12 @@ describe('field validation', () => {
     expect(checkRule('pemPath', 'C:\\certs\\chain.crt')).toBeNull();
     expect(checkRule('pemPath', 'C:\\certs\\chain.cer')).toBeNull();
     expect(checkRule('pemPath', 'C:\\certs\\chain.txt')).not.toBeNull();
+    expect(checkRule('pemKeyPath', 'C:\\certs\\gateway.pem')).toBeNull();
+    expect(checkRule('pemKeyPath', '/certs/gateway.key')).toBeNull();
+    expect(checkRule('pemKeyPath', '/certs/gateway.crt')).not.toBeNull();
+    expect(checkRule('pfxPath', 'C:\\certs\\gateway.pfx')).toBeNull();
+    expect(checkRule('pfxPath', '/certs/gateway.p12')).toBeNull();
+    expect(checkRule('pfxPath', '/certs/gateway.pem')).not.toBeNull();
     expect(checkRule('hostOrIp', 'syslog.corp.local:514')).toBeNull();
     expect(checkRule('hostOrIp', 'bad host')).not.toBeNull();
     expect(checkRule('httpsUrl', 'https://cs01.corp.local')).toBeNull();

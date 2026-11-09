@@ -7,6 +7,7 @@ import { sshPublicKeyValidationError } from './ssh';
 import { parseListValue } from './listValue';
 import { HOST_ENTRY_MAX, hostEntryValues } from './host-entries';
 import { certificateMode, certificatePathsMatch } from './certificate-input';
+import { trustedCertFields } from './trusted-certs';
 
 export type Level = 'error' | 'warn' | 'info';
 
@@ -229,6 +230,18 @@ export function checkRule(rule: Rule, raw: string, platform: Platform = 'vsphere
       if (!/\.(?:pem|crt|cer)$/i.test(s)) return 'Must point to a .pem, .crt, or .cer file';
       return null;
     }
+    case 'pemKeyPath': {
+      const absolute = /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(s);
+      if (!absolute) return 'Must be an absolute local path (Windows, UNC, or Unix)';
+      if (!/\.(?:pem|key)$/i.test(s)) return 'Must point to a .pem or .key file';
+      return null;
+    }
+    case 'pfxPath': {
+      const absolute = /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(s);
+      if (!absolute) return 'Must be an absolute local path (Windows, UNC, or Unix)';
+      if (!/\.(?:pfx|p12)$/i.test(s)) return 'Must point to a .pfx or .p12 file';
+      return null;
+    }
     case 'int':
       return /^-?\d+$/.test(s) ? null : 'Must be an integer';
     case 'kubeName':
@@ -303,6 +316,18 @@ export function validateConfig(c: Config): Issue[] {
         push({ level: 'error', section: g.section, fieldId: selector.id, message: `${selector.label}: a PFX file is required when a PFX alias is configured.` });
       }
     }
+    const trustedFields = trustedCertFields(g.fields);
+    trustedFields.forEach((field, index) => {
+      const duplicate = trustedFields.slice(0, index).find((previous) => certificatePathsMatch(v[previous.id], v[field.id]));
+      if (duplicate) {
+        push({
+          level: 'error',
+          section: g.section,
+          fieldId: field.id,
+          message: `${field.label}: duplicate trusted CA path already used by ${duplicate.label}.`
+        });
+      }
+    });
     if (hostEntryValues(v, g.fields).length > HOST_ENTRY_MAX) {
       push({ level: 'error', section: g.section, fieldId: g.fields.find((f) => f.hostEntryIndex === HOST_ENTRY_MAX)?.id, message: 'A maximum of six host entries is supported. Remove extra entries before exporting.' });
     }
@@ -350,6 +375,21 @@ export function validateConfig(c: Config): Issue[] {
         if (!fieldAvailable(f, c.version, c.platform, item)) continue;
         const msg = checkField(f, item, c.platform);
         if (msg) push({ level: 'error', section: l.section, fieldId: f.id, message: `${l.itemLabel} ${index + 1}: ${msg}`, list: { id: l.id, index } });
+      }
+      if (l.id === 'wrp') {
+        const fields = trustedCertFields(l.fields);
+        fields.forEach((field, fieldIndex) => {
+          const duplicate = fields.slice(0, fieldIndex).find((previous) => certificatePathsMatch(item[previous.id], item[field.id]));
+          if (duplicate) {
+            push({
+              level: 'error',
+              section: l.section,
+              fieldId: field.id,
+              message: `${l.itemLabel} ${index + 1}: duplicate trusted CA path already used by ${duplicate.label}.`,
+              list: { id: l.id, index }
+            });
+          }
+        });
       }
     });
   }

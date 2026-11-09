@@ -15,11 +15,32 @@
   const help = $derived(fieldHelp(field, platform));
   const tooltipId = $derived(`field-details-${uid.replace(/[^a-zA-Z0-9_-]/g, '-')}`);
   const jsonKey = $derived(field.json === false ? 'Not exported' : field.json ?? field.key);
+  function positionTooltip(event: Event) {
+    const trigger = event.currentTarget as HTMLButtonElement;
+    const tooltip = trigger.nextElementSibling as HTMLElement;
+    const bounds = trigger.getBoundingClientRect();
+    const width = Math.min(320, window.innerWidth - 24);
+    const left = Math.max(12, Math.min(bounds.left, window.innerWidth - width - 12));
+    const spaceBelow = window.innerHeight - bounds.bottom - 20;
+    const spaceAbove = bounds.top - 20;
+    const naturalHeight = tooltip.scrollHeight + 2;
+    const above = spaceBelow < Math.min(naturalHeight, 240) && spaceAbove > spaceBelow;
+    const available = Math.max(80, above ? spaceAbove : spaceBelow);
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = above ? 'auto' : `${bounds.bottom + 8}px`;
+    tooltip.style.bottom = above ? `${window.innerHeight - bounds.top + 8}px` : 'auto';
+    tooltip.style.maxHeight = `${available}px`;
+    tooltip.classList.toggle('above', above);
+  }
 </script>
 
 <span class="field-details">
-  <button type="button" class="field-details-trigger" aria-label={`More information about ${field.label}`} aria-describedby={tooltipId}>ⓘ</button>
-  <span class="field-details-tooltip" id={tooltipId} role="tooltip">
+  <button type="button" class="field-details-trigger" aria-label={`More information about ${field.label}`} aria-describedby={tooltipId} onpointerenter={positionTooltip} onfocus={positionTooltip} onclick={positionTooltip}>ⓘ</button>
+  <span
+    class="field-details-tooltip"
+    id={tooltipId}
+    role="tooltip"
+  >
     <strong>{field.label}</strong>
     <p>{help ?? 'Review this setting before deployment; unsupported or unverified values are not inferred.'}</p>
     <dl>
