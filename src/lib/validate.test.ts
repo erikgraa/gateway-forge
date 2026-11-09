@@ -53,6 +53,8 @@ describe('field validation', () => {
     expect(checkRule('ipv6', '2402:740:2:209::253')).toBeNull();
     expect(checkRule('ipv6', 'not:an:ipv6')).not.toBeNull();
     expect(checkRule('osLoginUsername', 'uag_admin-1')).toBeNull();
+    expect(checkRule('ascii', 'AUTHORIZED USE ONLY\nContact support.')).toBeNull();
+    expect(checkRule('ascii', 'Use café only')).not.toBeNull();
     expect(checkRule('osLoginUsername', 'Upper Case')).not.toBeNull();
     expect(checkRule('ascii', 'Banner\\nline two')).toBeNull();
     expect(checkRule('ascii', 'bannér')).not.toBeNull();

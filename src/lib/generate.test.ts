@@ -88,6 +88,17 @@ describe('INI generation', () => {
     expect(mid).not.toContain('extendedServerCertValidationEnabled');
   });
 
+  it('exports login banner line breaks as literal escape sequences', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: { sshLoginBannerText: 'AUTHORIZED USE ONLY\nContact the service desk.' }
+    });
+    const ini = generateIni(c);
+    expect(ini).toContain('sshLoginBannerText=AUTHORIZED USE ONLY\\nContact the service desk.');
+    expect(ini).not.toContain('AUTHORIZED USE ONLY\nContact the service desk.');
+    expect((generateJsonObject(c).systemSettings as Record<string, unknown>).sshLoginBannerText)
+      .toBe('AUTHORIZED USE ONLY\\nContact the service desk.');
+  });
+
   it('imports and exports extended server certificate validation only for UAG 2609', () => {
     const latest = applyPatch(defaultConfig(), {
       values: { extendedServerCertValidationEnabled: true }

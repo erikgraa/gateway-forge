@@ -196,7 +196,7 @@ export function checkRule(rule: Rule, raw: string, platform: Platform = 'vsphere
     case 'osLoginUsername':
       return /^[a-z0-9_-]{1,32}$/.test(s) ? null : 'Up to 32 lowercase characters: a-z, 0-9, "_" and "-"';
     case 'ascii':
-      return /^[\x20-\x7e]*$/.test(s) ? null : 'ASCII characters only; use literal \\n for line breaks';
+      return /^[\x20-\x7e\r\n]*$/.test(s) ? null : 'ASCII characters only';
     case 'ipv4Port': {
       const [ip, port] = s.split(':');
       return IPV4.test(ip) && (port === undefined || (Number(port) >= 1 && Number(port) <= 65535)) ? null : 'Must be an IPv4 address with optional :port';

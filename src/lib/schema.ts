@@ -138,6 +138,8 @@ export interface Field {
   };
   /** Render the encoded Horizon origin detail records as structured rows. */
   originDetails?: boolean;
+  /** Store UI line breaks as literal \n sequences when exporting and decode them on import. */
+  escapeNewlines?: boolean;
 }
 
 export function fieldHelp(field: Field, platform: Platform): string | undefined {
@@ -431,9 +433,11 @@ export const GROUPS: GroupDef[] = [
         help: 'Paste one OpenSSH RSA public key or existing .pub file path per line. INI uses numbered sshPublicKeyN file paths; PowerShell writes pasted keys as companion files.'
       }),
       text('sshLoginBannerText', 'Login banner text', 'sshLoginBannerText', {
+        type: 'textarea',
         wide: true,
         rule: 'ascii',
-        help: 'ASCII only. Use \\n for new lines.'
+        escapeNewlines: true,
+        help: 'ASCII only. Each visual line is exported as a literal \\n separator.'
       }),
       text('osLoginUsername', 'High-privilege OS login user', 'osLoginUsername', {
         rule: 'osLoginUsername',

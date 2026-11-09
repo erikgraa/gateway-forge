@@ -301,6 +301,12 @@ adminpasswordExpirationDays=60
     expect(generateIni(r.config)).toContain('extendedServerCertValidationEnabled=true');
   });
 
+  it('decodes escaped login banner line breaks for multi-line editing', () => {
+    const r = importIni('[General]\nsshLoginBannerText=AUTHORIZED USE ONLY\\nContact the service desk.');
+    expect(r.config.values.sshLoginBannerText).toBe('AUTHORIZED USE ONLY\nContact the service desk.');
+    expect(generateIni(r.config)).toContain('sshLoginBannerText=AUTHORIZED USE ONLY\\nContact the service desk.');
+  });
+
   it('imports numbered SSH public-key file paths', () => {
     const r = importIni('[General]\nsshEnabled=true\nsshKeyAccessEnabled=true\nsshPublicKey1=C:\\keys\\admin.pub\nsshPublicKey2=keys\\backup.pub');
     expect(r.config.values.sshPublicKeys).toBe('C:\\keys\\admin.pub\nkeys\\backup.pub');
