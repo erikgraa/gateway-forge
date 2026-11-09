@@ -519,7 +519,18 @@ export const GROUPS: GroupDef[] = [
         help: 'OVF Tool locator. Must reference a vCenter host or cluster; deploying directly to an ESXi host is not supported.'
       }),
       text('folder', 'VM folder', 'folder', { platforms: ['vsphere'], help: 'VMs and Templates folder; must exist.' }),
-      text('ds', 'Datastore', 'ds', { platforms: vsphereHyperv, required: true, placeholder: 'datastore1' }),
+      text('ds', 'Datastore', 'ds', { platforms: vsphereHyperv, required: true, placeholder: 'datastore1' })
+    ]
+  },
+  {
+    id: 'networking',
+    title: 'Networking',
+    section: 'network',
+    target: 'deploy',
+    iniSection: 'General',
+    platforms: vsphereHyperv,
+    help: 'Virtual network mappings, IP addressing, routes and per-interface overrides for VMware and Hyper-V deployments.',
+    fields: [
       text('netInternet', 'Internet network (NIC0)', 'netInternet', {
         platforms: vsphereHyperv,
         required: true,

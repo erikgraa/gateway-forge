@@ -177,7 +177,7 @@ describe('UAG workflow follow-ups', () => {
   });
 
   it('renders NIC0-NIC2 static routes as comma-separated row editors', () => {
-    const fields = GROUPS.find((group) => group.id === 'deploy')!.fields.filter((field) => /^routes[0-2]$/.test(field.id));
+    const fields = GROUPS.find((group) => group.id === 'networking')!.fields.filter((field) => /^routes[0-2]$/.test(field.id));
     const c = applyPatch(defaultConfig(), {
       values: {
         deploymentOption: 'threenic',
@@ -196,7 +196,7 @@ describe('UAG workflow follow-ups', () => {
   });
 
   it('labels NIC1 management-only and NIC2 backend-only for three NICs without changing two-NIC roles', () => {
-    const fields = GROUPS.find((g) => g.id === 'deploy')!.fields;
+    const fields = GROUPS.find((g) => g.id === 'networking')!.fields;
     const renderField = (id: string, option: string) => render(FieldInput, { props: {
       field: fields.find((f) => f.id === id)!, values: { deploymentOption: option }, platform: 'vsphere'
     } }).body;
