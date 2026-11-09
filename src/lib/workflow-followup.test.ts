@@ -176,6 +176,25 @@ describe('UAG workflow follow-ups', () => {
     expect(validateConfig(c)).toContainEqual(expect.objectContaining({ fieldId: field.id, rowIndex: 1, level: 'error' }));
   });
 
+  it('renders NIC0-NIC2 static routes as comma-separated row editors', () => {
+    const fields = GROUPS.find((group) => group.id === 'deploy')!.fields.filter((field) => /^routes[0-2]$/.test(field.id));
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        deploymentOption: 'threenic',
+        routes0: '10.0.0.0/8 192.0.2.1,10.1.0.0/16 192.0.2.1',
+        routes1: '172.16.0.0/12 10.0.0.1',
+        routes2: '192.168.0.0/16 10.20.0.1'
+      }
+    });
+    expect(fields).toHaveLength(3);
+    for (const field of fields) {
+      const body = render(RowListEditor, { props: { field, values: c.values, platform: 'vsphere', issues: [] } }).body;
+      expect(body).toContain('aria-label="Add static route"');
+      expect(body).toContain('aria-label="Static route 1"');
+    }
+    expect(generateIni(c)).toContain('routes0=10.0.0.0/8 192.0.2.1,10.1.0.0/16 192.0.2.1');
+  });
+
   it('labels NIC1 management-only and NIC2 backend-only for three NICs without changing two-NIC roles', () => {
     const fields = GROUPS.find((g) => g.id === 'deploy')!.fields;
     const renderField = (id: string, option: string) => render(FieldInput, { props: {

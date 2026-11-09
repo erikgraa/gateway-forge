@@ -8,6 +8,7 @@ export type FieldType = 'text' | 'number' | 'bool' | 'select' | 'secret' | 'text
 
 export type Rule =
   | 'ipv4'
+  | 'netmask'
   | 'dnsDomain'
   | 'hostOrIp'
   | 'hostList'
@@ -119,7 +120,7 @@ export interface Field {
   /** Edit a string-backed value as individually validated rows. */
   rows?: {
     itemLabel: string;
-    rule: 'ipv4' | 'dnsDomain' | 'hostOrIp' | 'hostPort' | 'httpsUrl';
+    rule: 'ipv4' | 'dnsDomain' | 'hostOrIp' | 'hostPort' | 'httpsUrl' | 'staticRoutes';
     separator?: 'space' | 'comma';
   };
 }
@@ -536,7 +537,7 @@ export const GROUPS: GroupDef[] = [
         placeholder: '192.0.2.21'
       }),
       text('netmask0', 'NIC0 Internet netmask', 'netmask0', {
-        rule: 'ipv4',
+        rule: 'netmask',
         platforms: vsphereHyperv,
         required: (v) => usesStaticIpv4(v, 0),
         showIf: (v) => usesStaticIpv4(v, 0),
@@ -549,7 +550,7 @@ export const GROUPS: GroupDef[] = [
         showIf: (v) => deploymentNicCount(v) >= 2 && usesStaticIpv4(v, 1)
       }),
       text('netmask1', 'NIC1 Management / Backend netmask', 'netmask1', {
-        rule: 'ipv4',
+        rule: 'netmask',
         platforms: vsphereHyperv,
         required: (v) => usesStaticIpv4(v, 1),
         showIf: (v) => deploymentNicCount(v) >= 2 && usesStaticIpv4(v, 1)
@@ -561,7 +562,7 @@ export const GROUPS: GroupDef[] = [
         showIf: (v) => deploymentNicCount(v) === 3 && usesStaticIpv4(v, 2)
       }),
       text('netmask2', 'NIC2 Backend netmask', 'netmask2', {
-        rule: 'ipv4',
+        rule: 'netmask',
         platforms: vsphereHyperv,
         required: (v) => usesStaticIpv4(v, 2),
         showIf: (v) => deploymentNicCount(v) === 3 && usesStaticIpv4(v, 2)
@@ -576,6 +577,7 @@ export const GROUPS: GroupDef[] = [
       }),
       text('routes0', 'NIC0 static routes', 'routes0', {
         rule: 'staticRoutes',
+        rows: { itemLabel: 'Static route', rule: 'staticRoutes', separator: 'comma' },
         platforms: vsphereHyperv,
         since: '2306',
         wide: true,
@@ -584,6 +586,7 @@ export const GROUPS: GroupDef[] = [
       }),
       text('routes1', 'NIC1 static routes', 'routes1', {
         rule: 'staticRoutes',
+        rows: { itemLabel: 'Static route', rule: 'staticRoutes', separator: 'comma' },
         platforms: vsphereHyperv,
         since: '2306',
         wide: true,
@@ -593,6 +596,7 @@ export const GROUPS: GroupDef[] = [
       }),
       text('routes2', 'NIC2 static routes', 'routes2', {
         rule: 'staticRoutes',
+        rows: { itemLabel: 'Static route', rule: 'staticRoutes', separator: 'comma' },
         platforms: vsphereHyperv,
         since: '2306',
         wide: true,
@@ -685,7 +689,7 @@ export const GROUPS: GroupDef[] = [
         json: false
       }),
       text('netmask0', 'NIC0 / eth0 netmask', 'netmask0', {
-        rule: 'ipv4',
+        rule: 'netmask',
         placeholder: '255.255.255.0',
         ipMode: 0,
         required: (v) => v.ipMode0 === 'STATICV4',
@@ -711,7 +715,7 @@ export const GROUPS: GroupDef[] = [
         json: false
       }),
       text('netmask1', 'NIC1 / eth1 netmask', 'netmask1', {
-        rule: 'ipv4',
+        rule: 'netmask',
         showIf: (v) => deploymentNicCount(v) >= 2,
         ipMode: 1,
         required: (v) => v.ipMode1 === 'STATICV4',
@@ -731,7 +735,7 @@ export const GROUPS: GroupDef[] = [
         json: false
       }),
       text('netmask2', 'NIC2 / eth2 netmask', 'netmask2', {
-        rule: 'ipv4',
+        rule: 'netmask',
         showIf: (v) => deploymentNicCount(v) === 3,
         ipMode: 2,
         required: (v) => v.ipMode2 === 'STATICV4',
