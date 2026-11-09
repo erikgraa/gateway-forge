@@ -273,10 +273,11 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   L.push('- Gateway Forge never asks for or stores UAG root or Admin UI passwords in the browser. Interactive deployment lets the official script prompt; headless PowerShell reads both passwords from the process environment.');
   if (v.contentGateway_enabled === true) {
     const parameter = v.contentGateway_mode === 'shared' ? '-awAPIServerPwd' : '-awCGAPIServerPwd';
-    L.push(`- **Content Gateway UEM password:** interactive deployment prompts for it; headless PowerShell reads \`UAG_CONTENT_GATEWAY_API_PASSWORD\` and passes the vendor \`${parameter}\` parameter. It is never written to INI or JSON.`);
+    const variable = v.contentGateway_mode === 'shared' ? 'UAG_WORKSPACE_ONE_UEM_API_PASSWORD' : 'UAG_CONTENT_GATEWAY_API_PASSWORD';
+    L.push(`- **Content Gateway UEM password:** PowerShell reads \`${variable}\` and passes the vendor \`${parameter}\` parameter. It is never written to INI or JSON.`);
   }
   if (v.airwatch_enabled === true) {
-    L.push('- **Workspace ONE Tunnel UEM password:** both interactive and headless PowerShell require `UAG_TUNNEL_GATEWAY_API_PASSWORD` and pass it through `-awTunnelGatewayAPIServerPwd`. It is never written to INI, JSON, browser drafts, or the generated script.');
+    L.push('- **Workspace ONE Tunnel UEM password:** both interactive and headless PowerShell require `UAG_WORKSPACE_ONE_UEM_API_PASSWORD` and pass it through `-awAPIServerPwd` for the shared `[Airwatch]` section. It is never written to INI, JSON, browser drafts, or the generated script.');
   }
   if (c.adminUsers.length > 0) {
     L.push(`- **Additional admin users (${c.adminUsers.length}):** the INI contains monitoring-role user metadata only. Both interactive and headless PowerShell require \`UAG_NEW_ADMIN_USER_PASSWORDS\` as semicolon-separated \`username:password\` pairs and pass \`-NewAdminuserPwd\`. Passwords are never written to INI, JSON, or browser drafts.`);
