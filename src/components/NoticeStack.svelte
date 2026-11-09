@@ -34,7 +34,7 @@
         {#if usingLatestVersion}
           New configurations target the current release and include fixes available in this build line.
         {:else}
-          Older supported releases remain available for migration and maintenance, but may not include important security fixes present in UAG {latestVersionId}. Review Omnissa security advisories before deployment.
+          Other releases remain available for migration and maintenance, but may no longer be supported or include important security fixes present in UAG {latestVersionId}. Review the Omnissa lifecycle matrix and security advisories before deployment.
         {/if}
       </p>
     </div>
