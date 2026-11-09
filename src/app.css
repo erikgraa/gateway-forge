@@ -350,6 +350,14 @@ summary.card-head::marker { display: none; content: ''; }
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: var(--mut); font-size: 11px; }
 .field.wide { grid-column: 1 / -1; }
 .field .lbl { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; color: var(--tx); font-size: 11px; font-weight: 620; }
+.field-button-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.field-choice {
+  appearance: none; border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px;
+  color: var(--mut); background: var(--input); font: inherit; font-size: 11px;
+  cursor: pointer; transition: border-color .15s ease, color .15s ease, background .15s ease;
+}
+.field-choice:hover { color: var(--tx); border-color: var(--line-strong); background: var(--panel-raised); }
+.field-choice.active { color: var(--tx); border-color: var(--acc); background: var(--acc-soft); }
 .field .req { color: var(--bad); }
 .field .err { color: var(--bad); font-size: 10px; font-weight: 550; }
 .field .hint, .help { color: var(--mut); font-size: 11px; line-height: 1.55; }

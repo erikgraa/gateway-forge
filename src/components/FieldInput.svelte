@@ -54,11 +54,25 @@
         {/each}
       </select>
     {:else if field.type === 'select'}
-      <select {id} class:bad={!!error} {required} bind:value={values[field.id]}>
-        {#each field.options ?? [] as o (o.value)}
-          <option value={o.value}>{o.label ?? (o.value === '' ? '(none)' : o.value)}</option>
-        {/each}
-      </select>
+      {#if field.buttonOptions}
+        <span class="field-button-options" role="group" aria-label={label} id={id}>
+          {#each field.options ?? [] as o (o.value)}
+            <button
+              type="button"
+              class="field-choice"
+              class:active={String(values[field.id] ?? '') === o.value}
+              aria-pressed={String(values[field.id] ?? '') === o.value}
+              onclick={() => (values[field.id] = o.value)}
+            >{o.label ?? (o.value === '' ? '(none)' : o.value)}</button>
+          {/each}
+        </span>
+      {:else}
+        <select {id} class:bad={!!error} {required} bind:value={values[field.id]}>
+          {#each field.options ?? [] as o (o.value)}
+            <option value={o.value}>{o.label ?? (o.value === '' ? '(none)' : o.value)}</option>
+          {/each}
+        </select>
+      {/if}
     {:else if field.type === 'number'}
       <input {id} type="number" class:bad={!!error} {required} min={field.min} max={field.max} value={values[field.id]} oninput={setNumber} placeholder={field.placeholder} />
     {:else if field.type === 'secret'}

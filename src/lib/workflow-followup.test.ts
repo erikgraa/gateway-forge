@@ -26,6 +26,18 @@ const samlValues = {
 describe('UAG workflow follow-ups', () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it('renders UAG types as buttons with standalone selected by default', () => {
+    const field = GROUPS.find((group) => group.id === 'cascade')!.fields
+      .find((candidate) => candidate.id === 'cascade_role')!;
+    const body = render(FieldInput, { props: {
+      field, values: { cascade_role: 'none' }, platform: 'vsphere'
+    } }).body;
+    expect(body).toContain('role="group"');
+    expect(body).toContain('Standalone (default)');
+    expect(body).toContain('aria-pressed="true"');
+    expect(body).not.toContain('<select');
+  });
+
   it('renders allowed origins as rows with per-origin flags', () => {
     const field = horizonFields.find((candidate) => candidate.id === 'origin')!;
     const body = render(AllowedOriginEditor, { props: {
