@@ -294,6 +294,13 @@ adminpasswordExpirationDays=60
     });
   });
 
+  it('imports the UAG 2609 extended server certificate validation switch', () => {
+    const r = importIni('[General]\nextendedServerCertValidationEnabled=true');
+    expect(r.config.values.extendedServerCertValidationEnabled).toBe(true);
+    expect(r.unmapped).toEqual([]);
+    expect(generateIni(r.config)).toContain('extendedServerCertValidationEnabled=true');
+  });
+
   it('imports numbered SSH public-key file paths', () => {
     const r = importIni('[General]\nsshEnabled=true\nsshKeyAccessEnabled=true\nsshPublicKey1=C:\\keys\\admin.pub\nsshPublicKey2=keys\\backup.pub');
     expect(r.config.values.sshPublicKeys).toBe('C:\\keys\\admin.pub\nkeys\\backup.pub');

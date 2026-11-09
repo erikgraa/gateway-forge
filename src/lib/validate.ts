@@ -1,4 +1,4 @@
-import { GROUPS, LISTS, SECTIONS, deploymentNicCount, type Field, type Rule, type SectionId, type Values } from './schema';
+import { GROUPS, LISTS, SECTIONS, deploymentNicCount, displayFieldLabel, type Field, type Rule, type SectionId, type Values } from './schema';
 import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
 import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion, platformAvailable, platformDef, type Platform } from './versions';
@@ -254,20 +254,21 @@ export function checkRule(rule: Rule, raw: string, platform: Platform = 'vsphere
 function checkField(f: Field, values: Values, platform: Platform): string | null {
   const v = f.certificateInput ? certificateMode(values, f.id, f.certificateInput) : values[f.id];
   const required = typeof f.required === 'function' ? f.required(values) : f.required;
-  if (isEmpty(v)) return required ? `${f.label} is required` : null;
+  const label = displayFieldLabel(f, values);
+  if (isEmpty(v)) return required ? `${label} is required` : null;
   if (f.type === 'number') {
     const n = Number(v);
-    if (!Number.isFinite(n)) return `${f.label} must be a number`;
-    if (f.min !== undefined && n < f.min) return `${f.label} must be ≥ ${f.min}`;
-    if (f.max !== undefined && n > f.max) return `${f.label} must be ≤ ${f.max}`;
+    if (!Number.isFinite(n)) return `${label} must be a number`;
+    if (f.min !== undefined && n < f.min) return `${label} must be ≥ ${f.min}`;
+    if (f.max !== undefined && n > f.max) return `${label} must be ≤ ${f.max}`;
   }
-  if (f.maxLength !== undefined && String(v).length > f.maxLength) return `${f.label} must be at most ${f.maxLength} characters`;
+  if (f.maxLength !== undefined && String(v).length > f.maxLength) return `${label} must be at most ${f.maxLength} characters`;
   if (f.type === 'select' && f.options && !f.options.some((option) => option.value === String(v))) {
-    return `${f.label}: "${String(v)}" is not an allowed value`;
+    return `${label}: "${String(v)}" is not an allowed value`;
   }
   if (f.rule && f.type !== 'bool') {
     const err = checkRule(f.rule, String(v), platform);
-    if (err) return `${f.label}: ${err}`;
+    if (err) return `${label}: ${err}`;
   }
   return null;
 }

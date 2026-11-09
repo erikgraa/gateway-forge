@@ -72,6 +72,15 @@ export function deploymentNicCount(v: Values): 1 | 2 | 3 {
   return 1;
 }
 
+export function displayFieldLabel(field: Field, values: Values): string {
+  if (deploymentNicCount(values) !== 3) return field.label;
+  return field.label
+    .replace('Management / Backend network (NIC1)', 'Management-only network NIC1')
+    .replace('NIC1 Management / Backend', 'NIC1 Management-only')
+    .replace('Backend network (NIC2)', 'Backend-only network NIC2')
+    .replace('NIC2 Backend', 'NIC2 Backend-only');
+}
+
 function usesStaticIpv4(v: Values, nic: 0 | 1 | 2): boolean {
   const mode = String(v[`ipmode${nic}`] ?? '');
   return mode === '' || mode.includes('STATICV4');
@@ -448,6 +457,10 @@ export const GROUPS: GroupDef[] = [
       }),
       bool('unrecognizedSessionsMonitoringEnabled', 'Monitor unrecognized sessions', 'unrecognizedSessionsMonitoringEnabled', true, {
         since: '2406'
+      }),
+      bool('extendedServerCertValidationEnabled', 'Extended server certificate validation', 'extendedServerCertValidationEnabled', false, {
+        since: '2609',
+        help: 'Enable the expanded UAG 2609 server-certificate validation checks.'
       }),
       bool('tlsPortSharingEnabled', 'TLS port sharing', 'tlsPortSharingEnabled', true, { omitDefault: true })
     ]

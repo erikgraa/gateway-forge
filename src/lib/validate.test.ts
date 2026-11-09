@@ -300,6 +300,17 @@ describe('config validation', () => {
     expect(available('threenic')).toEqual(['ipmode0', 'ipmode1', 'ipmode2']);
   });
 
+  it('uses the three-NIC role in network-name validation messages', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: { deploymentOption: 'threenic-large', netManagementNetwork: '' }
+    });
+    const networkMessages = validateConfig(c)
+      .filter((issue) => issue.fieldId === 'netManagementNetwork')
+      .map((issue) => issue.message);
+    expect(networkMessages).toContain('Management-only network NIC1 is required');
+    expect(networkMessages).not.toContain('Management / Backend network (NIC1) is required');
+  });
+
   it('warns when no server certificate is configured', () => {
     expect(validateConfig(defaultConfig())).toContainEqual(expect.objectContaining({
       section: 'tls',

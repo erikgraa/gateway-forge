@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { deploymentNicCount, fieldHelp, type Field, type Values } from '../lib/schema';
+  import { displayFieldLabel, fieldHelp, type Field, type Values } from '../lib/schema';
   import type { Platform } from '../lib/versions';
   import { certificateMode, selectCertificateMode } from '../lib/certificate-input';
   import FieldDetails from './FieldDetails.svelte';
@@ -18,9 +18,7 @@
   const id = $derived(`f-${uid ?? field.id}`);
   const help = $derived(fieldHelp(field, platform));
   const required = $derived(typeof field.required === 'function' ? field.required(values) : field.required === true);
-  const label = $derived(deploymentNicCount(values) === 3
-    ? field.label.replace('Management / Backend', 'Management-only').replace('Backend network', 'Backend-only network').replace('NIC2 Backend', 'NIC2 Backend-only')
-    : field.label);
+  const label = $derived(displayFieldLabel(field, values));
 
   function setNumber(e: Event) {
     const raw = (e.currentTarget as HTMLInputElement).value;

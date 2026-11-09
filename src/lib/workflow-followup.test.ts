@@ -200,7 +200,7 @@ describe('UAG workflow follow-ups', () => {
     const renderField = (id: string, option: string) => render(FieldInput, { props: {
       field: fields.find((f) => f.id === id)!, values: { deploymentOption: option }, platform: 'vsphere'
     } }).body;
-    expect(renderField('netManagementNetwork', 'threenic')).toContain('Management-only network (NIC1)');
+    expect(renderField('netManagementNetwork', 'threenic')).toContain('Management-only network NIC1');
     expect(renderField('ip1', 'threenic')).toContain('NIC1 Management-only IPv4');
     expect(renderField('ip2', 'threenic')).toContain('NIC2 Backend-only IPv4');
     expect(renderField('netManagementNetwork', 'twonic')).toContain('Management / Backend network (NIC1)');
