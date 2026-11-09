@@ -7,6 +7,7 @@ import { importIni, importJson } from './importer';
 import { validateConfig } from './validate';
 import { hostEntryValues, removeHostEntry } from './host-entries';
 import HostEntryEditor from '../components/HostEntryEditor.svelte';
+import AllowedOriginEditor from '../components/AllowedOriginEditor.svelte';
 import RowListEditor from '../components/RowListEditor.svelte';
 import FieldInput from '../components/FieldInput.svelte';
 
@@ -24,6 +25,22 @@ const samlValues = {
 
 describe('UAG workflow follow-ups', () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it('renders allowed origins as rows with per-origin flags', () => {
+    const field = horizonFields.find((candidate) => candidate.id === 'origin')!;
+    const body = render(AllowedOriginEditor, { props: {
+      field,
+      values: { origin: 'https://uag.example.com | true | false\nuag-internal.example.com | false | true' },
+      platform: 'vsphere',
+      issues: []
+    } }).body;
+    expect(body).toContain('Allowed origin 1');
+    expect(body).toContain('Allowed origin 2');
+    expect(body).toContain('Rewrite allowed origin 1');
+    expect(body).toContain('Allowed origin 1 auto-generated');
+    expect(body).toContain('https://uag.example.com');
+    expect(body).toContain('uag-internal.example.com');
+  });
 
   it('disables Horizon, Blast and Tunnel on both fresh browser load and reset', async () => {
     vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} });

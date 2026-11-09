@@ -182,6 +182,11 @@ describe('config validation', () => {
     expect(m).toMatch(/SAML authentication but no SAML/);
     expect(m).toMatch(/Unauthenticated Horizon authentication methods require Gateway location/);
     expect(m).toMatch(/Allowed origin 1/);
+    expect(validateConfig(c)).toContainEqual(expect.objectContaining({
+      fieldId: 'origin',
+      rowIndex: 0,
+      message: 'Allowed origin 1 must be an https:// URL or hostname.'
+    }));
     expect(m).toMatch(/Blast external URLs must be unique/);
     expect(m).toMatch(/canonicalization is disabled/);
     expect(messages(applyPatch(defaultConfig(), {

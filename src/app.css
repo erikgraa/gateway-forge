@@ -361,6 +361,9 @@ summary.card-head::marker { display: none; content: ''; }
 .row-list-input { display: flex; flex: 1; flex-direction: column; gap: 4px; }
 .row-list-item > button { margin-top: 2px; }
 .row-list-field > .err, .row-list-field > .hint { margin-top: 1px; }
+.origin-row-item { align-items: flex-end; flex-wrap: wrap; }
+.origin-row-options { display: flex; align-items: center; gap: 12px; min-height: 36px; }
+.origin-row-options label { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; font-size: .88rem; }
 .field.bool { flex-direction: row; align-items: flex-start; gap: 9px; padding-top: 3px; color: var(--tx); font-size: 12px; }
 .field.bool input { flex: 0 0 15px; width: 15px; height: 15px; margin: 2px 0 0; accent-color: var(--acc); }
 .field.bool .hint { font-size: 10px; }

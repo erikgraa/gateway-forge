@@ -571,7 +571,7 @@ function lint(c: Config, push: Push): void {
     if (v.canonicalizationEnabled === false) push({ level: 'warn', section: 'horizon', fieldId: 'canonicalizationEnabled', message: 'Proxy-pattern canonicalization is disabled - encoded path traversal checks can be bypassed.' });
     if (v.endpointComplianceCheckProvider && v.complianceCheckOnAuthentication !== true) push({ level: 'info', section: 'horizon', fieldId: 'complianceCheckOnAuthentication', message: 'Endpoint compliance is checked at application launch but not immediately after authentication.' });
     for (const [index, detail] of parseOriginHeaderDetails(v.origin).entries()) {
-      if (!validUrl(detail.origin, true) && !HOST.test(detail.origin)) push({ level: 'error', section: 'horizon', fieldId: 'origin', message: `Allowed origin ${index + 1} must be an https:// URL or hostname.` });
+      if (!validUrl(detail.origin, true) && !HOST.test(detail.origin)) push({ level: 'error', section: 'horizon', fieldId: 'origin', rowIndex: index, message: `Allowed origin ${index + 1} must be an https:// URL or hostname.` });
     }
   }
 
