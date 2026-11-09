@@ -231,7 +231,7 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   L.push(`- Run: \`${deploymentCommand(c, runtimeSwitches(c))}\``);
   if (c.platform === 'nutanix') {
     L.push('- Upload the UAG QCOW2 image to Prism Central; the cluster and subnet names referenced by the INI must already exist.');
-    L.push('- The generated script prompts for the root and Admin UI passwords as SecureString values and converts them only at invocation time. The official script prompts separately for the Prism Central password.');
+    L.push('- The official script prompts for root, Admin UI and Prism Central passwords when they are not supplied.');
     L.push('- The official script deletes and recreates a VM with the configured name.');
   }
   if (c.platform === 'openshift') {
@@ -243,10 +243,9 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     }
     L.push('- Verify the deployed VirtualMachine is Running/Ready and check its assigned NICs and IP addresses.');
   }
-  L.push('- Gateway Forge never asks for or stores UAG root or Admin UI passwords in the browser. Interactive PowerShell reads them at runtime as SecureString values; headless PowerShell reads them from the process environment. Omnissa marks `-rootPwd` and `-adminPwd` as mandatory for non-interactive deployment.');
-  L.push(`- **Password-access warning:** ${MISSING_PASSWORD_WARNING}`);
-  L.push('- **Immutable / replace-on-failure option:** Omnissa documents that an appliance may be deployed without an Admin UI password when no post-deployment changes are needed: Admin UI and API are unavailable, no user can be added later, and the appliance must be redeployed to restore administrative access. This does not remove or disable the root account.');
-  L.push('- Before choosing this workflow, complete and test the INI as the recovery baseline; retain deployment artifacts in an approved secrets-managed system; and assess console access, break-glass recovery, monitoring, password rotation, change control, backup, and compliance requirements. Redeploy rather than attempting in-place administration.');
+  L.push('- Gateway Forge never asks for or stores UAG root or Admin UI passwords in the browser. Interactive deployment lets the official script prompt; headless PowerShell reads both passwords from the process environment.');
+  L.push(`- **Deployment passwords:** ${MISSING_PASSWORD_WARNING}`);
+  L.push('- **Recovery baseline:** retain the validated INI in an approved secrets-managed system and test clean redeployment. Assess break-glass recovery, monitoring, password rotation, backup and compliance requirements.');
   L.push('- Reference: [Omnissa non-interactive deployment parameters](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters) and [Run PowerShell script to deploy](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy).');
   L.push('', '## Edge services', '');
   if (cascadeRole(v) === 'outer') L.push(`- **Cascade - outer UAG (DMZ 1)** reverse proxy → ${v.cascade_innerUrl || '(not set)'}`);

@@ -15,6 +15,10 @@ See the **[project roadmap](ROADMAP.md)** for planned work and ongoing prioritie
 See **[SOURCES.md](SOURCES.md)** for the authoritative product and tool
 references, the project evidence labels, and the source-review policy.
 
+### Planned and investigative work
+
+The [roadmap](ROADMAP.md) includes broader prerequisite-aware visibility for settings, helpers, topology and sections; planned `[WorkspaceOneIntelligenceSettings1]` support after schema verification; and an **investigation** into native vSphere PowerShell deployment without `ovftool`. `New-VApp` or an equivalent PowerCLI approach still needs feasibility validation; it is not a supported deployment path today. These are roadmap items, not completed features.
+
 ## ✨ Features
 
 - 📄 **INI for `uagdeploy.ps1`** (the primary deploy path - the script takes an INI via `-iniFile`, not JSON) **and settings JSON** for the admin UI *Import settings* / `PUT /rest/v1/config/settings`.
@@ -27,7 +31,7 @@ references, the project evidence labels, and the source-review policy.
 - ✅ **Validation + best-practice lint** (required fields, IPv4/URL/port/thumbprint formats, RADIUS timing, duplicate IPs, TLS 1.0/1.1, SSH, missing syslog/NTP, no MFA on an external gateway, SHA-1 thumbprints …). Click a finding to jump to the field.
 - 🗺️ **Topology diagram** that updates live, 📋 **templates** (e.g. *Horizon external access with RADIUS MFA*), 📝 **Docs** tab (Markdown runbook summary), ⌨️ **command palette** (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd>).
 - 🌗 **Light/dark theme** - follows `prefers-color-scheme` by default, your choice is remembered.
-- 🔑 **Certificate thumbprints** - paste PEM/DER and use WebCrypto locally, or copy a PowerShell probe.
+- **Administrator access:** UAG 2609 `[adminSAMLSettings]` configuration and separate management/Admin UI TLS certificate paths in `[SSLCertAdmin]`.
 
 | Light theme | RADIUS & validation |
 | --- | --- |
@@ -55,13 +59,23 @@ The completed [UAG 2609 Horizon schema audit](docs/horizon-2609-schema-audit.md)
 1. Pick the **UAG version** and **platform** (vSphere, Hyper-V, Azure, Nutanix AHV or OpenShift Virtualization) in the header - or start from a **template**, or **Import** an existing INI/JSON. Nutanix output is available from UAG 2606; OpenShift output is UAG 2609 and Limited Availability.
 2. Fill in the sections. Required fields and lint findings are flagged inline and in the *Validation & lint* panel.
 3. Take the result from the right-hand panel: **INI**, **JSON**, **PowerShell** or **Docs**; *Copy* or *Download* (also in **Export**).
-4. Deploy with the command shown for the selected platform. Examples: vSphere uses `.\uagdeploy.ps1 -iniFile ...`; Nutanix uses `.\uagdeployntnx.ps1 ...`; OpenShift first prepares the bootable volume and then uses `.\uagdeployopenshift.ps1 -iniFile ...`.
+4. Deploy with the command shown for the selected platform. Every variant explicitly passes `-iniFile <config-file>`: vSphere `.\uagdeploy.ps1`, Hyper-V `.\uagdeployhv.ps1`, Azure `.\uagdeployaz.ps1`, Nutanix `.\uagdeployntnx.ps1`, and OpenShift `.\uagdeployopenshift.ps1` after preparing the bootable volume. Credential handling remains platform-specific.
 
    vSphere, Hyper-V and Azure also support **Headless** mode in the PowerShell tab, using `UAG_ROOT_PASSWORD` / `UAG_ADMIN_PASSWORD` from the runtime environment. Nutanix uses the verified interactive script flow.
 
+Fresh sessions and **Reset** leave Horizon, Blast and Horizon Tunnel disabled; templates can explicitly enable them. The live topology appears in Horizon, Workspace ONE Tunnel and Web Reverse Proxy only when that section's service is enabled. In three-NIC deployments, NIC1 is management-only and NIC2 is backend-only (two-NIC deployments still combine management/backend on NIC1).
+
+Additional Blast external URLs and Horizon/Workspace ONE Tunnel host entries use add/remove rows. Host entries are limited to six and exported as contiguous `hostEntry1` through `hostEntry6`; Horizon settings JSON uses the documented `hostEntries` array. Blast URLs remain comma-separated in INI and arrays in JSON.
+
+Administrator SAML is separate from Horizon SAML: enable it under **Authentication** on UAG 2609 and configure the matching IdP metadata. Its INI and settings JSON use `adminSAMLSettings`. Under **TLS**, choose a PEM chain/private-key pair or PFX for `[SSLCertAdmin]`. Certificate file paths are intentionally INI-only: settings JSON requires PEM content, which Gateway Forge does not read from local paths. Workspace ONE Tunnel remains INI-only as described in its source notes.
+
+**Certificate modes:** `[SSLCert]` and `[SSLCertAdmin]` offer appliance-default, PEM/key-pair or PFX input. Switching mode clears incompatible paths and PFX aliases; mixed imported inputs remain available for correction and are validation errors. PEM requires both the certificate chain and private key. A password-protected PFX triggers the vendor script's interactive password prompt, even when root/admin parameters are supplied. Gateway Forge never collects or serializes a PFX password.
+
+**SAML certificates and trust:** `[SAMLIdentityProviderMetadata]` accepts a dedicated PEM/RSA-private-key pair, never PFX. External IdP signing/encryption in `[IDPExternalMetadata1]` is also PEM-only (`signingCertificateType`, `signingPrivateKeyPem`, `signingCertChainPem`; `encryptionCertificateType`, `privateKeyPem`, `certChainPem`). Metadata XML is not a certificate-input mode. Add up to nine trusted CA PEM paths, exported contiguously as `trustedCert1` through `trustedCert9`, and optionally enter comma-separated `idpUrlThumbprints`, including `sha1:xx xx ...` syntax. Thumbprints are not required when CA rows are populated. These URL trust settings apply to the Artifact Resolution Service URL inside the metadata XML. They remain INI-only: uagdeploy reads the XML/certificate files and builds `idpURL` and certificate-content wrappers. The builder cannot manufacture JSON trusted-certificate arrays or a metadata-derived URL from local filenames; the JSON preview states this limitation explicitly. `[SAMLServiceProviderMetadata]` contains SP names/metadata XML, not a PFX/PEM wrapper, and remains outside this certificate change.
+
 ### Nutanix and OpenShift support boundaries
 
-- **Nutanix AHV:** UAG 2606+ uses the native QCOW2 image format. Upload the image to Prism Central before deployment and provide existing cluster/subnet names. The official script creates the VM directly and **deletes/recreates** an existing VM with the same name. Generated PowerShell prompts for root and Admin UI passwords as SecureString values; the official script still prompts for the Prism Central password. Gateway Forge keeps Nutanix deployment Interactive-only.
+- **Nutanix AHV:** UAG 2606+ uses the native QCOW2 image format. Upload the image to Prism Central before deployment and provide existing cluster/subnet names. The official script creates the VM directly and **deletes/recreates** an existing VM with the same name. The official script prompts for root, Admin UI and Prism Central passwords when omitted. Gateway Forge keeps Nutanix deployment Interactive-only.
 - **OpenShift Virtualization:** Limited Availability and requires Omnissa-granted access. Gateway Forge targets the official two-stage flow: a CDI bootable-volume preparation followed by the `uagdeployopenshift.ps1` VM deployment. The namespace, RWX-capable StorageClass, `NetworkAttachmentDefinition` resources, RBAC, capacity and any referenced NetworkPolicies must pre-exist. NAD mapping is numeric (`nadName0` = NIC0/eth0, `nadName1` = NIC1/eth1, `nadName2` = NIC2/eth2).
 - **OpenShift local image:** the official web-console upload path is represented as an explicit Markdown runbook mode. Gateway Forge cannot upload a local browser file to the cluster and does not emit a misleading YAML reference to a local path.
 - **Sizing:** OpenShift accepts an external `instanceType` name; the reference only states a minimum of 2 vCPU and 4 GB RAM and does not enumerate valid profile names. Disk size is enforced at 20 GiB or larger. The generated volume manifest uses `ReadWriteMany` and `Filesystem`.
@@ -87,19 +101,12 @@ Omnissa documents the JSON as an *export/import format* of the admin UI but does
 
 - Everything runs in your browser. **No telemetry and no network calls.**
 - Secrets (RADIUS shared secrets, SNMP community/passwords) are **masked in the form**, **never saved** in the browser draft, and exported as `<REDACTED>` placeholders by default. Choose *Omit entirely* or *Include (plain text)* under the output panel. UAG root/Admin UI passwords are never asked for or stored by Gateway Forge. Interactive PowerShell lets `uagdeploy` prompt; headless PowerShell reads them from `UAG_ROOT_PASSWORD` and `UAG_ADMIN_PASSWORD` at runtime and fails clearly when either is absent.
-- Omnissa marks `rootPwd` and `adminPwd` as mandatory in its [non-interactive parameter reference](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters). Its [deployment workflow](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy) separately documents an intentional immutable option without an Admin UI password: the appliance is production-ready from the INI, but the Admin UI and API are unavailable, no user can later be added, and recovery requires redeployment. **This is not a passwordless appliance.**
-- For immutable or replace-on-failure operations, treat the complete, validated INI as the recovery baseline and test that a clean redeployment restores service. Keep deployment artifacts in an approved secrets-managed location and assess console access, break-glass recovery, monitoring, password rotation, change control, backup, and compliance before deliberately omitting the Admin UI password.
+- Omitting root/Admin UI password parameters from `uagdeploy.ps1` or its platform variants triggers interactive prompts; it does **not** by itself make console/Admin UI/API access unavailable. Both passwords must be supplied for [non-interactive deployment](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters).
+- Treat the complete, validated INI as the recovery baseline and test that clean redeployment restores service. Keep deployment artifacts in an approved secrets-managed location and assess break-glass recovery, monitoring, password rotation, change control, backup and compliance.
 - SSH public keys are public, so they are not treated as secrets. Paste one OpenSSH RSA key per line, or provide `.pub` file paths for INI deployment. The PowerShell artifact writes pasted keys to numbered companion files; settings JSON uses UAG's `sshPublicKeys` `{name, data}` array.
 - The form state (minus secrets) is kept in `localStorage` so a refresh does not lose work; use **Reset** to clear it.
 - Certificates are referenced by *file path* (read by `uagdeploy` at deploy time); certificate or key content is never stored.
 - Future external secret-management and PKI integrations are design-only and explicitly opt-in; see the [provider security design and implementation roadmap](docs/secret-pki-provider-design.md).
-
-## 🔑 Thumbprint tools
-
-A static web page **cannot** open a TLS connection to read a remote server's certificate, so the Horizon *Connection Server thumbprint* field offers two routes (Horizon → *Thumbprint tools*):
-
-1. **Paste a PEM/DER certificate** (or load a file). SHA-1/256/384/512 are computed locally with WebCrypto and can be added as `sha256=aa:bb:…`.
-2. **PowerShell one-liner** - copy and run it on any host that can reach the Connection Server; it prints all four thumbprints.
 
 ## 🐳 Container
 
@@ -143,7 +150,7 @@ Stack: Vite + Svelte 5 + TypeScript. Layout:
 | `src/lib/generate.ts` | INI + JSON generation, secret handling |
 | `src/lib/importer.ts` | INI/JSON parsing and mapping back onto the schema |
 | `src/lib/validate.ts` | Field validation and best-practice lint |
-| `src/lib/thumbprint.ts` | WebCrypto thumbprints and the PowerShell one-liner |
+| `src/lib/certificate-input.ts` | Certificate-mode inference and explicit mode transitions |
 | `src/lib/templates.ts` | Ready-made designs |
 | `src/components/` | Svelte UI |
 | `SOURCES.md` | Authoritative source map and evidence/source-review policy |

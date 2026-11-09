@@ -6,6 +6,7 @@
   import FieldInput from './FieldInput.svelte';
   import TrustedCertEditor from './TrustedCertEditor.svelte';
   import RowListEditor from './RowListEditor.svelte';
+  import HostEntryEditor from './HostEntryEditor.svelte';
 
   interface Props {
     group: GroupDef;
@@ -18,7 +19,8 @@
   const enabled = $derived(groupEnabled(group, c));
   const visible = $derived(group.fields.filter((f) => fieldAvailable(f, c.version, c.platform, c.values)));
   const trustedFields = $derived(visible.filter((f) => f.trustedCertIndex !== undefined));
-  const regularFields = $derived(visible.filter((f) => f.trustedCertIndex === undefined));
+  const hostFields = $derived(visible.filter((f) => f.hostEntryIndex !== undefined));
+  const regularFields = $derived(visible.filter((f) => f.trustedCertIndex === undefined && f.hostEntryIndex === undefined && f.id !== group.enabledBy));
   const hiddenByVersion = $derived(group.fields.filter((f) => f.since && c.version < f.since).length);
 
   function err(fieldId: string): string | undefined {
@@ -49,6 +51,9 @@
         {/each}
         {#if trustedFields.length}
           <TrustedCertEditor fields={trustedFields} bind:values={app.config.values as Values} {issues} uid={group.id} />
+        {/if}
+        {#if hostFields.length}
+          <HostEntryEditor fields={hostFields} bind:values={app.config.values as Values} {issues} />
         {/if}
       </div>
       {#if hiddenByVersion > 0}

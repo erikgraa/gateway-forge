@@ -5,6 +5,7 @@ import { inVersion, isSupportedVersion } from './versions';
 import { CASCADE_INSTANCE_ID, parseForwardRules } from './cascade';
 import { compactConfigTrustedCerts, writeTrustedCertPaths } from './trusted-certs';
 import { serializeListValue } from './listValue';
+import { normalizeHostEntries } from './host-entries';
 
 export interface Unmapped {
   where: string;
@@ -221,6 +222,7 @@ export function importIni(text: string, base?: Config): ImportResult {
   }
   detectCascade(c);
   compactConfigTrustedCerts(c);
+  for (const group of GROUPS) normalizeHostEntries(c.values, group.fields);
   if (!c.values.name && c.values.uagName) c.values.name = c.values.uagName;
   return result;
 }
@@ -232,8 +234,12 @@ function buildJsonIndex(targets: string[]): JsonIndex {
   for (const g of GROUPS) {
     if (!targets.includes(g.target)) continue;
     for (const f of g.fields) {
-      if (f.json === false) continue;
-      idx.set((f.json ?? f.key).toLowerCase(), { group: g, field: f });
+      if (f.json === false && f.hostEntryIndex === undefined) continue;
+      if (f.hostEntryIndex !== undefined) {
+        idx.set(f.key.toLowerCase(), { group: g, field: f });
+        continue;
+      }
+      if (f.json !== false) idx.set((f.json ?? f.key).toLowerCase(), { group: g, field: f });
     }
   }
   return idx;
@@ -326,11 +332,20 @@ export function importJson(text: string, base?: Config): ImportResult {
           if (!e) continue;
           if (e.identifier === 'VIEW') {
             c.values.horizon_enabled = e.enabled !== false;
+            if (Array.isArray(e.hostEntries)) {
+              const hostEntries = e.hostEntries;
+              const fields = GROUPS.filter((g) => g.target === 'horizon').flatMap((g) => g.fields).filter((f) => f.hostEntryIndex !== undefined);
+              fields.forEach((f, i) => { c.values[f.id] = typeof hostEntries[i] === 'string' ? hostEntries[i] : ''; });
+              result.mapped += Math.min(hostEntries.length, fields.length);
+              hostEntries.slice(fields.length).forEach((value, i) => {
+                result.unmapped.push({ where: 'edgeService VIEW.hostEntries', key: String(fields.length + i + 1), value: String(value) });
+              });
+            }
             if (Array.isArray(e.originHeaderDetailsList)) {
               c.values.origin = formatOriginHeaderDetails(parseOriginHeaderDetails(e.originHeaderDetailsList));
               result.mapped += e.originHeaderDetailsList.length;
             }
-            applyJsonObject(c, e, buildJsonIndex(['horizon']), c.values, 'edgeService VIEW', result, ['identifier', 'enabled', 'originHeaderDetailsList']);
+            applyJsonObject(c, e, buildJsonIndex(['horizon']), c.values, 'edgeService VIEW', result, ['identifier', 'enabled', 'originHeaderDetailsList', 'hostEntries']);
           } else if (e.identifier === 'WEB_REVERSE_PROXY') {
             applyListJson(c, LISTS.find((l) => l.id === 'wrp')!, [e], result, 'edgeService WEB_REVERSE_PROXY');
           } else {
@@ -363,6 +378,10 @@ export function importJson(text: string, base?: Config): ImportResult {
         applyJsonObject(c, asObj(val) ?? {}, buildJsonIndex(['snmp']), c.values, 'snmpSettings', result, ['enabled']);
         break;
       }
+      case 'adminSAMLSettings': {
+        applyJsonObject(c, asObj(val) ?? {}, buildJsonIndex(['adminSaml']), c.values, 'adminSAMLSettings', result);
+        break;
+      }
       case 'syslogSettings': {
         applyListJson(c, LISTS.find((l) => l.id === 'syslog')!, inner(val, 'syslogServerSettingsList'), result, 'syslogSettings');
         break;
@@ -373,6 +392,7 @@ export function importJson(text: string, base?: Config): ImportResult {
   }
   detectCascade(c);
   compactConfigTrustedCerts(c);
+  for (const group of GROUPS) normalizeHostEntries(c.values, group.fields);
   if (!c.values.name && c.values.uagName) c.values.name = c.values.uagName;
   return result;
 }

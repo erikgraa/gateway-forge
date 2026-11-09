@@ -22,7 +22,7 @@
 | Enable PCoIP `pcoipEnabled` | Existing | `pcoipEnabled` | bool, `false` | all | External URL must be IPv4:port. |
 | Disable PCoIP Legacy Certificate `pcoipDisableLegacyCertificate` | Added | `pcoipDisableLegacyCertificate` | bool, `false` | 2506 | Warns that legacy PCoIP clients cannot connect. Exact token first appears in the 2506 reference. |
 | PCoIP External URL `pcoipExternalUrl` | Existing | `pcoipExternalUrl` | IPv4:port, empty | all | Defaults to appliance IPv4 and 4172 at UAG when unset. |
-| Enable Blast `blastEnabled` | Existing | `blastEnabled` | bool, `true` | all | — |
+| Enable Blast `blastEnabled` | Existing | `blastEnabled` | bool, builder default `false` | all | Disabled on fresh load/reset; templates explicitly opt in. |
 | Blast External URL `blastExternalURL` | Existing | `blastExternalUrl` | HTTPS URL, empty | all | Generation follows the 2609 deployment sample's `blastExternalUrl` spelling. INI keys are case-insensitive. |
 | Additional Blast External URLs `blastUrls` | Existing | `additionalBlastExternalUrls` | comma-separated URL list, empty | 2412 | Generation follows the deployment sample's `additionalBlastExternalUrls`; `blastUrls` is accepted on import. |
 | Connection Server IP mode `proxyDestinationIPSupport` | Existing | `proxyDestinationIPSupport` | select, `IPV4` | all | Omitted when equal to default. |
@@ -42,7 +42,7 @@
 | Enable UDP Server `udpTunnelServerEnabled` | Added | `udpTunnelServerEnabled` | bool, `true` | 2506 | Exact key and default are inferred from the UI's enable control; disabling source-address behavior is explained. |
 | Blast Proxy Certificate `proxyBlastPemCert` | Added | `proxyBlastPemCert` | PEM path, empty | 2506 | INI-only deploy-time file path; no JSON certificate content is emitted. |
 | Blast Allowed Host Header Values `blastAllowedHostHeaderValues` | Existing | `blastAllowedHostHeaderValues` | comma-separated host[:port], empty | all | Accepts `_empty_`; JSON array. |
-| Enable Tunnel `tunnelEnabled` | Existing | `tunnelEnabled` | bool, `true` | all | — |
+| Enable Tunnel `tunnelEnabled` | Existing | `tunnelEnabled` | bool, builder default `false` | all | Disabled on fresh load/reset; templates explicitly opt in. |
 | Tunnel External URL `tunnelExternalUrl` | Existing | `tunnelExternalUrl` | HTTPS URL, empty | 2412 | Default TCP port at UAG is 443. |
 | Additional Tunnel External URLs `tunnelUrls` | Existing | `additionalTunnelExternalUrls` | comma-separated URL list, empty | 2412 | Generation follows the deployment sample; `tunnelUrls` is accepted on import. |
 | Tunnel Proxy Certificate `proxyTunnelPemCert` | Added | `proxyTunnelPemCert` | PEM path, empty | 2506 | INI-only deploy-time file path. |
@@ -64,7 +64,7 @@
 | Response Security Headers `securityHeaders` | Added | `securityHeaders` | text, empty | 2506 | INI import/export is retained; JSON is excluded because the object shape is undocumented. |
 | Client Custom Executables | Excluded | — | advanced object reference | — | Depends on `[CustomExecutableSettingsN]` and the `customExecutableN` selection pattern; not a standalone Horizon scalar. |
 | Host Port Redirect Mappings `redirectHostPortMappingList` | Added | `redirectHostPortMappingList` | comma-separated mappings, empty | 2506 | Validates `source_host:port_redirect_host:port`. |
-| Host Entries `hostEntry1..hostEntryn` | Added | `hostEntry1`–`hostEntry5` | IP host [alias], empty | all | Five UI slots match the existing practical list limit; larger appliance exports remain visible as unmapped rather than being collapsed. |
+| Host Entries `hostEntry1..hostEntryn` | Added | `hostEntry1`–`hostEntry6` | IP host [alias], empty | all | Add/remove rows, maximum six; contiguous INI keys and `hostEntries` JSON array, matching `GetHostEntries` in the vendor sample module. |
 | SAML Audiences `allowedAudiences` | Existing | `allowedAudiences` | comma-separated URL list, empty | all | JSON array; SAML-only. |
 | SAML Unauthenticated Username Attribute `samlUnauthUsernameAttribute` | Added | `samlUnauthUsernameAttribute` | text, empty | 2506 | Exact INI token first appears in the 2506 reference. |
 | Default Unauthenticated Username `defaultUnauthUsername` | Added | `defaultUnauthUsername` | text, empty | 2506 | Valid for SAML, SecurID, and RADIUS unauthenticated combinations. |
@@ -88,4 +88,3 @@
 3. The 2609 setting table labels pre-login display as `disclaimerText`, duplicating the actual disclaimer-text row. The schema preserves `disclaimerText` for text and uses `proxyDestinationPreLoginMessageEnabled` from the 2609 PowerShell sample for the boolean.
 4. The setting table names additional URL parameters `blastUrls` and `tunnelUrls`, while the 2609 deployment sample uses `additionalBlastExternalUrls` and `additionalTunnelExternalUrls`. Generation uses the sample; both spellings import.
 5. `udpTunnelServerEnabled` is documented as an enable toggle but no explicit default is stated. Gateway Forge uses `true`, matching the enable-oriented control and avoids changing the product's normal behavior.
-

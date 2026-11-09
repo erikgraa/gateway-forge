@@ -1,4 +1,5 @@
 import { TLS_LEGACY_UNTIL, type Platform } from './versions';
+import { certificateMode, type CertificateInput } from './certificate-input';
 
 export type Primitive = string | number | boolean;
 export type Values = Record<string, Primitive>;
@@ -55,7 +56,8 @@ export type Target =
   | 'securid'
   | 'certauth'
   | 'proxy'
-  | 'cascade';
+  | 'cascade'
+  | 'adminSaml';
 
 export function deploymentNicCount(v: Values): 1 | 2 | 3 {
   const option = String(v.deploymentOption);
@@ -101,6 +103,8 @@ export interface Field {
   aliases?: string[];
   /** 1-based position in an ordered trustedCert1-trustedCert9 field family. */
   trustedCertIndex?: number;
+  hostEntryIndex?: number;
+  certificateInput?: CertificateInput;
   wide?: boolean;
   maxLength?: number;
   /** Emit to INI only when the user sets it (not when equal to the documented default). */
@@ -114,7 +118,7 @@ export interface Field {
   /** Edit a string-backed value as individually validated rows. */
   rows?: {
     itemLabel: string;
-    rule: 'ipv4' | 'dnsDomain' | 'hostOrIp' | 'hostPort';
+    rule: 'ipv4' | 'dnsDomain' | 'hostOrIp' | 'hostPort' | 'httpsUrl';
     separator?: 'space' | 'comma';
   };
 }
@@ -240,6 +244,47 @@ const trustedCertFields = (
       ...extra
     });
   });
+
+function certificateFields(
+  prefix: string,
+  label: string,
+  keys: { cert: string; key: string; mode?: string; pfx?: string; alias?: string }
+): Field[] {
+  const selector = `${prefix}_mode`;
+  const input: CertificateInput = {
+    pemCert: `${prefix}_${keys.cert}`, pemKey: `${prefix}_${keys.key}`,
+    ...(keys.pfx ? { pfx: `${prefix}_${keys.pfx}` } : {}),
+    ...(keys.alias ? { alias: `${prefix}_${keys.alias}` } : {})
+  };
+  const mode = (v: Values) => certificateMode(v, selector, input);
+  return [
+    sel(selector, `${label} input mode`, keys.mode ?? selector, [
+      { value: 'NONE', label: keys.mode ? 'No dedicated certificate' : 'Use appliance certificate' },
+      { value: 'PEM', label: 'PEM certificate and private key' },
+      ...(keys.pfx ? [{ value: 'PFX', label: 'PFX / PKCS#12 file' }] : [])
+    ], {
+      certificateInput: input, json: false, ...(keys.mode ? { omitDefault: true, default: 'NONE' } : { ini: false }),
+      wide: true,
+      help: keys.pfx
+        ? 'Choose PEM or PFX, never both. Changing modes clears incompatible paths. The deployment script prompts interactively if the PFX is password-protected; no PFX password is stored or exported.'
+        : 'The deployment script accepts PEM only for this dedicated SAML certificate. PFX is not supported. Metadata XML is configured separately.'
+    }),
+    text(input.pemCert, `${label} certificate chain (PEM path)`, keys.cert, {
+      wide: true, json: false, showIf: (v) => mode(v) === 'PEM', required: (v) => mode(v) === 'PEM'
+    }),
+    text(input.pemKey, `${label} private key (PEM path)`, keys.key, {
+      wide: true, json: false, showIf: (v) => mode(v) === 'PEM', required: (v) => mode(v) === 'PEM'
+    }),
+    ...(input.pfx && keys.pfx ? [
+      text(input.pfx, `${label} PFX file`, keys.pfx, {
+        wide: true, json: false, showIf: (v) => mode(v) === 'PFX', required: (v) => mode(v) === 'PFX'
+      }),
+      ...(input.alias && keys.alias ? [text(input.alias, `${label} PFX alias`, keys.alias, {
+        json: false, showIf: (v) => mode(v) === 'PFX'
+      })] : [])
+    ] : [])
+  ];
+}
 
 export const AUTH_METHODS: Option[] = [
   { value: 'passthrough', label: 'Passthrough (username/password)' },
@@ -473,7 +518,7 @@ export const GROUPS: GroupDef[] = [
         platforms: vsphereHyperv,
         required: true,
         showIf: (v) => deploymentNicCount(v) >= 2,
-        help: 'NIC1 is the combined Backend + Management network for twonic; threenic uses it for Management traffic.'
+        help: 'Two NICs: NIC1 carries management and backend traffic. Three NICs: NIC1 is management-only; NIC2 is backend-only.'
       }),
       text('netBackendNetwork', 'Backend network (NIC2)', 'netBackendNetwork', {
         platforms: vsphereHyperv,
@@ -876,7 +921,7 @@ export const GROUPS: GroupDef[] = [
       }),
       sel('gatewayLocation', 'Gateway location', 'gatewayLocation', ['external', 'internal'], { default: 'external' }),
       sel('proxyDestinationIPSupport', 'Connection Server IP mode', 'proxyDestinationIPSupport', ['IPV4', 'IPV6', 'IPV4+IPV6'], { default: 'IPV4', omitDefault: true }),
-      bool('tunnelEnabled', 'Enable tunnel (secure gateway)', 'tunnelEnabled', true),
+      bool('tunnelEnabled', 'Enable tunnel (secure gateway)', 'tunnelEnabled', false),
       text('tunnelExternalUrl', 'Tunnel external URL', 'tunnelExternalUrl', {
         rule: 'httpsUrl',
         placeholder: 'https://vdi.example.com:443',
@@ -891,7 +936,7 @@ export const GROUPS: GroupDef[] = [
         showIf: (v) => v.tunnelEnabled === true,
         help: 'Comma-separated; hostnames must be unique.'
       }),
-      bool('blastEnabled', 'Enable Blast', 'blastEnabled', true),
+      bool('blastEnabled', 'Enable Blast', 'blastEnabled', false),
       text('blastExternalUrl', 'Blast external URL', 'blastExternalUrl', {
         rule: 'httpsUrl',
         placeholder: 'https://vdi.example.com:443',
@@ -900,6 +945,7 @@ export const GROUPS: GroupDef[] = [
       }),
       text('additionalBlastExternalUrls', 'Additional Blast external URLs', 'additionalBlastExternalUrls', {
         rule: 'urlList',
+        rows: { itemLabel: 'Blast external URL', rule: 'httpsUrl', separator: 'comma' },
         aliases: ['blastUrls'],
         since: '2412',
         wide: true,
@@ -1049,9 +1095,10 @@ export const GROUPS: GroupDef[] = [
         json: false,
         help: 'INI serialization copied from an appliance export. JSON object shape is not documented and is intentionally not exported.'
       }),
-      ...Array.from({ length: 5 }, (_, i) => text(`hostEntry${i + 1}`, `Host entry ${i + 1}`, `hostEntry${i + 1}`, {
+      ...Array.from({ length: 6 }, (_, i) => text(`hostEntry${i + 1}`, `Host entry ${i + 1}`, `hostEntry${i + 1}`, {
         rule: 'hostEntry',
-        inferred: i > 0,
+        hostEntryIndex: i + 1,
+        json: false,
         wide: true,
         placeholder: '10.192.168.1 cs1.corp.local cs1',
         help: 'IP address, hostname, and optional alias, separated by spaces.'
@@ -1120,13 +1167,14 @@ export const GROUPS: GroupDef[] = [
       text('airwatch_outboundProxyUsername', 'Outbound proxy user', 'outboundProxyUsername', { json: false }),
       secret('airwatch_outboundProxyPassword', 'Outbound proxy password', 'outboundProxyPassword', { json: false }),
       bool('airwatch_ntlmAuthentication', 'Use NTLM for outbound proxy', 'ntlmAuthentication', false, { omitDefault: true, json: false }),
-      text('airwatch_hostEntry1', 'Host entries', 'hostEntry1', {
-        rule: 'hostEntryList',
+      ...Array.from({ length: 6 }, (_, i) => text(`airwatch_hostEntry${i + 1}`, `Host entry ${i + 1}`, `hostEntry${i + 1}`, {
+        rule: 'hostEntry',
+        hostEntryIndex: i + 1,
         wide: true,
         placeholder: '10.0.0.15 api.corp.local',
         json: false,
-        help: 'Optional /etc/hosts entries: IP, hostname, optional alias, separated by spaces; separate entries with commas.'
-      }),
+        help: 'IP address, hostname, and optional alias, separated by spaces.'
+      })),
       text('airwatch_trustedCert1', 'Trusted CA certificate (PEM path)', 'trustedCert1', {
         wide: true,
         placeholder: 'C:\\certs\\workspace-one-ca.pem',
@@ -1229,7 +1277,7 @@ export const GROUPS: GroupDef[] = [
     target: 'saml',
     iniSection: 'IDPExternalMetadata1',
     enabledBy: 'saml_enabled',
-    help: 'Third-party IdP metadata for SAML authentication. Select SAML as the auth method on the Horizon edge service.',
+    help: 'Third-party IdP metadata for Horizon or administrator SAML authentication. Select SAML on Horizon or enable Administrator SAML access below.',
     fields: [
       text('saml_entityID', 'IdP entity ID', 'entityID', { required: true, wide: true, placeholder: 'https://idp.example.com/metadata' }),
       text('saml_metadataXmlFile', 'IdP metadata XML file', 'metadataXmlFile', {
@@ -1237,10 +1285,23 @@ export const GROUPS: GroupDef[] = [
         required: true,
         placeholder: 'C:\\uag\\idp-metadata.xml',
         json: false,
-        help: 'Local path read by uagdeploy at deployment time.'
+        help: 'Local metadata XML path read by uagdeploy at deployment time. This is not a PEM/PFX certificate input. Signing and encryption use the dedicated PEM-only controls below.'
       }),
       bool('saml_forceAuthN', 'Force re-authentication', 'forceAuthN', false),
-      bool('saml_allowUnencrypted', 'Allow unencrypted assertions', 'allowUnencrypted', false)
+      bool('saml_allowUnencrypted', 'Allow unencrypted assertions', 'allowUnencrypted', false),
+      text('saml_idpUrlThumbprints', 'IdP URL thumbprints (optional)', 'idpUrlThumbprints', {
+        rule: 'thumbprints', wide: true, json: false,
+        help: 'Optional comma-separated SHA thumbprints for the metadata Artifact Resolution Service URL. Values such as sha1:xx xx ... are preserved. Trusted CA rows do not require a thumbprint. INI-only: uagdeploy derives idpURL from the metadata XML.'
+      }),
+      ...trustedCertFields((n) => `saml_trustedCert${n}`, {
+        help: 'CA PEM path trusted for the IdP metadata Artifact Resolution Service URL. Maximum nine; uagdeploy reads the files at deployment time. Paths are INI-only, not JSON certificate content.'
+      }),
+      ...certificateFields('samlSigning', 'SAML signing', {
+        cert: 'signingCertChainPem', key: 'signingPrivateKeyPem', mode: 'signingCertificateType'
+      }),
+      ...certificateFields('samlEncryption', 'SAML encryption', {
+        cert: 'certChainPem', key: 'privateKeyPem', mode: 'encryptionCertificateType'
+      })
     ]
   },
   {
@@ -1358,10 +1419,43 @@ export const GROUPS: GroupDef[] = [
     iniSection: 'SSLCert',
     help: 'File paths read by uagdeploy at deployment time (PEM, RSA key in PKCS#1 format). Certificate content is never stored by Gateway Forge.',
     fields: [
-      text('cert_pemCerts', 'Internet-facing cert chain (PEM)', 'pemCerts', { wide: true, placeholder: 'C:\\certs\\uag-chain.pem', json: false }),
-      text('cert_pemPrivKey', 'Internet-facing private key (PEM)', 'pemPrivKey', { wide: true, placeholder: 'C:\\certs\\uag-key.pem', json: false }),
-      text('cert_pfxCerts', 'Or PFX file', 'pfxCerts', { wide: true, json: false }),
-      text('cert_pfxCertAlias', 'PFX alias', 'pfxCertAlias', { json: false })
+      ...certificateFields('cert', 'Internet-facing TLS', { cert: 'pemCerts', key: 'pemPrivKey', pfx: 'pfxCerts', alias: 'pfxCertAlias' })
+    ]
+  },
+  {
+    id: 'saml-idp-certs',
+    title: 'SAML identity-provider signing certificate',
+    section: 'auth',
+    target: 'certs',
+    iniSection: 'SAMLIdentityProviderMetadata',
+    help: 'Optional dedicated SAML IdP signing certificate, separate from external IdP metadata and TLS. PEM only; the private-key file must contain an RSA private key. With no custom pair, UAG generates a self-signed pair. File paths are INI-only.',
+    fields: certificateFields('samlIdp', 'SAML IdP signing', { cert: 'pemCerts', key: 'pemPrivKey' })
+  },
+  {
+    id: 'admin-saml',
+    title: 'Administrator SAML access',
+    section: 'auth',
+    target: 'adminSaml',
+    iniSection: 'adminSAMLSettings',
+    enabledBy: 'adminSaml_enable',
+    since: '2609',
+    help: 'Administrator authentication, separate from Horizon SAML. Configure the matching IdP metadata under SAML identity provider.',
+    fields: [
+      bool('adminSaml_enable', 'Enable administrator SAML', 'enable', false),
+      text('adminSaml_entityId', 'Administrator IdP entity ID', 'entityId', { required: true, wide: true }),
+      text('adminSaml_spEntityId', 'Administrator SP entity ID', 'spEntityId', { wide: true }),
+      bool('adminSaml_signAuthNRequest', 'Sign authentication requests with admin certificate', 'signAuthNRequestWithAdminCert', false)
+    ]
+  },
+  {
+    id: 'admin-certs',
+    title: 'Management / Admin UI certificates',
+    section: 'tls',
+    target: 'certs',
+    iniSection: 'SSLCertAdmin',
+    help: 'Deployment-time file paths for the management listener on port 9443. Paths are INI-only; settings JSON requires actual certificate content, not file paths.',
+    fields: [
+      ...certificateFields('adminCert', 'Admin TLS', { cert: 'pemCerts', key: 'pemPrivKey', pfx: 'pfxCerts', alias: 'pfxCertAlias' })
     ]
   },
   {
@@ -1452,7 +1546,7 @@ export const LISTS: ListDef[] = [
 
 /** Virtual (non-INI) toggles and settings that live in `values` next to real fields. */
 export const VIRTUAL_DEFAULTS: Values = {
-  horizon_enabled: true,
+  horizon_enabled: false,
   radius_enabled: false,
   saml_enabled: false,
   snmp_enabled: false,

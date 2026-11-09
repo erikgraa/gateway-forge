@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 describe('OutputPanel', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('warns about console and Admin UI/API access when deployment passwords are omitted', async () => {
+  it('explains native deployment password prompts when parameters are omitted', async () => {
     vi.stubGlobal('document', { documentElement: { dataset: {} } });
     vi.stubGlobal('localStorage', {
       getItem: () => null,
@@ -16,6 +16,7 @@ describe('OutputPanel', () => {
     const { default: OutputPanel } = await import('./OutputPanel.svelte');
     const { body } = render(OutputPanel);
 
-    expect(body).toContain('If root and Admin UI password parameters are not provided during deployment, the UAG is not accessible through the console or Admin UI/API.');
+    expect(body).toContain('When root and Admin UI password parameters are omitted, uagdeploy and its platform variants prompt for them interactively.');
+    expect(body).not.toContain('not accessible through the console');
   });
 });

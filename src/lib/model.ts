@@ -10,6 +10,7 @@ import {
 } from './schema';
 import { DEFAULT_VERSION, inVersion, type Platform } from './versions';
 import { compactConfigTrustedCerts } from './trusted-certs';
+import { normalizeHostEntries } from './host-entries';
 
 export interface Config {
   version: string;
@@ -94,6 +95,7 @@ export function applyPatch(base: Config, patch: Partial<Omit<Config, 'values'>> 
   if (patch.version) out.version = patch.version;
   if (patch.platform) out.platform = patch.platform;
   if (patch.values) Object.assign(out.values, patch.values);
+  for (const group of GROUPS) normalizeHostEntries(out.values, group.fields);
   if (patch.wrp) out.wrp = patch.wrp.map((i) => ({ ...newListItem('wrp'), ...i }));
   if (patch.syslog) out.syslog = patch.syslog.map((i) => ({ ...newListItem('syslog'), ...i }));
   compactConfigTrustedCerts(out);

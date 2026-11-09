@@ -71,7 +71,8 @@
           </label>
         </div>
       </div>
-      <p class="warnbox">{MISSING_PASSWORD_WARNING}</p>
+      <p class="notice">{MISSING_PASSWORD_WARNING}</p>
+      <p class="runtime-note">Password-protected PFX files prompt interactively in uagdeploy, including when root/admin passwords are supplied. PFX passwords are never collected or exported here.</p>
       {#if app.deploymentMode === 'headless'}
         <p class="runtime-note">Set <code>UAG_ROOT_PASSWORD</code> and <code>UAG_ADMIN_PASSWORD</code> in the deployment process environment. The generated script fails before invoking uagdeploy if either is absent.</p>
       {/if}
@@ -101,6 +102,9 @@
       </div>
       <p class="runtime-note">These switches affect only PowerShell runtime commands. They are never written to deployment INI or settings JSON.</p>
     </fieldset>
+  {/if}
+  {#if app.tab === 'json'}
+    <p class="notice">Certificate and metadata file paths are deployment INI inputs, not settings JSON certificate content. IdP URL trust and PEM signing/encryption paths are omitted here; deploy the INI so uagdeploy can read the files and metadata XML.</p>
   {/if}
   {#if olderVersion}
     <div class="artifact-version-warning">

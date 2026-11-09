@@ -350,7 +350,8 @@ describe('JSON import', () => {
         edgeServiceSettingsList: [{
           identifier: 'VIEW',
           enabled: true,
-          blastAllowedHostHeaderValues: ['uag.example.com:8443', '_empty_']
+          blastAllowedHostHeaderValues: ['uag.example.com:8443', '_empty_'],
+          blastEnabled: true
         }]
       }
     }));

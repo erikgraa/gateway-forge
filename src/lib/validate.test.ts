@@ -75,7 +75,8 @@ describe('config validation', () => {
   it('flags required fields on a blank config', () => {
     const m = messages(defaultConfig()).join('\n');
     expect(m).toMatch(/error:UAG name.*required/);
-    expect(m).toMatch(/error:Connection Server URL is required/);
+    expect(m).not.toMatch(/Connection Server URL is required/);
+    expect(messages(applyPatch(defaultConfig(), { values: { horizon_enabled: true } })).join('\n')).toMatch(/error:Connection Server URL is required/);
   });
 
   it('accepts the RADIUS template without errors', () => {
@@ -100,7 +101,7 @@ describe('config validation', () => {
   it('lints best practices', () => {
     const c = applyPatch(defaultConfig(), {
       version: '2406',
-      values: { tls11Enabled: true, sshEnabled: true, sshPasswordAccessEnabled: true, authMethods: 'passthrough', gatewayLocation: 'external', proxyDestinationUrl: 'https://cs', blastEnabled: true, blastExternalUrl: '' }
+      values: { horizon_enabled: true, tls11Enabled: true, sshEnabled: true, sshPasswordAccessEnabled: true, authMethods: 'passthrough', gatewayLocation: 'external', proxyDestinationUrl: 'https://cs', blastEnabled: true, blastExternalUrl: '' }
     });
     const m = messages(c).join('\n');
     expect(m).toMatch(/No syslog server/);
@@ -139,7 +140,7 @@ describe('config validation', () => {
   });
 
   it('catches RADIUS timing and missing-method mismatches', () => {
-    const c = applyPatch(defaultConfig(), { values: { authMethods: 'radius-auth', radius_enabled: false } });
+    const c = applyPatch(defaultConfig(), { values: { horizon_enabled: true, authMethods: 'radius-auth', radius_enabled: false } });
     expect(messages(c).join('\n')).toMatch(/error:Horizon uses RADIUS/);
     const t = applyPatch(c, { values: { radius_enabled: true, radius_numAttempts: 10, radius_serverTimeout: 20, radius_hostName: 'r' } });
     expect(messages(t).join('\n')).toMatch(/must not exceed 120/);
@@ -148,6 +149,8 @@ describe('config validation', () => {
     const c = applyPatch(defaultConfig(), {
       values: {
         authMethods: 'saml-auth-and-unauthenticated',
+        horizon_enabled: true,
+        blastEnabled: true,
         gatewayLocation: 'external',
         saml_enabled: false,
         origin: 'not an origin',
@@ -163,7 +166,7 @@ describe('config validation', () => {
     expect(m).toMatch(/Blast external URLs must be unique/);
     expect(m).toMatch(/canonicalization is disabled/);
     expect(messages(applyPatch(defaultConfig(), {
-      values: { authMethods: 'securid-auth-and-unauthenticated', gatewayLocation: 'internal' }
+      values: { horizon_enabled: true, authMethods: 'securid-auth-and-unauthenticated', gatewayLocation: 'internal' }
     })).join('\n')).toMatch(/RSA SecurID is not configured/);
   });
 
@@ -352,7 +355,8 @@ describe('config validation', () => {
 
   it('summarises counts per section', () => {
     const counts = countBySection(validateConfig(defaultConfig()));
-    expect(counts.horizon.error).toBeGreaterThan(0);
+    expect(counts.horizon.error).toBe(0);
+    expect(counts.network.error).toBeGreaterThan(0);
   });
 
   it('validates required Workspace ONE Tunnel settings and proxy inputs', () => {
@@ -396,7 +400,7 @@ describe('config validation', () => {
       }
     });
     const m = messages(c).join('\n');
-    expect(m).toMatch(/Host entries: Must contain comma-separated/);
+    expect(m).toMatch(/Host entry 1: Use IPv4_address hostname/);
     expect(m).toMatch(/Both PAC file path and URL/);
   });
 

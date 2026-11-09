@@ -12,6 +12,8 @@ import { platformDef } from './versions';
 import { trustedCertFields, trustedCertPaths } from './trusted-certs';
 import { sshPublicKeys } from './ssh';
 import { serializeListValue } from './listValue';
+import { hostEntryValues } from './host-entries';
+import { certificateMode } from './certificate-input';
 
 export type SecretMode = 'placeholder' | 'omit' | 'include';
 export const SECRET_PLACEHOLDER = '<REDACTED>';
@@ -80,7 +82,7 @@ function sectionRank(name: string): number {
 
 function entryFor(f: Field, values: Values, mode: SecretMode): Entry | null {
   if (f.customOutput) return null;
-  const raw = values[f.id];
+  const raw = f.certificateInput ? certificateMode(values, f.id, f.certificateInput) : values[f.id];
   const normalized = f.rows ? serializeListValue([raw], f.rows.separator) : raw;
   if (isEmpty(normalized)) return null;
   if (f.omitDefault && isDefault(f, normalized)) return null;
@@ -109,13 +111,18 @@ export function collectBlocks(c: Config, opts: GenerateOptions = { secrets: 'pla
     if (!groupEnabled(g, c)) continue;
     if (g.target === 'horizon' && c.values.horizon_enabled !== true) continue;
     const entries: Entry[] = [];
-    for (const f of g.fields.filter((field) => field.trustedCertIndex === undefined)) {
+    for (const f of g.fields.filter((field) => field.trustedCertIndex === undefined && field.hostEntryIndex === undefined)) {
       if (f.id === 'origin') continue;
       if (!fieldAvailable(f, c.version, c.platform, c.values)) continue;
       if (f.customOutput || f.ini === false) continue;
       const e = entryFor(f, c.values, opts.secrets);
       if (e) entries.push(g.target === 'deploy' ? { ...e, jsonKey: false } : e);
     }
+    const hosts = hostEntryValues(c.values, g.fields);
+    hosts.forEach((value, index) => {
+      const field = g.fields.find((f) => f.hostEntryIndex === 1)!;
+      entries.push({ field, key: `hostEntry${index + 1}`, jsonKey: false, value, secret: false });
+    });
     const certPaths = trustedCertPaths(c.values, g.fields);
     trustedCertFields(g.fields).slice(0, certPaths.length).forEach((field, index) => {
       const e = entryFor({ ...field, key: `trustedCert${index + 1}` }, { [field.id]: certPaths[index] }, opts.secrets);
@@ -243,7 +250,6 @@ export function platformScript(c: Config): string {
 export function deploymentCommand(c: Config, switches = ''): string {
   const file = `.\\${iniFileName(c)}`;
   const script = `.\\${platformScript(c)}`;
-  if (c.platform === 'nutanix' || c.platform === 'azure') return `${script} ${file}${switches}`;
   return `${script} -iniFile ${file}${switches}`;
 }
 
@@ -310,6 +316,8 @@ export function generateJsonObject(c: Config, opts: GenerateOptions = { secrets:
   for (const b of blocks) {
     if (b.target === 'horizon' && b.section === 'Horizon') {
       const view: Record<string, unknown> = { identifier: 'VIEW', enabled: true, ...objectFrom(b.entries) };
+      const hostEntries = hostEntryValues(c.values, GROUPS.filter((g) => g.target === 'horizon').flatMap((g) => g.fields));
+      if (hostEntries.length) view.hostEntries = hostEntries;
       if (c.values.origin && blocks.some((block) => block.section.startsWith('OriginHeaderDetails'))) {
         view.originHeaderDetailsList = parseOriginHeaderDetails(c.values.origin);
       }
@@ -324,6 +332,9 @@ export function generateJsonObject(c: Config, opts: GenerateOptions = { secrets:
 
   const saml = blocks.find((b) => b.target === 'saml');
   if (saml) doc.idpExternalMetadataSettingsList = { idpExternalMetadataSettingsList: [objectFrom(saml.entries)] };
+
+  const adminSaml = blocks.find((b) => b.target === 'adminSaml');
+  if (adminSaml) doc.adminSAMLSettings = objectFrom(adminSaml.entries);
 
   const snmp = blocks.find((b) => b.target === 'snmp');
   if (snmp) doc.snmpSettings = objectFrom(snmp.entries);
