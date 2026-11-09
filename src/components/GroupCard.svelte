@@ -1,7 +1,7 @@
 <script lang="ts">
   import { app } from '../lib/store.svelte';
   import { fieldAvailable, groupAvailable, groupEnabled } from '../lib/model';
-  import type { GroupDef, Values } from '../lib/schema';
+  import type { Field, GroupDef, Values } from '../lib/schema';
   import type { Issue } from '../lib/validate';
   import FieldInput from './FieldInput.svelte';
   import TrustedCertEditor from './TrustedCertEditor.svelte';
@@ -27,6 +27,19 @@
   function err(fieldId: string): string | undefined {
     return issues.find((i) => i.fieldId === fieldId && !i.list && i.level === 'error')?.message;
   }
+
+  function enabledField(target: GroupDef): Field {
+    const existing = target.fields.find((field) => field.id === target.enabledBy);
+    return existing ?? {
+      id: target.enabledBy!,
+      label: `Enable ${target.title}`,
+      type: 'bool',
+      key: target.enabledBy!,
+      ini: false,
+      json: false,
+      help: target.help
+    };
+  }
 </script>
 
 {#if available}
@@ -37,7 +50,7 @@
         <label class="toggle">
           <input id={`f-${group.enabledBy}`} type="checkbox" checked={c.values[group.enabledBy] === true} onchange={(e) => (app.config.values[group.enabledBy!] = e.currentTarget.checked)} />
           Enabled
-          <FieldDetails field={group.fields.find((field) => field.id === group.enabledBy)!} platform={c.platform} />
+          <FieldDetails field={enabledField(group)} platform={c.platform} />
         </label>
       {/if}
     </div>

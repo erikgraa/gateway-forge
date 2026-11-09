@@ -10,7 +10,6 @@ describe('FieldDetails', () => {
 
     expect(body).toContain('More information about UAG name');
     expect(body).toContain('<code>uagName</code>');
-    expect(body).toContain('href="https://docs.omnissa.com/"');
-    expect(body).toContain('Official Omnissa documentation');
+    expect(body).not.toContain('href=');
   });
 });

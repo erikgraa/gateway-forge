@@ -30,8 +30,5 @@
       {#if field.platforms}<div><dt>Platforms</dt><dd>{field.platforms.join(', ')}</dd></div>{/if}
       {#if field.inferred}<div><dt>Status</dt><dd>Verify against appliance export or vendor documentation before use.</dd></div>{/if}
     </dl>
-    <a href="https://docs.omnissa.com/" target="_blank" rel="noopener noreferrer" onclick={(event) => event.stopPropagation()}>
-      Official Omnissa documentation ↗
-    </a>
   </span>
 </span>
