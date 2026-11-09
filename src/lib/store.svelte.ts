@@ -33,6 +33,9 @@ function loadDraft(): Config {
     if (raw) {
       const parsed = JSON.parse(raw) as Config;
       const merged = applyPatch(defaultConfig(), { version: parsed.version, platform: parsed.platform, values: parsed.values });
+      if (typeof merged.values.sessionTimeout === 'number' && merged.values.sessionTimeout >= 60000) {
+        merged.values.sessionTimeout /= 60000;
+      }
       merged.wrp = (parsed.wrp ?? []).map((i) => ({ ...i }));
       merged.syslog = (parsed.syslog ?? []).map((i) => ({ ...i }));
       merged.adminUsers = applyPatch(defaultConfig(), { adminUsers: parsed.adminUsers }).adminUsers;

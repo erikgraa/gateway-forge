@@ -72,6 +72,12 @@ describe('INI parsing', () => {
 });
 
 describe('INI import', () => {
+  it('imports vendor session timeout milliseconds as minutes', () => {
+    const result = importIni('[General]\nsessionTimeout=2700000');
+    expect(result.config.values.sessionTimeout).toBe(45);
+    expect(generateIni(result.config)).toContain('sessionTimeout=2700000');
+  });
+
   const r = importIni(SAMPLE);
   it('maps documented keys onto form fields', () => {
     expect(r.format).toBe('ini');
