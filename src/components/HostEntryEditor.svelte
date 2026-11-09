@@ -2,15 +2,17 @@
   import type { Field, Values } from '../lib/schema';
   import type { Issue } from '../lib/validate';
   import { HOST_ENTRY_MAX, hostEntryValues, removeHostEntry } from '../lib/host-entries';
+  import FieldDetails from './FieldDetails.svelte';
 
   interface Props {
     fields: Field[];
     values: Values;
     issues: Issue[];
     uid?: string;
+    platform?: 'vsphere' | 'hyperv' | 'azure' | 'nutanix' | 'openshift';
     list?: { id: 'wrp' | 'syslog' | 'adminUsers'; index: number };
   }
-  let { fields, values = $bindable(), issues, uid, list }: Props = $props();
+  let { fields, values = $bindable(), issues, uid, platform = 'vsphere', list }: Props = $props();
   let requested = $state(1);
   const count = $derived(Math.min(HOST_ENTRY_MAX, Math.max(requested,
     fields.reduce((n, f, i) => values[f.id] ? i + 1 : n, 0), 1)));
@@ -37,7 +39,7 @@
       {@const id = uid ? `f-${uid}-${field.id}` : `f-${field.id}`}
       <div class="row-list-item">
         <label class="row-list-input" for={id}>
-          <span class="lbl">Host entry {index + 1}</span>
+          <span class="lbl">Host entry {index + 1}<FieldDetails {field} {platform} uid={`${uid ?? 'hosts'}-${field.id}`} /></span>
           <input {id} type="text" bind:value={values[field.id]}
             placeholder={field.placeholder} spellcheck="false" autocomplete="off"
             class:bad={!!error} aria-invalid={error ? 'true' : undefined}

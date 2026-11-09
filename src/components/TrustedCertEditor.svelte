@@ -7,15 +7,17 @@
     trustedCertFields,
     trustedCertPaths
   } from '../lib/trusted-certs';
+  import FieldDetails from './FieldDetails.svelte';
 
   interface Props {
     fields: Field[];
     values: Values;
     issues: Issue[];
     uid: string;
+    platform?: 'vsphere' | 'hyperv' | 'azure' | 'nutanix' | 'openshift';
     list?: { id: 'wrp' | 'syslog' | 'adminUsers'; index: number };
   }
-  let { fields, values = $bindable(), issues, uid, list }: Props = $props();
+  let { fields, values = $bindable(), issues, uid, platform = 'vsphere', list }: Props = $props();
 
   let requestedRows = $state(1);
   const orderedFields = $derived(trustedCertFields(fields));
@@ -54,7 +56,7 @@
       {@const message = error(field)}
       <div class="trusted-cert-row">
         <label class="field" for={id}>
-          <span class="lbl">Certificate path {index + 1}</span>
+          <span class="lbl">Certificate path {index + 1}<FieldDetails {field} {platform} uid={`${uid}-${field.id}`} /></span>
           <input
             {id}
             type="text"

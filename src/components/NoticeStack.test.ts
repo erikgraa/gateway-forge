@@ -36,6 +36,7 @@ describe('NoticeStack', () => {
     const body = renderStack('openshift');
 
     expect(body).toContain('aria-labelledby="openshift-advisory-title"');
+    expect(body).toContain('Limited Availability');
     expect(body).toContain('requires Omnissa-granted access');
     expect(body).not.toContain('Nutanix QCOW2 and VM replacement');
   });

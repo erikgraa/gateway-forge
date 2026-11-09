@@ -340,6 +340,28 @@ h1 { margin: 0; font-size: clamp(24px, 2.3vw, 32px); font-weight: 680; letter-sp
 .field.bool { flex-direction: row; align-items: flex-start; gap: 9px; padding-top: 3px; color: var(--tx); font-size: 12px; }
 .field.bool input { flex: 0 0 15px; width: 15px; height: 15px; margin: 2px 0 0; accent-color: var(--acc); }
 .field.bool .hint { font-size: 10px; }
+.field-details { position: relative; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; color: var(--mut); cursor: help; }
+.field-details-trigger { width: 17px; height: 17px; border: 1px solid var(--line-strong); border-radius: 50%; background: transparent; padding: 0; color: inherit; font-size: 10px; line-height: 15px; text-align: center; }
+.field-details:hover, .field-details:focus-within, .field-details:focus { color: var(--acc); outline: 0; }
+.field-details-tooltip {
+  position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 80; width: min(320px, 75vw);
+  visibility: hidden; opacity: 0; transform: translateY(3px); transition: opacity .12s, transform .12s;
+  border: 1px solid var(--line-strong); border-radius: 8px; background: var(--panel); box-shadow: var(--shadow);
+  padding: 12px; color: var(--mut); font-size: 11px; font-weight: 400; line-height: 1.5; text-align: left;
+}
+.field-details:hover .field-details-tooltip,
+.field-details:focus .field-details-tooltip,
+.field-details:focus-within .field-details-tooltip {
+  visibility: visible; opacity: 1; transform: translateY(0);
+}
+.field-details-tooltip > strong { display: block; color: var(--tx); font-size: 12px; }
+.field-details-tooltip p { margin: 5px 0 8px; }
+.field-details-tooltip dl { display: grid; gap: 4px; margin: 0 0 8px; }
+.field-details-tooltip dl > div { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 8px; }
+.field-details-tooltip dt { color: var(--subtle); }
+.field-details-tooltip dd { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.field-details-tooltip a { color: var(--acc); font-weight: 600; text-decoration: none; }
+.field-details-tooltip a:hover { text-decoration: underline; }
 .secret-wrap { display: flex; gap: 6px; }
 .toggle { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--mut); }
 .toggle input { accent-color: var(--acc); }

@@ -146,12 +146,12 @@ describe('INI generation', () => {
     const c = applyPatch(defaultConfig(), {
       adminUsers: [
         { name: 'MonitorUser1', enabled: true, adminMonitoringPasswordPreExpired: true, password: 'not-persisted' },
-        { name: 'MonitorUser2', enabled: false, adminMonitoringPasswordPreExpired: true }
+        { name: 'MonitorUser2', enabled: false }
       ]
     });
     const ini = generateIni(c, { secrets: 'include' });
     expect(ini).toContain('[AdminUser1]\nname=MonitorUser1\nenabled=true\nadminMonitoringPasswordPreExpired=true');
-    expect(ini).toContain('[AdminUser2]\nname=MonitorUser2\nenabled=false\nadminMonitoringPasswordPreExpired=true');
+    expect(ini).toContain('[AdminUser2]\nname=MonitorUser2\nenabled=false\nadminMonitoringPasswordPreExpired=false');
     expect(ini).not.toContain('password');
     expect(generateJson(c, { secrets: 'include' })).not.toMatch(/AdminUser|MonitorUser|password/i);
     expect(JSON.stringify(stripSecrets(c))).not.toContain('not-persisted');
