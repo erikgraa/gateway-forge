@@ -1,4 +1,4 @@
-import { GROUPS, LISTS, deploymentNicCount, type Field, type Rule, type SectionId, type Values } from './schema';
+import { GROUPS, LISTS, SECTIONS, deploymentNicCount, type Field, type Rule, type SectionId, type Values } from './schema';
 import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
 import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion, platformAvailable, platformDef, type Platform } from './versions';
@@ -518,7 +518,7 @@ function lint(c: Config, push: Push): void {
 
 export function countBySection(issues: Issue[]): Record<SectionId, { error: number; warn: number; info: number }> {
   const out = {} as Record<SectionId, { error: number; warn: number; info: number }>;
-  for (const s of ['general', 'network', 'horizon', 'tunnel', 'wrp', 'auth', 'tls', 'monitoring', 'templates'] as SectionId[]) out[s] = { error: 0, warn: 0, info: 0 };
+  for (const section of SECTIONS) out[section.id] = { error: 0, warn: 0, info: 0 };
   for (const i of issues) out[i.section][i.level]++;
   return out;
 }
