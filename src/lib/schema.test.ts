@@ -1,7 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { GROUPS, LISTS } from './schema';
+import { GROUPS, LISTS, SECTIONS } from './schema';
 
 describe('schema integrity', () => {
+  it('orders shared setup before optional edge service editors', () => {
+    expect(SECTIONS.map((section) => section.id)).toEqual([
+      'general',
+      'network',
+      'tls',
+      'auth',
+      'monitoring',
+      'adminUsers',
+      'services',
+      'horizon',
+      'tunnel',
+      'contentGateway',
+      'wrp',
+      'templates'
+    ]);
+  });
+
   it('describes Horizon cascade roles as UAG types with standalone as the default', () => {
     const group = GROUPS.find((candidate) => candidate.id === 'cascade')!;
     const role = group.fields.find((field) => field.id === 'cascade_role')!;
