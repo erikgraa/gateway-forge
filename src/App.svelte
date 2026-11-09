@@ -167,7 +167,7 @@
       <section class="environment-bar" aria-label="Target environment">
         <div class="environment-item environment-release">
           <span class="environment-label">Release</span>
-          <div class="environment-picker release-picker" role="group" aria-label="Target UAG release" title={`Supported releases per the Omnissa Lifecycle Matrix (${LIFECYCLE_SNAPSHOT})`}>
+          <div class="environment-picker release-picker" role="group" aria-label="Target UAG release" title={`Release lifecycle snapshot from the Omnissa Lifecycle Matrix (${LIFECYCLE_SNAPSHOT})`}>
             <button
               type="button"
               class="environment-choice release-choice"
@@ -177,14 +177,14 @@
             >
               <span>UAG {latestVersion.id}</span><small>Recommended</small>
             </button>
-            <label class="sr-only" for="uag-version">Older supported UAG release</label>
+            <label class="sr-only" for="uag-version">Other UAG release</label>
             <select
               id="uag-version"
               value={app.config.version === latestVersion.id ? '' : app.config.version}
               onchange={(event) => (app.config.version = event.currentTarget.value)}
-              aria-label="Older supported UAG release"
+              aria-label="Other UAG release"
             >
-              <option value="" disabled>Older supported release</option>
+              <option value="" disabled>Other releases</option>
               {#each [...VERSIONS].reverse().filter((v) => !v.latest) as v (v.id)}
                 <option value={v.id}>UAG {v.id}</option>
               {/each}
