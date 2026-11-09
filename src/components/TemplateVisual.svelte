@@ -69,18 +69,18 @@
 </div>
 
 <style>
-  .template-visual { border-bottom: 1px solid var(--line); background: radial-gradient(ellipse at 50% 45%, var(--acc-soft), transparent 75%), var(--canvas); }
+  .template-visual { border-bottom: 1px solid var(--line); background: radial-gradient(ellipse at 50% 45%, var(--tpl-soft, var(--acc-soft)), transparent 75%), var(--canvas); }
   svg { display: block; width: 100%; height: 200px; }
-  .gateway-zone { fill: var(--acc-soft); stroke: var(--line); stroke-dasharray: 3 4; }
+  .gateway-zone { fill: var(--tpl-soft, var(--acc-soft)); stroke: var(--line); stroke-dasharray: 3 4; }
   .zone-label { fill: var(--mut); font: 8px var(--font-sans, sans-serif); letter-spacing: .8px; }
-  .connection { fill: none; stroke: var(--acc); stroke-width: 1.5; }
+  .connection { fill: none; stroke: var(--tpl-accent, var(--acc)); stroke-width: 1.5; }
   .connection.identity { stroke: var(--teal); stroke-dasharray: 4 3; }
   .connection.monitoring { stroke: var(--mut); stroke-dasharray: 2 3; }
   .connection.cascade { stroke: var(--teal); stroke-width: 2; }
   .node rect { fill: var(--panel); stroke: var(--line-strong); }
-  .node.uag rect { fill: var(--acc-soft); stroke: var(--acc); }
+  .node.uag rect { fill: var(--tpl-soft, var(--acc-soft)); stroke: var(--tpl-accent, var(--acc)); }
   .node text { fill: var(--tx); font: 8px var(--font-sans, sans-serif); font-weight: 600; }
-  .node-icon { fill: none; stroke: var(--acc); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .node-icon { fill: none; stroke: var(--tpl-accent, var(--acc)); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
   .identity .node-icon { stroke: var(--teal); }
   .monitoring .node-icon { stroke: var(--mut); }
   .visual-caption { display: flex; flex-direction: column; gap: 4px; padding: 0 14px 12px; color: var(--mut); font-size: 10px; }

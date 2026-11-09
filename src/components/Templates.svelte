@@ -21,13 +21,14 @@
   <p class="help">Start from a common design. Loading a template replaces the current configuration but keeps your UAG version and platform. Replace the example host names, URLs and thumbprints with your own.</p>
   <div class="tpl-grid">
     {#each previews as { template: t, config } (t.id)}
-      <div class="tpl">
+      <div class="tpl" data-accent={t.appearance.accent}>
+        <div class="tpl-kind">{t.appearance.label}</div>
         <TemplateVisual {config} title={t.title} />
         <div class="tpl-body">
           <h4>{t.title}</h4>
           <div class="tags">{#each t.tags as tag (tag)}<span class="chip">{tag}</span>{/each}</div>
           <p>{t.description}</p>
-          <button class="primary small" onclick={() => use(t.id)} aria-label={`Use template: ${t.title}`}>Use template</button>
+          <button class="template-use small" onclick={() => use(t.id)} aria-label={`Use template: ${t.title}`}>Use template</button>
         </div>
       </div>
     {/each}
