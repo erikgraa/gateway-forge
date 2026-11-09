@@ -1187,7 +1187,7 @@ export const GROUPS: GroupDef[] = [
         required: true,
         placeholder: 'domain\\svc-uag',
         json: false,
-        help: 'Console admin account used for initial configuration; Console Administrator privileges are required at minimum.'
+        help: 'Console admin account used for initial configuration; Console Administrator privileges are required at minimum. Its password is supplied only at PowerShell runtime through UAG_WORKSPACE_ONE_UEM_API_PASSWORD and -awAPIServerPwd, never stored in the browser, INI, JSON, or generated script content.'
       }),
       text('airwatch_organizationGroupCode', 'Organization Group ID', 'organizationGroupCode', {
         placeholder: 'CORP',
@@ -1326,7 +1326,7 @@ export const GROUPS: GroupDef[] = [
         required: (v) => v.contentGateway_mode === 'standalone',
         showIf: (v) => v.contentGateway_mode === 'standalone',
         placeholder: 'domain\\svc-uag-content',
-        help: 'A populated username selects the standalone [AirwatchContentGateway] section in the vendor module. The API password is supplied at deployment time.'
+        help: 'A populated username selects the standalone [AirwatchContentGateway] section in the vendor module. Its password is supplied only at PowerShell runtime through UAG_CONTENT_GATEWAY_API_PASSWORD and -awCGAPIServerPwd in headless mode, or prompted by the vendor in interactive mode.'
       }),
       text('contentGateway_organizationGroupCode', 'Organization Group ID', 'organizationGroupCode', {
         showIf: (v) => v.contentGateway_mode === 'standalone',
