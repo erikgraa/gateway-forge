@@ -4,6 +4,28 @@ Gateway Forge distinguishes official product contracts from UI guidance and proj
 
 ## Omnissa Unified Access Gateway 26.09
 
+### Administrator SAML, management TLS and host entries
+
+- [Omnissa EUC deployment sample module](https://github.com/euc-oss/euc-samples/blob/b75247f2f149fab9c4a3f6d3dca622d7a4f77450/UAG-Samples/uag-terraform/uagdeploy.psm1): `GetAdminSAMLSettings` reads `[adminSAMLSettings]` keys `enable`, `entityId`, `spEntityId` and `signAuthNRequestWithAdminCert`; `GetCertificateWrapper $settings "Admin"` reads `[SSLCertAdmin]` PEM/PFX paths; `GetHostEntries` reads contiguous `hostEntryN` keys and produces `hostEntries` arrays.
+- [Omnissa EUC UAG API schema](https://github.com/euc-dev/uag-apis/blob/b6087a7a038d631a25483439d75b8b274fb399b0/docs/rest-api-swagger.json): `Settings.adminSAMLSettings` / `AdminSAMLSettings` confirms the JSON shape and `signAuthNRequestWithAdminCert` spelling. The deployment sample internally emits the inconsistent `signingAuthNRequestWithAdminCert`; Gateway Forge uses the published API spelling in settings JSON and the documented input spelling in INI.
+- `Settings.certificateWrapperAdmin` expects actual `certChainPem` / `privateKeyPem` content (or `pfxCertStoreWrapperAdmin` content), not filesystem paths. Management certificate path inputs are therefore INI-only, consistent with internet-facing certificate paths. No private-key content is collected in the browser.
+- Administrator SAML is conservatively gated to UAG 2609 as requested; the sample/API schemas establish names and shape, not the earliest product version. The six-row host-entry cap is a builder UX limit, not a claimed appliance limit.
+- Direct access to the 2609 Omnissa documentation returned HTTP 403 during this update; the published vendor module and API schema above were used instead. Live appliance import/deployment has not been verified.
+
+### Downloaded deployment module: certificate and external-IdP inputs
+
+The user-supplied deployment package (`uagdeploy.psm1` and `uag18-saml-external-idp.ini`) was inspected statically; no deployment scripts were executed. Line references below identify that supplied snapshot, not the older GitHub module.
+
+- `uagdeploy.psm1:1597-1631`: `GetPfxPassword` detects password protection and prompts with `Read-Host -AsSecureString` at line 1615. The browser does not collect or serialize a PFX password.
+- `uagdeploy.psm1:1679` onward: `GetCertificateWrapper` reads PEM/private-key or PFX inputs for `[SSLCert]` / `[SSLCertAdmin]`. Exclusive mode selection is a builder safeguard, not a new INI key.
+- `uagdeploy.psm1:1433-1494`: `[SAMLServiceProviderMetadata]` reads `spNameN`, `metadataXmlN`, `encryptAssertionN`; it is not a certificate wrapper. This section has not been implemented by the certificate-input change.
+- `uagdeploy.psm1:1516-1582`: `[SAMLIdentityProviderMetadata]` uses `pemCerts` and `pemPrivKey`, validating an RSA PEM private key; absent custom inputs cause UAG to generate a self-signed pair. No PFX mode is offered.
+- `uagdeploy.psm1:4773-4914`: `GetIDPExternalMetadataSettings` handles `[IDPExternalMetadataN]`. Its explicit rejection of non-PEM signing/encryption at lines 4852-4854 / 4881-4883 applies to this external-IdP section, not the SP metadata section. Signing uses `signingCertificateType=PEM`, `signingPrivateKeyPem`, `signingCertChainPem`; encryption uses `encryptionCertificateType=PEM`, `privateKeyPem`, `certChainPem`. The generated payload uses `signingCertAndKeyWrapper` / `encryptionCertAndKeyWrapper`.
+- `uagdeploy.psm1:4820-4839` and `uag18-saml-external-idp.ini:222-231`: `idpUrlThumbprints` accepts comma-separated SHA thumbprints with colon-prefixed algorithms and space-separated bytes, alongside `trustedCertN` PEM files. The script embeds certificate content in `idpURL.trustedCertificates` and derives `idpURL.url` from an Artifact Resolution Service location in metadata XML. Paths are not valid substitutes for JSON certificate content; these builder inputs are INI-only, with an explicit JSON-preview notice. The nine-row cap is a builder limit, not a vendor limit.
+- `uagdeploy.psm1:6094-6139`: the supplied module emits `signAuthNRequestWithAdminCert` correctly; the earlier `signingAuthNRequestWithAdminCert` typo described above belongs to the older public reference only. Administrator SAML signing reuses `[SSLCertAdmin]`; no separate admin-SAML certificate wrapper is invented.
+
+The downloaded `uagdeploy.ps1`, `uagdeployhv.ps1`, `uagdeployaz.ps1`, `uagdeployntnx.ps1`, and `uagdeployopenshift.ps1` all declare `$iniFile` in their `param` blocks. Generated commands consistently name it with `-iniFile`; Azure retains its positional root/admin/CEIP credential arguments, Nutanix remains interactive-only, and OpenShift retains its named root/admin/OpenShift-password flow.
+
 ### Nutanix AHV
 
 - [PowerShell deployment to Nutanix AHV](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/PowerShelldeploymenttoNutanix)
@@ -14,7 +36,7 @@ Verified implementation facts:
 - UAG 2606 and later use the native QCOW2 image format for Nutanix; the image must be uploaded to Prism Central first.
 - `[Nutanix]` uses `prismCentralUserName`, `prismCentralAddress`, `cluster`, `image`, and `subnet0`/`subnet1`/`subnet2`.
 - `subnetN` follows the numeric NIC mapping: NIC0/eth0, NIC1/eth1, NIC2/eth2.
-- Prism Central, the cluster and subnets must already exist. Generated PowerShell prompts for root and admin passwords as SecureString values; the vendor script prompts for the Prism Central password.
+- Prism Central, the cluster and subnets must already exist. The vendor script prompts for root, admin and Prism Central passwords when omitted.
 - Minimum Nutanix software versions are Prism Central 2024.3, AOS 7.0 and AHV 10.0.
 - `-noSSLVerify` is a documented command-line option for an untrusted Prism Central certificate.
 - A VM with the same name is deleted and recreated by the script.

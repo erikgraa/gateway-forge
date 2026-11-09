@@ -41,7 +41,7 @@ export interface PlatformDef {
   id: Platform;
   label: string;
   script: string;
-  iniArgument: 'named' | 'positional';
+  iniArgument: 'named';
   nonInteractive: 'named' | 'positional' | 'none';
   since?: string;
   limitedAvailability?: boolean;
@@ -50,8 +50,8 @@ export interface PlatformDef {
 export const PLATFORMS: PlatformDef[] = [
   { id: 'vsphere', label: 'vSphere', script: 'uagdeploy.ps1', iniArgument: 'named', nonInteractive: 'named' },
   { id: 'hyperv', label: 'Hyper-V', script: 'uagdeployhv.ps1', iniArgument: 'named', nonInteractive: 'named' },
-  { id: 'azure', label: 'Azure', script: 'uagdeployaz.ps1', iniArgument: 'positional', nonInteractive: 'positional' },
-  { id: 'nutanix', label: 'Nutanix AHV', script: 'uagdeployntnx.ps1', iniArgument: 'positional', nonInteractive: 'none', since: '2606' },
+  { id: 'azure', label: 'Azure', script: 'uagdeployaz.ps1', iniArgument: 'named', nonInteractive: 'positional' },
+  { id: 'nutanix', label: 'Nutanix AHV', script: 'uagdeployntnx.ps1', iniArgument: 'named', nonInteractive: 'none', since: '2606' },
   { id: 'openshift', label: 'Red Hat OpenShift Virtualization', script: 'uagdeployopenshift.ps1', iniArgument: 'named', nonInteractive: 'named', since: '2609', limitedAvailability: true }
 ];
 

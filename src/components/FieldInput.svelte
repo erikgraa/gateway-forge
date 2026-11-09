@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { fieldHelp, type Field, type Values } from '../lib/schema';
+  import { deploymentNicCount, fieldHelp, type Field, type Values } from '../lib/schema';
   import type { Platform } from '../lib/versions';
+  import { certificateMode, selectCertificateMode } from '../lib/certificate-input';
 
   interface Props {
     field: Field;
@@ -15,6 +16,9 @@
   let reveal = $state(false);
   const id = $derived(`f-${uid ?? field.id}`);
   const help = $derived(fieldHelp(field, platform));
+  const label = $derived(deploymentNicCount(values) === 3
+    ? field.label.replace('Management / Backend', 'Management-only').replace('Backend network', 'Backend-only network').replace('NIC2 Backend', 'NIC2 Backend-only')
+    : field.label);
 
   function setNumber(e: Event) {
     const raw = (e.currentTarget as HTMLInputElement).value;
@@ -26,7 +30,7 @@
   <label class="field bool" class:wide={field.wide}>
     <input {id} type="checkbox" checked={values[field.id] === true} onchange={(e) => (values[field.id] = e.currentTarget.checked)} />
     <span>
-      {field.label}
+      {label}
       {#if field.since}<span class="chip">UAG ≥ {field.since}</span>{/if}
       {#if help}<span class="hint"> - {help}</span>{/if}
     </span>
@@ -34,12 +38,20 @@
 {:else}
   <label class="field" class:wide={field.wide} for={id}>
     <span class="lbl">
-      {field.label}
+      {label}
       {#if field.required === true}<span class="req" title="Required">*</span>{/if}
       {#if field.since}<span class="chip">UAG ≥ {field.since}</span>{/if}
       {#if field.inferred}<span class="chip" title="Key or semantics require verification against the official source">verify</span>{/if}
     </span>
-    {#if field.type === 'select'}
+    {#if field.certificateInput}
+      <select {id} class:bad={!!error}
+        value={certificateMode(values, field.id, field.certificateInput)}
+        onchange={(e) => selectCertificateMode(values, field.id, field.certificateInput!, e.currentTarget.value)}>
+        {#each field.options ?? [] as o (o.value)}
+          <option value={o.value}>{o.label ?? o.value}</option>
+        {/each}
+      </select>
+    {:else if field.type === 'select'}
       <select {id} class:bad={!!error} bind:value={values[field.id]}>
         {#each field.options ?? [] as o (o.value)}
           <option value={o.value}>{o.label ?? (o.value === '' ? '(none)' : o.value)}</option>

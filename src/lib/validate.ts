@@ -5,6 +5,8 @@ import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion, platformAvailable, platformDef,
 import { parseOriginHeaderDetails } from './generate';
 import { sshPublicKeyValidationError } from './ssh';
 import { parseListValue } from './listValue';
+import { HOST_ENTRY_MAX, hostEntryValues } from './host-entries';
+import { certificateMode } from './certificate-input';
 
 export type Level = 'error' | 'warn' | 'info';
 
@@ -116,7 +118,7 @@ function validHostEntries(s: string): boolean {
 const HASH_LEN: Record<string, number> = { sha1: 40, sha256: 64, sha384: 96, sha512: 128 };
 
 export function parseThumbprint(entry: string): { alg: string; hex: string } | null {
-  const m = /^\s*(?:(sha1|sha256|sha384|sha512)\s*=\s*)?(.+?)\s*$/i.exec(entry);
+  const m = /^\s*(?:(sha1|sha256|sha384|sha512)\s*[=:]\s*)?(.+?)\s*$/i.exec(entry);
   if (!m) return null;
   const alg = (m[1] ?? 'sha256').toLowerCase();
   const body = m[2];
@@ -133,9 +135,11 @@ export function parseThumbprint(entry: string): { alg: string; hex: string } | n
 }
 
 export function validThumbprints(s: string): string | null {
-  for (const entry of s.split(',').filter((e) => e.trim())) {
+  if (!s.trim()) return null;
+  for (const entry of s.split(',')) {
+    if (!entry.trim()) return 'Thumbprint lists cannot contain empty entries';
     const t = parseThumbprint(entry);
-    if (!t) return `"${entry.trim()}" is not a valid thumbprint ([alg=]xx:xx:…)`;
+    if (!t) return `"${entry.trim()}" is not a valid thumbprint ([alg=]xx:xx:… or alg:xx xx …)`;
     if (t.hex.length !== HASH_LEN[t.alg]) return `${t.alg} thumbprint must be ${HASH_LEN[t.alg] / 2} bytes (got ${t.hex.length / 2})`;
   }
   return null;
@@ -221,7 +225,7 @@ export function checkRule(rule: Rule, raw: string, platform: Platform = 'vsphere
 }
 
 function checkField(f: Field, values: Values, platform: Platform): string | null {
-  const v = values[f.id];
+  const v = f.certificateInput ? certificateMode(values, f.id, f.certificateInput) : values[f.id];
   const required = typeof f.required === 'function' ? f.required(values) : f.required;
   if (isEmpty(v)) return required ? `${f.label} is required` : null;
   if (f.type === 'number') {
@@ -262,6 +266,24 @@ export function validateConfig(c: Config): Issue[] {
 
   for (const g of GROUPS) {
     if (!groupEnabled(g, c)) continue;
+    for (const selector of g.fields.filter((f) => f.certificateInput)) {
+      const input = selector.certificateInput!;
+      const hasPem = [input.pemCert, input.pemKey].some((id) => !isEmpty(v[id]));
+      for (const fieldId of [input.pemCert, input.pemKey]) {
+        if (/\.p(?:fx|12)$/i.test(String(v[fieldId] ?? '').trim())) {
+          push({ level: 'error', section: g.section, fieldId, message: `${selector.label}: a PFX/PKCS#12 file cannot be used as a PEM certificate or private key.` });
+        }
+      }
+      if (input.pfx && !isEmpty(v[input.pfx]) && hasPem) {
+        push({ level: 'error', section: g.section, fieldId: selector.id, message: `${selector.label}: choose either PEM or PFX, not both. Select a mode to clear incompatible paths.` });
+      }
+      if (input.alias && !isEmpty(v[input.alias]) && input.pfx && isEmpty(v[input.pfx])) {
+        push({ level: 'error', section: g.section, fieldId: selector.id, message: `${selector.label}: a PFX file is required when a PFX alias is configured.` });
+      }
+    }
+    if (hostEntryValues(v, g.fields).length > HOST_ENTRY_MAX) {
+      push({ level: 'error', section: g.section, fieldId: g.fields.find((f) => f.hostEntryIndex === HOST_ENTRY_MAX)?.id, message: 'A maximum of six host entries is supported. Remove extra entries before exporting.' });
+    }
     for (const f of g.fields) {
       if (!fieldAvailable(f, c.version, c.platform, v)) continue;
       if (f.rows) {
@@ -269,6 +291,10 @@ export function validateConfig(c: Config): Issue[] {
         if (rows.length === 0) {
           const required = typeof f.required === 'function' ? f.required(v) : f.required;
           if (required) push({ level: 'error', section: g.section, fieldId: f.id, message: `${f.label} is required` });
+          if (f.rule === 'urlList') {
+            const error = checkRule('urlList', rows.join(','), c.platform);
+            if (error) push({ level: 'error', section: g.section, fieldId: f.id, message: `${f.label}: ${error}` });
+          }
           continue;
         }
         rows.forEach((row, index) => {
@@ -309,6 +335,11 @@ function lint(c: Config, push: Push): void {
   const horizon = v.horizon_enabled === true && role !== 'outer';
   const nonEmpty = (k: string) => !isEmpty(v[k]);
   const def = platformDef(c.platform);
+
+  if (c.version >= '2609' && v.adminSaml_enable === true) {
+    if (v.saml_enabled !== true) push({ level: 'error', section: 'auth', fieldId: 'saml_enabled', message: 'Administrator SAML requires matching SAML identity provider metadata.' });
+    else if (nonEmpty('adminSaml_entityId') && v.adminSaml_entityId !== v.saml_entityID) push({ level: 'error', section: 'auth', fieldId: 'adminSaml_entityId', message: 'Administrator IdP entity ID must match the configured SAML identity provider.' });
+  }
 
   if (!platformAvailable(c.platform, c.version)) {
     push({ level: 'error', section: 'network', message: `${def.label} deployment output is supported by Gateway Forge from UAG ${def.since}; select UAG ${def.since} or newer.` });

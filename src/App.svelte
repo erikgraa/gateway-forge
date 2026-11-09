@@ -12,7 +12,6 @@
   import OutputPanel from './components/OutputPanel.svelte';
   import ImportDialog from './components/ImportDialog.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
-  import ThumbprintTool from './components/ThumbprintTool.svelte';
   import Templates from './components/Templates.svelte';
   import NoticeStack from './components/NoticeStack.svelte';
 
@@ -188,7 +187,11 @@
         onUseLatest={useLatestVersion}
       />
 
-      {#if app.section === 'horizon'}<Topology />{/if}
+      {#if (app.section === 'horizon' && app.config.values.horizon_enabled === true) ||
+        (app.section === 'tunnel' && app.config.values.airwatch_enabled === true) ||
+        (app.section === 'wrp' && app.config.wrp.some((item) => item.enabled !== false))}
+        <Topology />
+      {/if}
 
       {#if app.section === 'templates'}
         <Templates />
@@ -199,7 +202,6 @@
         </div>
         {#each groups as g (g.id)}<GroupCard group={g} {issues} />{/each}
         {#each lists as l (l.id)}<ListEditor list={l} {issues} />{/each}
-        {#if app.section === 'horizon'}<ThumbprintTool />{/if}
       {/if}
       <LintPanel {issues} />
     </div>

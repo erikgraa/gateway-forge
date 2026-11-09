@@ -6,6 +6,8 @@ This roadmap highlights current priorities and longer-running work. It is direct
 
 ### High priority
 
+- **Planned — expand contextual visibility.** Progressively reveal relevant settings, helpers, topology and configuration sections only when their prerequisite features are enabled. Extend the existing conditional controls consistently across the workflow; do not imply that all sections are already prerequisite-aware.
+- **Planned — add Workspace ONE Intelligence configuration.** Verify `[WorkspaceOneIntelligenceSettings1]` and its supported keys, version/platform availability and JSON mapping against authoritative sources before adding UI, validation, import/export and regression coverage. This section is not currently implemented.
 - **Planned — reject malformed IPv4 addresses.** Require IPv4 inputs to contain exactly four octets so values with five or more octets are rejected for both individual-address fields and IP-list fields. Add regression tests for both input types.
 - **Planned — add row-based DNS and NTP list editing.** Support adding, removing, validating, importing, and exporting individual DNS and fallback NTP server rows. ([#48](https://github.com/erikgraa/gateway-forge/issues/48))
 - **Planned — expose the SSH public key when SSH key access is enabled.** Confirm the supported UAG key and format, then show a contextual public-key input with validation and import/export coverage. ([#49](https://github.com/erikgraa/gateway-forge/issues/49))
@@ -22,6 +24,7 @@ This roadmap highlights current priorities and longer-running work. It is direct
 
 ## Future goals
 
+- **Investigative — native vSphere deployment without OVF Tool.** Explore a PowerShell `uagdeploy.ps1` path using vSphere PowerCLI rather than requiring `ovftool`. Validate whether `New-VApp` or another suitable PowerCLI API can import the UAG appliance and correctly apply its deployment properties, network mappings and configuration before choosing an implementation. `New-VApp` feasibility and this deployment path are not verified or supported today.
 - **Future goal — integrate secrets and PKI providers.** Follow the [provider integration design](docs/secret-pki-provider-design.md) and milestone gates before enabling a reviewed adapter; the default workflow remains browser-only and offline-capable. ([#58](https://github.com/erikgraa/gateway-forge/issues/58))
 - **Future goal — automate robust UAG schema/key diff detection.** Layer source-aware detection of new, removed, and renamed keys onto the existing weekly lifecycle workflow, compare authoritative schemas and `since`/`until` version gates, fail explicitly on parsing or availability errors, and deduplicate tracking issues. Record snapshot/source provenance and confidence, with fixture tests for parser and comparison behavior. ([#92](https://github.com/erikgraa/gateway-forge/issues/92))
 
@@ -35,6 +38,7 @@ This roadmap highlights current priorities and longer-running work. It is direct
 
 - **Planned:** accepted for the roadmap but not actively being implemented.
 - **Future goal:** valuable work that needs discovery, design, or prerequisites before it is ready for implementation.
+- **Investigative:** a feasibility question that must be validated before an implementation or support claim is made.
 - **In progress:** implementation is underway, usually linked to an issue or pull request.
 - **Done:** the work has shipped and supporting documentation and tests are complete where applicable.
 
