@@ -1107,7 +1107,7 @@ export const GROUPS: GroupDef[] = [
         since: '2506',
         showIf: (v) => String(v.authMethods).includes('unauthenticated')
       }),
-      bool('udpTunnelServerEnabled', 'Enable UDP tunnel server', 'udpTunnelServerEnabled', true, {
+      bool('udpTunnelServerEnabled', 'Enable UDP tunnel server', 'udpTunnelServerEnabled', false, {
         since: '2506',
         help: 'Disable when Connection Server must receive the client source IP instead of 127.0.0.1.'
       }),
