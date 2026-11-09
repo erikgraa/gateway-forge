@@ -6,7 +6,7 @@ import {
   type Target,
   type Values
 } from './schema';
-import { fieldAvailable, groupEnabled, isDefault, isEmpty, type Config } from './model';
+import { activeWrpItems, fieldAvailable, groupEnabled, isDefault, isEmpty, type Config } from './model';
 import { CASCADE_INSTANCE_ID, CASCADE_PATTERN, CASCADE_PATTERN_OPSWAT, cascadeRole, forwardRules } from './cascade';
 import { platformDef } from './versions';
 import { trustedCertFields, trustedCertPaths } from './trusted-certs';
@@ -232,7 +232,7 @@ export function collectBlocks(c: Config, opts: GenerateOptions = { secrets: 'pla
   }
 
   for (const l of LISTS) {
-    const items = c[l.id];
+    const items = l.id === 'wrp' ? activeWrpItems(c) : c[l.id];
     const offset = outer && l.id === 'wrp' ? 1 : 0;
     items.forEach((item, i) => {
       const entries: Entry[] = [];

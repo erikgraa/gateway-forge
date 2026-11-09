@@ -42,7 +42,7 @@ export type Rule =
   | 'sourceImage'
   | 'monitoringUserName';
 
-export type SectionId = 'general' | 'adminUsers' | 'network' | 'horizon' | 'tunnel' | 'contentGateway' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
+export type SectionId = 'general' | 'adminUsers' | 'network' | 'services' | 'horizon' | 'tunnel' | 'contentGateway' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
 
 export type Target =
   | 'system'
@@ -183,6 +183,7 @@ export interface SectionDef {
 export const SECTIONS: SectionDef[] = [
   { id: 'general', title: 'General', icon: '⚙' },
   { id: 'network', title: 'Network & deploy', icon: '🌐' },
+  { id: 'services', title: 'Edge services', icon: '◫' },
   { id: 'horizon', title: 'Horizon', icon: '🖥' },
   { id: 'tunnel', title: 'Workspace ONE Tunnel', icon: '🚇' },
   { id: 'contentGateway', title: 'Workspace ONE Content Gateway', icon: '▣' },

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { app } from './lib/store.svelte';
+  import { sectionSelected } from './lib/model';
   import { GROUPS, LISTS, SECTIONS, type SectionId } from './lib/schema';
   import { VERSIONS, PLATFORMS, LIFECYCLE_SNAPSHOT, platformAvailable } from './lib/versions';
   import { validateConfig, countBySection } from './lib/validate';
@@ -14,11 +15,13 @@
   import CommandPalette from './components/CommandPalette.svelte';
   import Templates from './components/Templates.svelte';
   import NoticeStack from './components/NoticeStack.svelte';
+  import EdgeServicePicker from './components/EdgeServicePicker.svelte';
 
   const descriptions: Record<SectionId, { eyebrow: string; description: string }> = {
     general: { eyebrow: 'Appliance profile', description: 'Define the appliance identity and administrative hardening baseline.' },
     adminUsers: { eyebrow: 'Administrative access', description: 'Create additional monitoring-role Admin UI and API users without storing their passwords.' },
     network: { eyebrow: 'Platform & connectivity', description: 'Set deployment targets, addressing, DNS, and time synchronization.' },
+    services: { eyebrow: 'Publishing model', description: 'Choose which edge services this UAG should publish; unselected services remain optional and disabled.' },
     horizon: { eyebrow: 'Edge service', description: 'Publish Horizon securely through the UAG with client protocol endpoints.' },
     tunnel: { eyebrow: 'Workspace ONE edge service', description: 'Connect the UAG-hosted Tunnel gateway to Workspace ONE UEM for per-app VPN access.' },
     contentGateway: { eyebrow: 'Workspace ONE edge service', description: 'Configure standalone or shared Content Gateway access to managed content through Workspace ONE UEM.' },
@@ -83,6 +86,8 @@
     app.say(`Switched to the recommended UAG ${latestVersion.id} baseline`);
   }
 
+  const optionalSections: SectionId[] = ['horizon', 'tunnel', 'contentGateway', 'wrp', 'auth', 'monitoring', 'adminUsers'];
+
   const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
 </script>
 
@@ -133,9 +138,10 @@
       <div class="nav-list">
         {#each SECTIONS.filter((s) => s.id !== 'templates') as s, index (s.id)}
           {@const n = counts[s.id]}
-          <button class:on={app.section === s.id} aria-current={app.section === s.id ? 'page' : undefined} onclick={() => app.goTo(s.id)}>
+          {@const optionalSection = optionalSections.includes(s.id) && !sectionSelected(app.config, s.id)}
+          <button class:on={app.section === s.id} class:optional-service={optionalSection} aria-current={app.section === s.id ? 'page' : undefined} onclick={() => app.goTo(s.id)}>
             <span class="nav-glyph" aria-hidden="true">{s.icon}</span>
-            <span class="nav-label"><strong>{s.title}</strong><small>Step {index + 1}</small></span>
+            <span class="nav-label"><strong>{s.title}</strong><small>{optionalSection ? 'Optional · not configured' : `Step ${index + 1}`}</small></span>
             {#if n.error}<i class="badge error" aria-label={`${n.error} errors`}>{n.error}</i>
             {:else if n.warn}<i class="badge warn" aria-label={`${n.warn} warnings`}>{n.warn}</i>
             {:else}<span class="nav-check" aria-label="No findings">✓</span>{/if}
@@ -218,12 +224,14 @@
       {#if (app.section === 'horizon' && app.config.values.horizon_enabled === true) ||
         (app.section === 'tunnel' && app.config.values.airwatch_enabled === true) ||
         (app.section === 'contentGateway' && app.config.values.contentGateway_enabled === true) ||
-        (app.section === 'wrp' && app.config.wrp.some((item) => item.enabled !== false))}
+        (app.section === 'wrp' && sectionSelected(app.config, 'wrp'))}
         <Topology />
       {/if}
 
       {#if app.section === 'templates'}
         <Templates />
+      {:else if app.section === 'services'}
+        <EdgeServicePicker />
       {:else}
         <div class="section-context">
           <span>Current section</span>

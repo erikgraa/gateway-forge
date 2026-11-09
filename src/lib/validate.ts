@@ -363,6 +363,7 @@ export function validateConfig(c: Config): Issue[] {
   }
   for (const l of LISTS) {
     c[l.id].forEach((item, index) => {
+      if (l.id === 'wrp' && item.enabled === false) return;
       if (hostEntryValues(item, l.fields).length > HOST_ENTRY_MAX) {
         push({
           level: 'error',
@@ -411,7 +412,7 @@ function lint(c: Config, push: Push): void {
     || horizon
     || (v.airwatch_enabled === true && v.airwatch_tunnelGatewayEnabled === true)
     || v.contentGateway_enabled === true
-    || c.wrp.length > 0;
+    || c.wrp.some((item) => item.enabled !== false);
 
   if (!hasPublishedService) {
     push({
@@ -583,9 +584,11 @@ function lint(c: Config, push: Push): void {
   }
   if (v.snmp_enabled === true && v.snmp_version === 'V1+V2c' && (!nonEmpty('snmp_communityName') || String(v.snmp_communityName).toLowerCase() === 'public')) push({ level: 'warn', section: 'monitoring', fieldId: 'snmp_communityName', message: 'SNMP v1/v2c uses the default "public" community - set a custom one or use SNMPv3.' });
 
-  const ids = c.wrp.map((i) => String(i.instanceId));
+  const activeWrp = c.wrp.filter((item) => item.enabled !== false);
+  const ids = activeWrp.map((i) => String(i.instanceId));
   c.wrp.forEach((item, index) => {
-    if (ids.indexOf(String(item.instanceId)) !== index && item.instanceId) push({ level: 'error', section: 'wrp', list: { id: 'wrp', index }, fieldId: 'instanceId', message: `Duplicate web reverse proxy instance ID "${item.instanceId}".` });
+    if (item.enabled === false) return;
+    if (ids.indexOf(String(item.instanceId)) !== activeWrp.indexOf(item) && item.instanceId) push({ level: 'error', section: 'wrp', list: { id: 'wrp', index }, fieldId: 'instanceId', message: `Duplicate web reverse proxy instance ID "${item.instanceId}".` });
   });
   c.syslog.forEach((item, index) => {
     if (item.sysLogType === 'UDP') push({ level: 'info', section: 'monitoring', list: { id: 'syslog', index }, message: `Syslog server ${index + 1} uses UDP (unencrypted, unreliable) - prefer TLS.` });

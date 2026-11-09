@@ -1,6 +1,6 @@
 import { render } from 'svelte/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { applyPatch, defaultConfig } from './model';
+import { activeWrpItems, applyPatch, defaultConfig, sectionSelected, setServiceSelected } from './model';
 import { GROUPS, LISTS } from './schema';
 import { generateIni, generateJsonObject } from './generate';
 import { importIni, importJson } from './importer';
@@ -66,6 +66,53 @@ describe('UAG workflow follow-ups', () => {
     app.clearDraft();
     expect(app.config.values).toMatchObject(disabled);
     expect(generateIni(app.config)).not.toContain('[Horizon]');
+  });
+
+  it('marks supporting configuration sections optional until configured', () => {
+    const c = defaultConfig();
+    for (const section of ['horizon', 'tunnel', 'contentGateway', 'wrp', 'auth', 'monitoring', 'adminUsers'] as const) {
+      expect(sectionSelected(c, section)).toBe(false);
+    }
+    c.values.radius_enabled = true;
+    c.values.snmp_enabled = true;
+    c.syslog.push({ hostname: 'syslog.example.com' });
+    c.adminUsers.push({ name: 'Monitor1' });
+    expect(sectionSelected(c, 'auth')).toBe(true);
+    expect(sectionSelected(c, 'monitoring')).toBe(true);
+    expect(sectionSelected(c, 'adminUsers')).toBe(true);
+  });
+
+  it('preserves WRP instances while deselecting them and omits them from output and validation', () => {
+    const c = applyPatch(defaultConfig(), {
+      wrp: [{ instanceId: 'intranet', proxyDestinationUrl: 'https://intranet.example.com' }]
+    });
+    expect(sectionSelected(c, 'wrp')).toBe(true);
+    setServiceSelected(c, 'wrp', false);
+    expect(c.wrp).toHaveLength(1);
+    expect(c.wrp[0].instanceId).toBe('intranet');
+    expect(activeWrpItems(c)).toHaveLength(0);
+    expect(generateIni(c)).not.toContain('[WebReverseProxy1]');
+    expect(validateConfig(c).filter((issue) => issue.section === 'wrp')).toEqual([]);
+    setServiceSelected(c, 'wrp', true);
+    expect(activeWrpItems(c)).toHaveLength(1);
+    expect(generateIni(c)).toContain('instanceId=intranet');
+  });
+
+  it('renders all edge service picker cards with the current selection state', async () => {
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} });
+    vi.stubGlobal('document', { documentElement: { dataset: {} } });
+    const { app } = await import('./store.svelte');
+    const { default: EdgeServicePicker } = await import('../components/EdgeServicePicker.svelte');
+    app.config = defaultConfig();
+    setServiceSelected(app.config, 'contentGateway', true);
+    const body = render(EdgeServicePicker).body;
+    expect(body).toContain('Horizon');
+    expect(body).toContain('Workspace ONE Tunnel');
+    expect(body).toContain('Workspace ONE Content Gateway');
+    expect(body).toContain('Web reverse proxy');
+    expect(body).toContain('1 selected');
+    expect(body.match(/aria-pressed="true"/g)).toHaveLength(1);
+    expect(body.match(/Optional · not selected/g)).toHaveLength(3);
   });
 
   it('exports administrator SAML to INI and the documented settings JSON object', () => {
