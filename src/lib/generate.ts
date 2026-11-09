@@ -88,6 +88,10 @@ function entryFor(f: Field, values: Values, mode: SecretMode): Entry | null {
   if (isEmpty(normalized)) return null;
   if (f.omitDefault && isDefault(f, normalized)) return null;
   let value = normalized as Primitive;
+  if (f.exportScale && (typeof value === 'number' || typeof value === 'string')) {
+    const scaled = Number(value) * f.exportScale;
+    if (Number.isFinite(scaled)) value = scaled;
+  }
   if (f.secret) {
     if (mode === 'omit') return null;
     if (mode === 'placeholder') value = SECRET_PLACEHOLDER;

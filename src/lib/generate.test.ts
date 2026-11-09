@@ -14,6 +14,14 @@ const contentGateway = () => TEMPLATES.find((t) => t.id === 'workspace-one-conte
 const SSH_PUBLIC_KEY = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7 test@workstation';
 
 describe('INI generation', () => {
+  it('exports minute-based session timeouts as milliseconds in INI and JSON', () => {
+    const c = applyPatch(defaultConfig(), { values: { sessionTimeout: 45 } });
+    expect(generateIni(c)).toContain('sessionTimeout=2700000');
+    expect(generateJsonObject(c).systemSettings).toEqual(expect.objectContaining({
+      sessionTimeout: 2700000
+    }));
+  });
+
   it('emits uagdeploy section and key names from the Omnissa reference', () => {
     const c = radiusMfa();
     c.values.radius_sharedSecret = 's3cret';

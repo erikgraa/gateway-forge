@@ -54,7 +54,8 @@ function coerce(f: Field, raw: unknown): Primitive {
   if (f.type === 'bool') return typeof raw === 'boolean' ? raw : /^(true|1|yes)$/i.test(String(raw));
   if (f.type === 'number') {
     const n = Number(raw);
-    return Number.isFinite(n) && String(raw).trim() !== '' ? n : String(raw);
+    if (!Number.isFinite(n) || String(raw).trim() === '') return String(raw);
+    return f.exportScale ? n / f.exportScale : n;
   }
   return String(raw ?? '');
 }

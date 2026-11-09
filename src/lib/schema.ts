@@ -130,6 +130,8 @@ export interface Field {
   ipMode?: 0 | 1 | 2;
   /** This field needs format-specific output rather than a direct INI entry. */
   customOutput?: boolean;
+  /** Multiply the UI value by this factor when exporting to INI/JSON; imports divide by it. */
+  exportScale?: number;
   /** Edit a string-backed value as individually validated rows. */
   rows?: {
     itemLabel: string;
@@ -481,7 +483,13 @@ export const GROUPS: GroupDef[] = [
     target: 'system',
     iniSection: 'General',
     fields: [
-      num('sessionTimeout', 'Session timeout (ms)', 'sessionTimeout', { default: 36000000, min: 1, omitDefault: true }),
+      num('sessionTimeout', 'Session timeout (min)', 'sessionTimeout', {
+        default: 600,
+        min: 1,
+        omitDefault: true,
+        exportScale: 60000,
+        help: 'Displayed in minutes. Gateway Forge converts this to milliseconds in deployment INI and settings JSON.'
+      }),
       num('adminSessionIdleTimeoutMinutes', 'Admin UI idle timeout (min)', 'adminSessionIdleTimeoutMinutes', { default: 10, min: 0, max: 1440 }),
       num('adminMaxConcurrentSessions', 'Admin max concurrent sessions', 'adminMaxConcurrentSessions', { default: 5, min: 1, max: 50, omitDefault: true }),
       num('adminPasswordExpirationDays', 'Admin password expiry (days)', 'adminpasswordExpirationDays', { default: 90, min: 0, max: 999, since: '2506', omitDefault: true }),

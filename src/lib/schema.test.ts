@@ -25,6 +25,14 @@ describe('schema integrity', () => {
     expect(field.default).toBe(false);
   });
 
+  it('edits the session timeout in minutes while retaining the vendor scale', () => {
+    const field = GROUPS.find((group) => group.id === 'timeouts')!.fields
+      .find((candidate) => candidate.id === 'sessionTimeout')!;
+    expect(field.label).toBe('Session timeout (min)');
+    expect(field.default).toBe(600);
+    expect(field.exportScale).toBe(60000);
+  });
+
   it('explains that Workspace ONE UEM passwords are runtime-only', () => {
     const tunnel = GROUPS.find((group) => group.id === 'airwatch')!.fields
       .find((field) => field.id === 'airwatch_apiServerUsername')!;
