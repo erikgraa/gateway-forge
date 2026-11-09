@@ -223,7 +223,6 @@ const usesSaml = (v: Values) => String(v.authMethods).startsWith('saml-auth') ||
 const usesSecurId = (v: Values) => String(v.authMethods).startsWith('securid-auth');
 const usesCertificate = (v: Values) => String(v.authMethods).includes('certificate-auth');
 const UAG_IP_MODES = [
-  '',
   'STATICV4',
   'STATICV6',
   'DHCPV4',
@@ -567,25 +566,29 @@ export const GROUPS: GroupDef[] = [
         rule: 'ipv4',
         platforms: vsphereHyperv,
         required: (v) => usesStaticIpv4(v, 1),
-        showIf: (v) => deploymentNicCount(v) >= 2 && usesStaticIpv4(v, 1)
+        showIf: (v) => deploymentNicCount(v) >= 2 && usesStaticIpv4(v, 1),
+        placeholder: '10.20.10.21'
       }),
       text('netmask1', 'NIC1 Management / Backend netmask', 'netmask1', {
         rule: 'netmask',
         platforms: vsphereHyperv,
         required: (v) => usesStaticIpv4(v, 1),
-        showIf: (v) => deploymentNicCount(v) >= 2 && usesStaticIpv4(v, 1)
+        showIf: (v) => deploymentNicCount(v) >= 2 && usesStaticIpv4(v, 1),
+        placeholder: '255.255.255.0'
       }),
       text('ip2', 'NIC2 Backend IPv4 address', 'ip2', {
         rule: 'ipv4',
         platforms: vsphereHyperv,
         required: (v) => usesStaticIpv4(v, 2),
-        showIf: (v) => deploymentNicCount(v) === 3 && usesStaticIpv4(v, 2)
+        showIf: (v) => deploymentNicCount(v) === 3 && usesStaticIpv4(v, 2),
+        placeholder: '172.16.10.21'
       }),
       text('netmask2', 'NIC2 Backend netmask', 'netmask2', {
         rule: 'netmask',
         platforms: vsphereHyperv,
         required: (v) => usesStaticIpv4(v, 2),
-        showIf: (v) => deploymentNicCount(v) === 3 && usesStaticIpv4(v, 2)
+        showIf: (v) => deploymentNicCount(v) === 3 && usesStaticIpv4(v, 2),
+        placeholder: '255.255.255.0'
       }),
       text('defaultGateway', 'Default gateway', 'defaultGateway', {
         rule: 'ipv4',
@@ -625,17 +628,23 @@ export const GROUPS: GroupDef[] = [
         help: 'Available only on three-NIC deployments; same comma-separated CIDR-and-gateway format as routes0.'
       }),
       sel('ipmode0', 'NIC0 addressing mode', 'ipmode0', UAG_IP_MODES, {
+        default: 'STATICV4',
+        required: true,
         platforms: vsphereHyperv,
         since: '2306',
         help: 'Addressing mode for NIC0 / eth0.'
       }),
       sel('ipmode1', 'NIC1 addressing mode', 'ipmode1', UAG_IP_MODES, {
+        default: 'STATICV4',
+        required: (v) => deploymentNicCount(v) >= 2,
         platforms: vsphereHyperv,
         since: '2306',
         showIf: (v) => deploymentNicCount(v) >= 2,
         help: 'Addressing mode for NIC1 / eth1.'
       }),
       sel('ipmode2', 'NIC2 addressing mode', 'ipmode2', UAG_IP_MODES, {
+        default: 'STATICV4',
+        required: (v) => deploymentNicCount(v) === 3,
         platforms: vsphereHyperv,
         since: '2306',
         showIf: (v) => deploymentNicCount(v) === 3,
@@ -696,7 +705,8 @@ export const GROUPS: GroupDef[] = [
     platforms: ['nutanix', 'openshift'],
     help: 'Nutanix and OpenShift use the shared numeric ipModeN/ipN/netmaskN convention. DHCP suppresses stale static values; STATICV4 requires an address and netmask for that NIC.',
     fields: [
-      sel('ipMode0', 'NIC0 IP mode', 'ipMode0', ['', 'DHCPV4', 'STATICV4'], {
+      sel('ipMode0', 'NIC0 IP mode', 'ipMode0', ['DHCPV4', 'STATICV4'], {
+        default: 'STATICV4',
         required: true,
         json: false,
         help: 'NIC0 maps to eth0 and the first subnet/NAD.'
@@ -721,7 +731,8 @@ export const GROUPS: GroupDef[] = [
         ipMode: 0,
         json: false
       }),
-      sel('ipMode1', 'NIC1 IP mode', 'ipMode1', ['', 'DHCPV4', 'STATICV4'], {
+      sel('ipMode1', 'NIC1 IP mode', 'ipMode1', ['DHCPV4', 'STATICV4'], {
+        default: 'STATICV4',
         showIf: (v) => deploymentNicCount(v) >= 2,
         required: (v) => deploymentNicCount(v) >= 2,
         json: false,
@@ -729,6 +740,7 @@ export const GROUPS: GroupDef[] = [
       }),
       text('ip1', 'NIC1 / eth1 IPv4 address', 'ip1', {
         rule: 'ipv4',
+        placeholder: '10.20.10.21',
         showIf: (v) => deploymentNicCount(v) >= 2,
         ipMode: 1,
         required: (v) => v.ipMode1 === 'STATICV4',
@@ -736,12 +748,14 @@ export const GROUPS: GroupDef[] = [
       }),
       text('netmask1', 'NIC1 / eth1 netmask', 'netmask1', {
         rule: 'netmask',
+        placeholder: '255.255.255.0',
         showIf: (v) => deploymentNicCount(v) >= 2,
         ipMode: 1,
         required: (v) => v.ipMode1 === 'STATICV4',
         json: false
       }),
-      sel('ipMode2', 'NIC2 IP mode', 'ipMode2', ['', 'DHCPV4', 'STATICV4'], {
+      sel('ipMode2', 'NIC2 IP mode', 'ipMode2', ['DHCPV4', 'STATICV4'], {
+        default: 'STATICV4',
         showIf: (v) => deploymentNicCount(v) === 3,
         required: (v) => deploymentNicCount(v) === 3,
         json: false,
@@ -749,6 +763,7 @@ export const GROUPS: GroupDef[] = [
       }),
       text('ip2', 'NIC2 / eth2 IPv4 address', 'ip2', {
         rule: 'ipv4',
+        placeholder: '172.16.10.21',
         showIf: (v) => deploymentNicCount(v) === 3,
         ipMode: 2,
         required: (v) => v.ipMode2 === 'STATICV4',
@@ -756,6 +771,7 @@ export const GROUPS: GroupDef[] = [
       }),
       text('netmask2', 'NIC2 / eth2 netmask', 'netmask2', {
         rule: 'netmask',
+        placeholder: '255.255.255.0',
         showIf: (v) => deploymentNicCount(v) === 3,
         ipMode: 2,
         required: (v) => v.ipMode2 === 'STATICV4',

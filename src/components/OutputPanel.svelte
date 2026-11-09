@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app, type OutputTab } from '../lib/store.svelte';
-  import { render, download, copy, highlight } from '../lib/render';
+  import { render, copy, highlight } from '../lib/render';
   import { VERSIONS } from '../lib/versions';
   import { MISSING_PASSWORD_WARNING } from '../lib/powershell';
 
@@ -48,7 +48,6 @@
     </div>
     <div class="output-actions">
       <button class="small ghost" onclick={doCopy}>Copy</button>
-      <button class="small" onclick={() => download(rendered)} aria-label={`Download ${app.tab.toUpperCase()} artifact`}>Download</button>
     </div>
   </div>
   <div class="output-file">

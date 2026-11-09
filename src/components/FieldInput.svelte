@@ -17,6 +17,7 @@
   let reveal = $state(false);
   const id = $derived(`f-${uid ?? field.id}`);
   const help = $derived(fieldHelp(field, platform));
+  const required = $derived(typeof field.required === 'function' ? field.required(values) : field.required === true);
   const label = $derived(deploymentNicCount(values) === 3
     ? field.label.replace('Management / Backend', 'Management-only').replace('Backend network', 'Backend-only network').replace('NIC2 Backend', 'NIC2 Backend-only')
     : field.label);
@@ -42,12 +43,12 @@
     <span class="lbl">
       {label}
       <FieldDetails {field} {platform} {uid} />
-      {#if field.required === true}<span class="req" title="Required">*</span>{/if}
+      {#if required}<span class="req" title="Required">*</span>{/if}
       {#if field.since}<span class="chip">UAG ≥ {field.since}</span>{/if}
       {#if field.inferred}<span class="chip" title="Key or semantics require verification against the official source">verify</span>{/if}
     </span>
     {#if field.certificateInput}
-      <select {id} class:bad={!!error}
+      <select {id} class:bad={!!error} {required}
         value={certificateMode(values, field.id, field.certificateInput)}
         onchange={(e) => selectCertificateMode(values, field.id, field.certificateInput!, e.currentTarget.value)}>
         {#each field.options ?? [] as o (o.value)}
@@ -55,22 +56,22 @@
         {/each}
       </select>
     {:else if field.type === 'select'}
-      <select {id} class:bad={!!error} bind:value={values[field.id]}>
+      <select {id} class:bad={!!error} {required} bind:value={values[field.id]}>
         {#each field.options ?? [] as o (o.value)}
           <option value={o.value}>{o.label ?? (o.value === '' ? '(none)' : o.value)}</option>
         {/each}
       </select>
     {:else if field.type === 'number'}
-      <input {id} type="number" class:bad={!!error} min={field.min} max={field.max} value={values[field.id]} oninput={setNumber} placeholder={field.placeholder} />
+      <input {id} type="number" class:bad={!!error} {required} min={field.min} max={field.max} value={values[field.id]} oninput={setNumber} placeholder={field.placeholder} />
     {:else if field.type === 'secret'}
       <span class="secret-wrap">
-        <input {id} type={reveal ? 'text' : 'password'} autocomplete="off" spellcheck="false" class:bad={!!error} bind:value={values[field.id]} placeholder={field.placeholder ?? 'not stored'} />
+        <input {id} type={reveal ? 'text' : 'password'} autocomplete="off" spellcheck="false" class:bad={!!error} {required} bind:value={values[field.id]} placeholder={field.placeholder ?? 'not stored'} />
         <button type="button" class="small" onclick={() => (reveal = !reveal)} aria-label={reveal ? 'Hide secret' : 'Show secret'}>{reveal ? 'Hide' : 'Show'}</button>
       </span>
     {:else if field.type === 'textarea'}
-      <textarea {id} rows="3" maxlength={field.maxLength} class:bad={!!error} bind:value={values[field.id]} placeholder={field.placeholder}></textarea>
+      <textarea {id} rows="3" maxlength={field.maxLength} class:bad={!!error} {required} bind:value={values[field.id]} placeholder={field.placeholder}></textarea>
     {:else}
-      <input {id} type="text" maxlength={field.maxLength} autocomplete="off" spellcheck="false" class:bad={!!error} bind:value={values[field.id]} placeholder={field.placeholder} />
+      <input {id} type="text" maxlength={field.maxLength} autocomplete="off" spellcheck="false" class:bad={!!error} {required} bind:value={values[field.id]} placeholder={field.placeholder} />
     {/if}
     {#if error}<span class="err">{error}</span>{:else if help}<span class="hint">{help}</span>{/if}
   </label>

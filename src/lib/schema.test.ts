@@ -29,4 +29,18 @@ describe('schema integrity', () => {
       'eth0CustomConfig'
     ]));
   });
+  it('provides required addressing modes and multi-NIC IP examples', () => {
+    for (const groupId of ['networking', 'native-ipv4']) {
+      const group = GROUPS.find((candidate) => candidate.id === groupId)!;
+      const modePrefix = groupId === 'networking' ? 'ipmode' : 'ipMode';
+      expect(group.fields.find((field) => field.id === `${modePrefix}0`)?.default).toBe('STATICV4');
+      expect(group.fields.find((field) => field.id === `${modePrefix}1`)?.default).toBe('STATICV4');
+      expect(group.fields.find((field) => field.id === `${modePrefix}2`)?.default).toBe('STATICV4');
+      expect(group.fields.find((field) => field.id === `${modePrefix}0`)?.options?.some((option) => option.value === '')).toBe(false);
+      expect(group.fields.find((field) => field.id === 'ip1')?.placeholder).toBe('10.20.10.21');
+      expect(group.fields.find((field) => field.id === 'netmask1')?.placeholder).toBe('255.255.255.0');
+      expect(group.fields.find((field) => field.id === 'ip2')?.placeholder).toBe('172.16.10.21');
+      expect(group.fields.find((field) => field.id === 'netmask2')?.placeholder).toBe('255.255.255.0');
+    }
+  });
 });

@@ -197,7 +197,7 @@ nav.side {
 .nav-list button.on { color: var(--tx); border-color: var(--line); background: var(--acc-soft); }
 .nav-glyph {
   width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--line);
-  border-radius: 5px; color: var(--subtle); background: var(--panel-raised); font-size: 9px; font-weight: 800; letter-spacing: .03em;
+  border-radius: 5px; color: var(--subtle); background: var(--panel-raised); font-size: 14px; font-weight: 500; letter-spacing: 0;
 }
 .nav-list button.on .nav-glyph { border-color: color-mix(in srgb, var(--acc) 60%, var(--line)); background: var(--acc); color: #fff; }
 .nav-label { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
