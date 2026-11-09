@@ -300,6 +300,14 @@ describe('config validation', () => {
     expect(available('threenic')).toEqual(['ipmode0', 'ipmode1', 'ipmode2']);
   });
 
+  it('warns when no server certificate is configured', () => {
+    expect(validateConfig(defaultConfig())).toContainEqual(expect.objectContaining({
+      section: 'tls',
+      level: 'warn',
+      message: expect.stringContaining('No server certificate configured')
+    }));
+  });
+
   it('rejects undocumented addressing mode values from imports', () => {
     const c = applyPatch(defaultConfig(), { values: { ipmode0: 'STATICV4+AUTOMAGICV6' } });
     expect(messages(c).join('\n')).toMatch(/NIC0 addressing mode: "STATICV4\+AUTOMAGICV6" is not an allowed value/);

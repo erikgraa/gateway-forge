@@ -10,8 +10,11 @@
   }
 </script>
 
-<section class="card">
-  <div class="card-head"><h3>Templates</h3></div>
+<details class="card collapsible-card" open>
+  <summary class="card-head">
+    <h3>Templates</h3>
+    <span class="collapse-indicator" aria-hidden="true"></span>
+  </summary>
   <p class="help">Start from a common design. Loading a template replaces the current configuration but keeps your UAG version and platform. Replace the example host names, URLs and thumbprints with your own.</p>
   <div class="tpl-grid">
     {#each TEMPLATES as t (t.id)}
@@ -23,4 +26,4 @@
       </div>
     {/each}
   </div>
-</section>
+</details>

@@ -43,17 +43,20 @@
 </script>
 
 {#if available}
-  <section class="card">
-    <div class="card-head">
+  <details class="card collapsible-card" open>
+    <summary class="card-head">
       <h3>{group.title}</h3>
-      {#if group.enabledBy}
-        <label class="toggle">
-          <input id={`f-${group.enabledBy}`} type="checkbox" checked={c.values[group.enabledBy] === true} onchange={(e) => (app.config.values[group.enabledBy!] = e.currentTarget.checked)} />
-          Enabled
-          <FieldDetails field={enabledField(group)} platform={c.platform} />
-        </label>
-      {/if}
-    </div>
+      <span class="card-summary-actions">
+        {#if group.enabledBy}
+          <label class="toggle">
+            <input id={`f-${group.enabledBy}`} type="checkbox" checked={c.values[group.enabledBy] === true} onchange={(e) => (app.config.values[group.enabledBy!] = e.currentTarget.checked)} />
+            Enabled
+            <FieldDetails field={enabledField(group)} platform={c.platform} />
+          </label>
+        {/if}
+        <span class="collapse-indicator" aria-hidden="true"></span>
+      </span>
+    </summary>
     {#if group.help}<p class="help">{group.help}</p>{/if}
     {#if enabled}
       <div class="grid">
@@ -75,5 +78,5 @@
     {:else}
       <p class="help">{group.target === 'horizon' && c.values.cascade_role === 'outer' ? 'Not used: this UAG is the outer cascade proxy (see Cascading above). Configure Horizon on the inner UAG.' : 'Turn on to configure and include in the output.'}</p>
     {/if}
-  </section>
+  </details>
 {/if}

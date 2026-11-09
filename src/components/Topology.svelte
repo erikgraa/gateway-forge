@@ -64,14 +64,17 @@
     value && value.length > length ? `${value.slice(0, length - 1)}…` : value || '';
 </script>
 
-<section class="card topo" aria-labelledby="topology-title" aria-describedby="topology-description">
-  <div class="card-head topo-head">
+<details class="card topo collapsible-card" open aria-labelledby="topology-title" aria-describedby="topology-description">
+  <summary class="card-head topo-head">
     <div>
       <p class="eyebrow">Live architecture</p>
       <h3 id="topology-title">UAG service topology</h3>
     </div>
-    <span class="live-state"><i aria-hidden="true"></i> Live configuration</span>
-  </div>
+    <span class="card-summary-actions">
+      <span class="live-state"><i aria-hidden="true"></i> Live configuration</span>
+      <span class="collapse-indicator" aria-hidden="true"></span>
+    </span>
+  </summary>
 
   <p id="topology-description" class="sr-only" aria-live="polite">{topo.description}</p>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex (keyboard users need to focus the overflow region for scrolling) -->
@@ -140,4 +143,4 @@
       </div>
     {/each}
   </div>
-</section>
+</details>
