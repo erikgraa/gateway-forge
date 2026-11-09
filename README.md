@@ -175,6 +175,10 @@ Add a `Field` to a group in `schema.ts` (key, type, optional `since`/`until`, `r
 
 The demo is deployed to GitHub Pages by [`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push to `main`. The build is a plain static site with a relative base path, so `dist/` can be hosted anywhere. A weekly workflow checks the Omnissa Lifecycle Matrix and opens an issue when the supported UAG versions change.
 
+Link previews use static Open Graph and Twitter card tags in `index.html`, with a 1200×630 PNG at `public/social-preview.png`. The canonical URL and absolute image URL target the public demo at `https://gateway-forge.graa.dev/`, as established by `public/CNAME`; a separately hosted public instance should update those URLs to its own origin and deployment path. The app's relative asset base remains unchanged. Regenerate the image from the existing logo with `python scripts/generate-social-preview.py` (requires Pillow; optional `--font` and `--bold-font` TrueType paths).
+
+Discord and other crawlers must be able to fetch both the deployed HTML and image without authentication or JavaScript. Local previews cannot verify a public unfurl. After deployment, previously shared links may retain cached previews; a new URL query string can help request a fresh scrape, but cache refresh timing is controlled by the sharing service.
+
 ## 📋 Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for notable user-facing improvements and fixes.
