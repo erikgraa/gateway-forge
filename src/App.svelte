@@ -29,9 +29,6 @@
     templates: { eyebrow: 'Starting points', description: 'Load a validated design, then tailor it to your environment.' }
   };
 
-  const glyphs: Record<SectionId, string> = {
-    general: 'AG', adminUsers: 'AU', network: 'NW', horizon: 'HZ', tunnel: 'TN', contentGateway: 'CG', wrp: 'WP', auth: 'ID', tls: 'TS', monitoring: 'OP', templates: 'TP'
-  };
   const issues = $derived(validateConfig(app.config));
   const counts = $derived(countBySection(issues));
   const groups = $derived(GROUPS.filter((g) => g.section === app.section));
@@ -137,7 +134,7 @@
         {#each SECTIONS.filter((s) => s.id !== 'templates') as s, index (s.id)}
           {@const n = counts[s.id]}
           <button class:on={app.section === s.id} aria-current={app.section === s.id ? 'page' : undefined} onclick={() => app.goTo(s.id)}>
-            <span class="nav-glyph" aria-hidden="true">{glyphs[s.id]}</span>
+            <span class="nav-glyph" aria-hidden="true">{s.icon}</span>
             <span class="nav-label"><strong>{s.title}</strong><small>Step {index + 1}</small></span>
             {#if n.error}<i class="badge error" aria-label={`${n.error} errors`}>{n.error}</i>
             {:else if n.warn}<i class="badge warn" aria-label={`${n.warn} warnings`}>{n.warn}</i>
