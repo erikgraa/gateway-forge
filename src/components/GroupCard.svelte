@@ -7,6 +7,7 @@
   import TrustedCertEditor from './TrustedCertEditor.svelte';
   import RowListEditor from './RowListEditor.svelte';
   import HostEntryEditor from './HostEntryEditor.svelte';
+  import AllowedOriginEditor from './AllowedOriginEditor.svelte';
   import FieldDetails from './FieldDetails.svelte';
 
   interface Props {
@@ -67,6 +68,8 @@
             <HostEntryEditor fields={hostFields} bind:values={app.config.values as Values} {issues} platform={c.platform} />
           {:else if f.trustedCertIndex === undefined && f.hostEntryIndex === undefined && f.rows}
             <RowListEditor field={f} platform={c.platform} bind:values={app.config.values as Values} {issues} />
+          {:else if f.originDetails}
+            <AllowedOriginEditor field={f} platform={c.platform} bind:values={app.config.values as Values} {issues} />
           {:else if f.trustedCertIndex === undefined && f.hostEntryIndex === undefined}
             <FieldInput field={f} platform={c.platform} bind:values={app.config.values as Values} error={err(f.id)} />
           {/if}

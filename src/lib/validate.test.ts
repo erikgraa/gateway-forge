@@ -53,6 +53,8 @@ describe('field validation', () => {
     expect(checkRule('ipv6', '2402:740:2:209::253')).toBeNull();
     expect(checkRule('ipv6', 'not:an:ipv6')).not.toBeNull();
     expect(checkRule('osLoginUsername', 'uag_admin-1')).toBeNull();
+    expect(checkRule('ascii', 'AUTHORIZED USE ONLY\nContact support.')).toBeNull();
+    expect(checkRule('ascii', 'Use café only')).not.toBeNull();
     expect(checkRule('osLoginUsername', 'Upper Case')).not.toBeNull();
     expect(checkRule('ascii', 'Banner\\nline two')).toBeNull();
     expect(checkRule('ascii', 'bannér')).not.toBeNull();
@@ -182,6 +184,11 @@ describe('config validation', () => {
     expect(m).toMatch(/SAML authentication but no SAML/);
     expect(m).toMatch(/Unauthenticated Horizon authentication methods require Gateway location/);
     expect(m).toMatch(/Allowed origin 1/);
+    expect(validateConfig(c)).toContainEqual(expect.objectContaining({
+      fieldId: 'origin',
+      rowIndex: 0,
+      message: 'Allowed origin 1 must be an https:// URL or hostname.'
+    }));
     expect(m).toMatch(/Blast external URLs must be unique/);
     expect(m).toMatch(/canonicalization is disabled/);
     expect(messages(applyPatch(defaultConfig(), {
@@ -298,6 +305,17 @@ describe('config validation', () => {
     expect(available('onenic')).toEqual(['ipmode0']);
     expect(available('twonic')).toEqual(['ipmode0', 'ipmode1']);
     expect(available('threenic')).toEqual(['ipmode0', 'ipmode1', 'ipmode2']);
+  });
+
+  it('uses the three-NIC role in network-name validation messages', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: { deploymentOption: 'threenic-large', netManagementNetwork: '' }
+    });
+    const networkMessages = validateConfig(c)
+      .filter((issue) => issue.fieldId === 'netManagementNetwork')
+      .map((issue) => issue.message);
+    expect(networkMessages).toContain('Management-only network NIC1 is required');
+    expect(networkMessages).not.toContain('Management / Backend network (NIC1) is required');
   });
 
   it('warns when no server certificate is configured', () => {

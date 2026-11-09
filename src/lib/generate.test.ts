@@ -76,13 +76,37 @@ describe('INI generation', () => {
     const latest = generateIni({ ...c, version: '2609' });
     expect(latest).toContain('minSHAHashSize=SHA-512');
     expect(latest).toContain('originCheckEnabled=false');
+    expect(latest).toContain('extendedServerCertValidationEnabled=false');
     const old = generateIni({ ...c, version: '2212' });
     expect(old).not.toContain('minSHAHashSize');
     expect(old).not.toContain('originCheckEnabled');
     expect(old).not.toContain('tunnelExternalUrl');
+    expect(old).not.toContain('extendedServerCertValidationEnabled');
     const mid = generateIni({ ...c, version: '2406' });
     expect(mid).toContain('minSHAHashSize=SHA-512');
     expect(mid).not.toContain('originCheckEnabled');
+    expect(mid).not.toContain('extendedServerCertValidationEnabled');
+  });
+
+  it('exports login banner line breaks as literal escape sequences', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: { sshLoginBannerText: 'AUTHORIZED USE ONLY\nContact the service desk.' }
+    });
+    const ini = generateIni(c);
+    expect(ini).toContain('sshLoginBannerText=AUTHORIZED USE ONLY\\nContact the service desk.');
+    expect(ini).not.toContain('AUTHORIZED USE ONLY\nContact the service desk.');
+    expect((generateJsonObject(c).systemSettings as Record<string, unknown>).sshLoginBannerText)
+      .toBe('AUTHORIZED USE ONLY\\nContact the service desk.');
+  });
+
+  it('imports and exports extended server certificate validation only for UAG 2609', () => {
+    const latest = applyPatch(defaultConfig(), {
+      values: { extendedServerCertValidationEnabled: true }
+    });
+    expect(generateIni(latest)).toContain('extendedServerCertValidationEnabled=true');
+    expect(generateIni({ ...latest, version: '2606' })).not.toContain('extendedServerCertValidationEnabled');
+    expect(generateJson(latest)).toContain('"extendedServerCertValidationEnabled": true');
+    expect(generateJson({ ...latest, version: '2606' })).not.toContain('extendedServerCertValidationEnabled');
   });
 
   it('emits Azure keys only for the Azure platform', () => {
@@ -637,19 +661,19 @@ describe('PowerShell output', () => {
     const config = applyPatch(radiusMfa(), { adminUsers: [{ name: 'MonitorUser1' }] });
     for (const platform of ['vsphere', 'hyperv', 'azure', 'openshift'] as const) {
       const ps = generatePowerShell(applyPatch(config, { platform }), 'omit', 'headless');
-      expect(ps).toContain(`throw 'Set UAG_NEW_ADMIN_USER_PASSWORDS before running headless deployment.'`);
+      expect(ps).toContain(`throw 'Set UAG_NEW_ADMIN_USER_PASSWORDS before running deployment.'`);
       expect(ps).toContain('-newAdminUserPwd $env:UAG_NEW_ADMIN_USER_PASSWORDS');
       expect(ps).not.toContain('password=');
     }
   });
 
-  it('lets every interactive script prompt for additional admin-user passwords', () => {
+  it('passes the runtime admin-user password payload to every interactive script', () => {
     const config = applyPatch(radiusMfa(), { adminUsers: [{ name: 'MonitorUser1' }] });
     for (const platform of ['vsphere', 'hyperv', 'azure', 'nutanix', 'openshift'] as const) {
       const ps = generatePowerShell(applyPatch(config, { platform }), 'placeholder', 'interactive');
-      expect(ps).toContain('prompts for each additional admin user password');
-      expect(ps).not.toContain('UAG_NEW_ADMIN_USER_PASSWORDS');
-      expect(ps).not.toContain('-newAdminUserPwd');
+      expect(ps).toContain(`throw 'Set UAG_NEW_ADMIN_USER_PASSWORDS before running deployment.'`);
+      expect(ps).toContain('username:password format, separated by semicolons');
+      expect(ps).toContain('-newAdminUserPwd $env:UAG_NEW_ADMIN_USER_PASSWORDS');
     }
   });
 

@@ -34,7 +34,7 @@ function adminUserPasswordSwitch(c: Config): string {
 
 function addAdminUserPasswordCheck(c: Config, out: string[]): void {
   if (c.adminUsers.length === 0) return;
-  out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_NEW_ADMIN_USER_PASSWORDS)) { throw 'Set UAG_NEW_ADMIN_USER_PASSWORDS before running headless deployment.' }`);
+  out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_NEW_ADMIN_USER_PASSWORDS)) { throw 'Set UAG_NEW_ADMIN_USER_PASSWORDS before running deployment.' }`);
 }
 
 /** PowerShell that writes the INI and runs the deployment script. */
@@ -82,14 +82,14 @@ export function generatePowerShell(
       : '# Headless Content Gateway mode reads the UEM API password from UAG_CONTENT_GATEWAY_API_PASSWORD.');
   }
   if (c.adminUsers.length > 0) {
-    out.push(effectiveDeploymentMode === 'interactive'
-      ? '# Interactive mode: the official script prompts for each additional admin user password.'
-      : '# Headless admin-user mode reads username:password pairs from UAG_NEW_ADMIN_USER_PASSWORDS (separate users with semicolons).');
+    out.push('# Additional admin-user passwords are read from UAG_NEW_ADMIN_USER_PASSWORDS in username:password format, separated by semicolons.');
+    addAdminUserPasswordCheck(c, out);
   }
+  const adminSwitch = adminUserPasswordSwitch(c);
   if (c.platform === 'openshift') return generateOpenShiftPowerShell(c, secretMode, deploymentMode, out);
   if (c.platform === 'nutanix') {
     out.push('# Interactive mode: the official script prompts for root and Admin UI passwords.');
-    out.push(`${invocation}${sw}`);
+    out.push(`${invocation}${adminSwitch}${sw}`);
     out.push('# The official script prompts for the Prism Central password.');
     out.push('# WARNING: the official script deletes and recreates a VM with the same name.');
     out.push('Clear-History', '');
@@ -97,7 +97,7 @@ export function generatePowerShell(
   }
   if (effectiveDeploymentMode === 'interactive') {
     out.push('# Interactive mode: the official script prompts for root and Admin UI passwords.');
-    out.push(`${invocation}${sw}`);
+    out.push(`${invocation}${adminSwitch}${sw}`);
     out.push('Clear-History');
   } else {
     out.push('# Headless mode: passwords are read from the runtime environment and never written to this script or the INI.');
@@ -105,8 +105,6 @@ export function generatePowerShell(
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.' }`);
     addContentGatewayPasswordCheck(c, out);
     const contentGatewaySwitch = contentGatewayPasswordSwitch(c);
-    addAdminUserPasswordCheck(c, out);
-    const adminSwitch = adminUserPasswordSwitch(c);
     if (def.nonInteractive === 'positional') {
       out.push(`${invocation} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no${contentGatewaySwitch}${adminSwitch}${sw}`);
     } else {
@@ -149,14 +147,13 @@ function generateOpenShiftPowerShell(c: Config, mode: SecretMode, deploymentMode
   out.push('# 4. Deploy the VM. The script requires both uagdeployopenshift.ps1 and uagdeploy.psm1.');
   if (deploymentMode === 'interactive') {
     out.push('# The official script prompts for root, Admin UI and any required OpenShift password.');
-    out.push(`${deploymentCommand(c)}${sw}`);
+    out.push(`${deploymentCommand(c)}${adminSwitch}${sw}`);
     out.push('');
   } else {
     out.push('# Headless mode: passwords are read from the runtime environment and never written to this script or the INI.');
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running headless deployment.' }`);
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.' }`);
     addContentGatewayPasswordCheck(c, out);
-    addAdminUserPasswordCheck(c, out);
     if (mode === 'omit' || !String(c.values.ocp_bearerToken || '')) {
       out.push(`if ([string]::IsNullOrWhiteSpace($env:OPENSHIFT_PASSWORD)) { throw 'Set OPENSHIFT_PASSWORD before running headless OpenShift deployment.' }`);
       out.push(`${deploymentCommand(c)} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no -openshiftPassword $env:OPENSHIFT_PASSWORD${contentGatewaySwitch}${adminSwitch}${sw}`);

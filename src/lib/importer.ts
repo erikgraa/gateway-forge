@@ -61,7 +61,10 @@ function coerce(f: Field, raw: unknown): Primitive {
 
 function setField(c: Config, values: Values, f: Field, raw: unknown, result: ImportResult, where: string): void {
   if (f.secret && typeof raw === 'string' && isRedacted(raw)) return;
-  values[f.id] = coerce(f, raw);
+  const coerced = coerce(f, raw);
+  values[f.id] = f.escapeNewlines && typeof coerced === 'string'
+    ? coerced.replace(/\\n/g, '\n')
+    : coerced;
   result.mapped++;
   if (!inVersion(c.version, f.since, f.until)) {
     result.warnings.push(`${where}: "${f.key}" is not available in UAG ${c.version}${f.since ? ` (introduced in ${f.since})` : ''}.`);
