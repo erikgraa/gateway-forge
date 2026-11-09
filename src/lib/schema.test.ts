@@ -19,6 +19,12 @@ describe('schema integrity', () => {
     ]);
   });
 
+  it('defaults the Horizon UDP tunnel server to disabled', () => {
+    const field = GROUPS.find((group) => group.id === 'horizon')!.fields
+      .find((candidate) => candidate.id === 'udpTunnelServerEnabled')!;
+    expect(field.default).toBe(false);
+  });
+
   it('describes Horizon cascade roles as UAG types with standalone as the default', () => {
     const group = GROUPS.find((candidate) => candidate.id === 'cascade')!;
     const role = group.fields.find((field) => field.id === 'cascade_role')!;
