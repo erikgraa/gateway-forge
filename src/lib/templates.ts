@@ -1,11 +1,14 @@
 import { applyPatch, defaultConfig, type Config } from './model';
 import type { Values } from './schema';
 
+export type TemplateAccent = 'blue' | 'violet' | 'indigo' | 'amber' | 'orange' | 'teal' | 'rose' | 'cyan' | 'emerald' | 'sky' | 'red';
+
 export interface Template {
   id: string;
   title: string;
   description: string;
   tags: string[];
+  appearance: { accent: TemplateAccent; label: string };
   build: (base: Config) => Config;
 }
 
@@ -39,6 +42,7 @@ function fresh(base: Config, values: Values, extra: Partial<Config> = {}): Confi
 export const TEMPLATES: Template[] = [
   {
     id: 'horizon-radius',
+    appearance: { accent: 'violet', label: 'Horizon · RADIUS MFA' },
     title: 'Horizon external access with RADIUS MFA',
     description: 'Internet-facing UAG for Horizon with Blast + tunnel, RADIUS two-factor authentication and TLS syslog. Two NICs.',
     tags: ['Horizon', 'RADIUS', 'MFA'],
@@ -69,6 +73,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'horizon-saml',
+    appearance: { accent: 'indigo', label: 'Horizon · SAML identity' },
     title: 'Horizon external access with SAML (third-party IdP)',
     description: 'Horizon behind a SAML identity provider (e.g. Entra ID / Okta / ADFS). Provide the IdP metadata XML path at deploy time.',
     tags: ['Horizon', 'SAML'],
@@ -93,6 +98,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'cascade-outer',
+    appearance: { accent: 'amber', label: 'Cascade · Outer / DMZ 1' },
     title: 'Cascade: outer UAG (DMZ 1, reverse proxy)',
     description: 'Double-DMZ outer appliance: reverse proxy for Client XML, tunnel and Blast on 443, with forward rules for Blast 8443/UDP, to the inner UAG.',
     tags: ['Cascade', 'Double DMZ', 'Horizon'],
@@ -114,6 +120,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'cascade-inner',
+    appearance: { accent: 'orange', label: 'Cascade · Inner / DMZ 2' },
     title: 'Cascade: inner UAG (DMZ 2, Horizon edge)',
     description: 'Double-DMZ inner appliance: standard Horizon edge service with RADIUS MFA. External URLs point at the outer UAG\'s public FQDN.',
     tags: ['Cascade', 'Double DMZ', 'Horizon', 'RADIUS'],
@@ -139,6 +146,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'horizon-basic',
+    appearance: { accent: 'blue', label: 'Horizon · Passthrough / lab' },
     title: 'Horizon minimal (passthrough)',
     description: 'Smallest working Horizon edge service with passthrough auth. Good for labs and internal gateways.',
     tags: ['Horizon', 'Lab'],
@@ -155,6 +163,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'wrp-intranet',
+    appearance: { accent: 'teal', label: 'Web reverse proxy · Intranet' },
     title: 'Web reverse proxy for an intranet app',
     description: 'Publishes an internal HTTPS application through the UAG with RADIUS authentication.',
     tags: ['Web reverse proxy', 'RADIUS'],
@@ -183,6 +192,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'hardened',
+    appearance: { accent: 'rose', label: 'Security · Hardened baseline' },
     title: 'Hardened baseline (Horizon + SIEM + SNMPv3)',
     description: 'TLS 1.2/1.3 only, SHA-256 thumbprints, SSH off, CEIP off, TLS syslog and SNMPv3 monitoring.',
     tags: ['Hardening', 'Horizon', 'SNMP'],
@@ -216,6 +226,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'workspace-one-tunnel',
+    appearance: { accent: 'cyan', label: 'Workspace ONE · Per-app VPN' },
     title: 'Workspace ONE Tunnel (per-app VPN)',
     description: 'UAG-hosted Tunnel basic endpoint on VMware or Hyper-V, with Workspace ONE UEM bootstrap, outbound-proxy options and TLS syslog.',
     tags: ['Workspace ONE', 'Tunnel', 'Per-app VPN'],
@@ -241,6 +252,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'workspace-one-content-gateway',
+    appearance: { accent: 'emerald', label: 'Workspace ONE · Managed content' },
     title: 'Workspace ONE Content Gateway',
     description: 'Standalone UAG-hosted Content Gateway with a dedicated Workspace ONE UEM connection, UEM configuration ID and TLS syslog.',
     tags: ['Workspace ONE', 'Content Gateway', 'Managed content'],
@@ -265,6 +277,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'nutanix-ahv',
+    appearance: { accent: 'sky', label: 'Platform · Nutanix AHV' },
     title: 'Nutanix AHV (QCOW2 / PowerShell)',
     description: 'UAG 2609 on Nutanix AHV. Generates the [Nutanix] INI section and uagdeployntnx.ps1 command; the QCOW2 image, cluster and subnets must already exist in Prism Central.',
     tags: ['Nutanix', 'QCOW2', 'PowerShell'],
@@ -295,6 +308,7 @@ export const TEMPLATES: Template[] = [
   },
   {
     id: 'openshift-virtualization',
+    appearance: { accent: 'red', label: 'Platform · OpenShift' },
     title: 'Red Hat OpenShift Virtualization (Limited Availability)',
     description: 'UAG 2609 two-stage OpenShift workflow. Generates a CDI bootable-volume YAML, [OpenShift] INI section, oc preparation commands and uagdeployopenshift.ps1 invocation.',
     tags: ['OpenShift', 'Limited Availability', 'YAML'],

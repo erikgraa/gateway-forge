@@ -1,6 +1,7 @@
 import { render } from 'svelte/server';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { GROUPS, LISTS } from '../lib/schema';
+import { TEMPLATES } from '../lib/templates';
 
 let app: typeof import('../lib/store.svelte').app;
 let GroupCard: typeof import('./GroupCard.svelte').default;
@@ -31,6 +32,23 @@ describe('collapsible section cards', () => {
     expect(render(Topology).body).toMatch(/<details class="card topo collapsible-card" open(?:=""|)/);
     expect(render(LintPanel, { props: { issues: [] } }).body).toMatch(/<details class="card collapsible-card" open(?:=""|)/);
     expect(render(Templates).body).toMatch(/<details class="card collapsible-card" open(?:=""|)>/);
+  });
+
+  it('gives every template a distinct accent and readable design label without changing the draft', () => {
+    const previous = JSON.stringify(app.config);
+    const body = render(Templates).body;
+
+    expect(body.match(/class="tpl"/g)).toHaveLength(TEMPLATES.length);
+    expect(body.match(/class="tpl-kind"/g)).toHaveLength(TEMPLATES.length);
+    expect(body.match(/class="template-use small"/g)).toHaveLength(TEMPLATES.length);
+    expect(new Set(TEMPLATES.map((template) => template.appearance.accent)).size).toBe(TEMPLATES.length);
+    expect(new Set(TEMPLATES.map((template) => template.appearance.label)).size).toBe(TEMPLATES.length);
+    for (const template of TEMPLATES) {
+      expect(body).toContain(`data-accent="${template.appearance.accent}"`);
+      expect(body).toContain(template.appearance.label);
+      expect(body).toContain(`aria-label="Use template: ${template.title}"`);
+    }
+    expect(JSON.stringify(app.config)).toBe(previous);
   });
 
   it('explains hidden SSH controls and removes explanations when prerequisites are enabled', () => {
