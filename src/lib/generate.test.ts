@@ -665,7 +665,8 @@ describe('PowerShell output', () => {
     for (const platform of ['vsphere', 'hyperv', 'azure', 'openshift'] as const) {
       const ps = generatePowerShell(applyPatch(config, { platform }), 'omit', 'headless');
       expect(ps).toContain(`throw 'Set UAG_NEW_ADMIN_USER_PASSWORDS before running deployment.'`);
-      expect(ps).toContain('-newAdminUserPwd $env:UAG_NEW_ADMIN_USER_PASSWORDS');
+      expect(ps).toContain("# Example: $env:UAG_NEW_ADMIN_USER_PASSWORDS = 'monitoringUser1:<password>;monitoringUser2:<password>'");
+      expect(ps).toContain('-NewAdminuserPwd $env:UAG_NEW_ADMIN_USER_PASSWORDS');
       expect(ps).not.toContain('password=');
     }
   });
@@ -676,7 +677,8 @@ describe('PowerShell output', () => {
       const ps = generatePowerShell(applyPatch(config, { platform }), 'placeholder', 'interactive');
       expect(ps).toContain(`throw 'Set UAG_NEW_ADMIN_USER_PASSWORDS before running deployment.'`);
       expect(ps).toContain('username:password format, separated by semicolons');
-      expect(ps).toContain('-newAdminUserPwd $env:UAG_NEW_ADMIN_USER_PASSWORDS');
+      expect(ps).toContain("# Example: $env:UAG_NEW_ADMIN_USER_PASSWORDS = 'monitoringUser1:<password>;monitoringUser2:<password>'");
+      expect(ps).toContain('-NewAdminuserPwd $env:UAG_NEW_ADMIN_USER_PASSWORDS');
     }
   });
 
