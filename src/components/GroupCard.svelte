@@ -7,6 +7,7 @@
   import TrustedCertEditor from './TrustedCertEditor.svelte';
   import RowListEditor from './RowListEditor.svelte';
   import HostEntryEditor from './HostEntryEditor.svelte';
+  import FieldDetails from './FieldDetails.svelte';
 
   interface Props {
     group: GroupDef;
@@ -36,6 +37,7 @@
         <label class="toggle">
           <input id={`f-${group.enabledBy}`} type="checkbox" checked={c.values[group.enabledBy] === true} onchange={(e) => (app.config.values[group.enabledBy!] = e.currentTarget.checked)} />
           Enabled
+          <FieldDetails field={group.fields.find((field) => field.id === group.enabledBy)!} platform={c.platform} />
         </label>
       {/if}
     </div>
@@ -50,10 +52,10 @@
           {/if}
         {/each}
         {#if trustedFields.length}
-          <TrustedCertEditor fields={trustedFields} bind:values={app.config.values as Values} {issues} uid={group.id} />
+          <TrustedCertEditor fields={trustedFields} bind:values={app.config.values as Values} {issues} uid={group.id} platform={c.platform} />
         {/if}
         {#if hostFields.length}
-          <HostEntryEditor fields={hostFields} bind:values={app.config.values as Values} {issues} />
+          <HostEntryEditor fields={hostFields} bind:values={app.config.values as Values} {issues} platform={c.platform} />
         {/if}
       </div>
       {#if hiddenByVersion > 0}

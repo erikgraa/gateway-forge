@@ -48,10 +48,10 @@
           <FieldInput field={f} platform={c.platform} uid={`${list.id}${i}_${f.id}`} bind:values={app.config[list.id][i]} error={err(i, f.id)} />
         {/each}
         {#if trustedFields.length}
-          <TrustedCertEditor fields={trustedFields} bind:values={app.config[list.id][i]} {issues} uid={`${list.id}${i}`} list={{ id: list.id, index: i }} />
+          <TrustedCertEditor fields={trustedFields} bind:values={app.config[list.id][i]} {issues} uid={`${list.id}${i}`} platform={c.platform} list={{ id: list.id, index: i }} />
         {/if}
         {#if hostFields.length}
-          <HostEntryEditor fields={hostFields} bind:values={app.config[list.id][i]} {issues} uid={`${list.id}${i}`} list={{ id: list.id, index: i }} />
+          <HostEntryEditor fields={hostFields} bind:values={app.config[list.id][i]} {issues} uid={`${list.id}${i}`} platform={c.platform} list={{ id: list.id, index: i }} />
         {/if}
       </div>
     </div>

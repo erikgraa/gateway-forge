@@ -1616,7 +1616,7 @@ export const LISTS: ListDef[] = [
       bool('enabled', 'Enabled', 'enabled', true, {
         help: 'Disabled users are created but cannot authenticate until enabled.'
       }),
-      bool('adminMonitoringPasswordPreExpired', 'Require password change on first sign-in', 'adminMonitoringPasswordPreExpired', true, {
+      bool('adminMonitoringPasswordPreExpired', 'Require password change on first sign-in', 'adminMonitoringPasswordPreExpired', false, {
         help: 'Marks the runtime-supplied password as pre-expired for the monitoring user.'
       })
     ]

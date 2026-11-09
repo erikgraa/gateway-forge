@@ -4,6 +4,7 @@
   import type { Platform } from '../lib/versions';
   import type { Issue } from '../lib/validate';
   import { parseListValue, serializeListValue } from '../lib/listValue';
+  import FieldDetails from './FieldDetails.svelte';
 
   interface Props {
     field: Field;
@@ -70,6 +71,7 @@
 <fieldset class="field row-list-field" class:wide={field.wide}>
   <legend class="lbl">
     {field.label}
+    <FieldDetails {field} {platform} />
     {#if field.required === true}<span class="req" title="Required">*</span>{/if}
     <button type="button" class="small primary" onclick={add} aria-label={`Add ${definition.itemLabel.toLowerCase()}`}>
       + Add {definition.itemLabel.toLowerCase()}

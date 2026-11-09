@@ -2,6 +2,7 @@
   import { deploymentNicCount, fieldHelp, type Field, type Values } from '../lib/schema';
   import type { Platform } from '../lib/versions';
   import { certificateMode, selectCertificateMode } from '../lib/certificate-input';
+  import FieldDetails from './FieldDetails.svelte';
 
   interface Props {
     field: Field;
@@ -31,6 +32,7 @@
     <input {id} type="checkbox" checked={values[field.id] === true} onchange={(e) => (values[field.id] = e.currentTarget.checked)} />
     <span>
       {label}
+      <FieldDetails {field} {platform} {uid} />
       {#if field.since}<span class="chip">UAG ≥ {field.since}</span>{/if}
       {#if help}<span class="hint"> - {help}</span>{/if}
     </span>
@@ -39,6 +41,7 @@
   <label class="field" class:wide={field.wide} for={id}>
     <span class="lbl">
       {label}
+      <FieldDetails {field} {platform} {uid} />
       {#if field.required === true}<span class="req" title="Required">*</span>{/if}
       {#if field.since}<span class="chip">UAG ≥ {field.since}</span>{/if}
       {#if field.inferred}<span class="chip" title="Key or semantics require verification against the official source">verify</span>{/if}

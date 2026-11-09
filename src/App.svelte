@@ -179,7 +179,7 @@
           <span class="environment-label">Platform</span>
           <label class="sr-only" for="platform">Deployment platform</label>
           <select id="platform" bind:value={app.config.platform}>
-            {#each PLATFORMS as p (p.id)}<option value={p.id} disabled={!platformAvailable(p.id, app.config.version)}>{p.label}{p.limitedAvailability ? ' · Limited Availability' : ''}</option>{/each}
+            {#each PLATFORMS as p (p.id)}<option value={p.id} disabled={!platformAvailable(p.id, app.config.version)}>{p.label}</option>{/each}
           </select>
         </div>
         <div class="environment-summary">
@@ -219,7 +219,7 @@
 
   <footer class="site-footer">
     <strong>Gateway Forge is a community-driven, unofficial tool.</strong>
-    It is <strong>not affiliated with, endorsed by, or supported by Omnissa</strong>. Omnissa, Unified Access Gateway, UAG and Horizon are trademarks of their respective owners. Always review generated configuration before deploying it, and refer to the official Omnissa documentation.
+    It is <strong>not affiliated with, endorsed by, or supported by Omnissa</strong>. Omnissa, Unified Access Gateway, UAG and Horizon are trademarks of their respective owners. Always review generated configuration before deploying it, and refer to the <a href="https://docs.omnissa.com/" target="_blank" rel="noopener noreferrer">official Omnissa documentation</a>.
     <a href="https://github.com/erikgraa/gateway-forge" target="_blank" rel="noopener noreferrer">Source on GitHub</a> · MIT license
   </footer>
 </div>
