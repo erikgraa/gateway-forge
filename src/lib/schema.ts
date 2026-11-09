@@ -165,7 +165,6 @@ export interface SectionDef {
 
 export const SECTIONS: SectionDef[] = [
   { id: 'general', title: 'General', icon: '⚙' },
-  { id: 'adminUsers', title: 'Additional admin users', icon: '👤' },
   { id: 'network', title: 'Network & deploy', icon: '🌐' },
   { id: 'horizon', title: 'Horizon', icon: '🖥' },
   { id: 'tunnel', title: 'Workspace ONE Tunnel', icon: '🚇' },
@@ -174,6 +173,7 @@ export const SECTIONS: SectionDef[] = [
   { id: 'auth', title: 'Authentication', icon: '🔐' },
   { id: 'tls', title: 'TLS & certs', icon: '🔒' },
   { id: 'monitoring', title: 'Syslog & SNMP', icon: '📈' },
+  { id: 'adminUsers', title: 'Additional admin users', icon: '👤' },
   { id: 'templates', title: 'Templates', icon: '📋' }
 ];
 
