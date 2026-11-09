@@ -228,7 +228,10 @@ export function importIni(text: string, base?: Config): ImportResult {
         setField(c, c.values, f, e.value, result, `[${sec.section}]`);
         continue;
       }
-      if (lower === 'airwatchcontentgateway' && ['apiserverpassword', 'outboundproxypassword'].includes(e.key.toLowerCase())) {
+      if (
+        (lower === 'airwatchcontentgateway' && ['apiserverpassword', 'outboundproxypassword'].includes(e.key.toLowerCase()))
+        || (lower === 'airwatch' && e.key.toLowerCase() === 'apiserverpassword')
+      ) {
         result.warnings.push(`[${sec.section}]: "${e.key}" is a runtime secret and was not imported.`);
         continue;
       }

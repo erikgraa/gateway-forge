@@ -472,7 +472,7 @@ describe('config validation', () => {
     const m = messages(c).join('\n');
     expect(m).toMatch(/Workspace ONE UEM API server URL is required/);
     expect(m).toMatch(/Workspace ONE UEM API user is required/);
-    expect(m).toMatch(/Workspace ONE UEM API password is required/);
+    expect(m).not.toMatch(/Workspace ONE UEM API password is required/);
     expect(m).toMatch(/Tunnel server hostname is required/);
     expect(m).toMatch(/Tunnel gateway must be enabled/);
     expect(m).toMatch(/Outbound proxy port is required/);

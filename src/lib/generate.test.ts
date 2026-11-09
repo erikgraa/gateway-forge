@@ -392,7 +392,7 @@ describe('INI generation', () => {
     expect(ini).toMatch(/\[Airwatch\][\s\S]*tunnelGatewayEnabled=true/);
     expect(ini).toContain('apiServerUrl=https://as1234.awmdm.com');
     expect(ini).toContain('apiServerUsername=domain\\svc-uag-tunnel');
-    expect(ini).toContain('apiServerPassword=uem-secret');
+    expect(ini).not.toContain('apiServerPassword');
     expect(ini).toContain('organizationGroupCode=CORP');
     expect(ini).toContain('tunnelConfigurationId=tunnel-production');
     expect(ini).toContain('airwatchServerHostname=tunnel.example.com');
@@ -524,11 +524,11 @@ describe('INI generation', () => {
     expect(generateIni(applyPatch(c, { version: '2306' }))).not.toContain('tunnelProxyEnabled');
   });
 
-  it('redacts both Workspace ONE UEM and outbound proxy credentials', () => {
+  it('keeps the Workspace ONE UEM API password out of INI and redacts outbound proxy credentials', () => {
     const c = applyPatch(tunnel(), { values: { airwatch_apiServerPassword: 'uem-secret', airwatch_outboundProxyPassword: 'proxy-secret' } });
     const ini = generateIni(c);
     expect(ini).not.toMatch(/uem-secret|proxy-secret/);
-    expect(ini).toContain('apiServerPassword=<REDACTED>');
+    expect(ini).not.toContain('apiServerPassword');
     expect(ini).toContain('outboundProxyPassword=<REDACTED>');
   });
 
@@ -668,6 +668,19 @@ describe('PowerShell output', () => {
       expect(ps).toContain("# Example: $env:UAG_NEW_ADMIN_USER_PASSWORDS = 'monitoringUser1:<password>;monitoringUser2:<password>'");
       expect(ps).toContain('-NewAdminuserPwd $env:UAG_NEW_ADMIN_USER_PASSWORDS');
       expect(ps).not.toContain('password=');
+    }
+  });
+
+  it('uses the runtime Tunnel UEM password parameter in every deployment mode', () => {
+    for (const mode of ['interactive', 'headless'] as const) {
+      for (const platform of ['vsphere', 'hyperv', 'azure', 'nutanix', 'openshift'] as const) {
+        if (mode === 'headless' && platform === 'nutanix') continue;
+        const ps = generatePowerShell(applyPatch(tunnel(), { platform }), 'omit', mode);
+        expect(ps).toContain(`throw 'Set UAG_TUNNEL_GATEWAY_API_PASSWORD before running deployment.'`);
+        expect(ps).toContain("# Set: $env:UAG_TUNNEL_GATEWAY_API_PASSWORD = '<Workspace ONE UEM API password>'");
+        expect(ps).toContain('-awTunnelGatewayAPIServerPwd $env:UAG_TUNNEL_GATEWAY_API_PASSWORD');
+        expect(ps).not.toContain('apiServerPassword=');
+      }
     }
   });
 
