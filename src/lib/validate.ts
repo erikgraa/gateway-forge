@@ -28,6 +28,14 @@ const DNS_DOMAIN = /^(?=.{1,253}\.?$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0
 
 export const isIpv4 = (s: string) => IPV4.test(s);
 
+function isNetmask(s: string): boolean {
+  if (!IPV4.test(s)) return false;
+  const bits = s.split('.')
+    .map((octet) => Number(octet).toString(2).padStart(8, '0'))
+    .join('');
+  return /^1*0*$/.test(bits);
+}
+
 function isIpv6(s: string): boolean {
   if (!s.includes(':')) return false;
   try {
@@ -150,6 +158,8 @@ export function checkRule(rule: Rule, raw: string, platform: Platform = 'vsphere
   switch (rule) {
     case 'ipv4':
       return IPV4.test(s) ? null : 'Not a valid IPv4 address';
+    case 'netmask':
+      return isNetmask(s) ? null : 'Not a valid contiguous IPv4 netmask';
     case 'dnsDomain':
       return DNS_DOMAIN.test(s) && !IPV4.test(s.replace(/\.$/, '')) ? null : 'Not a valid DNS search domain';
     case 'hostOrIp':

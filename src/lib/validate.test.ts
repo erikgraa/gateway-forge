@@ -15,6 +15,11 @@ describe('field validation', () => {
     expect(checkRule('ipv4', '10.0.0.1')).toBeNull();
     expect(checkRule('ipv4', '192.0.2')).not.toBeNull();
     expect(checkRule('ipv4', '256.1.1.1')).not.toBeNull();
+    expect(checkRule('netmask', '255.255.255.0')).toBeNull();
+    expect(checkRule('netmask', '255.255.255.128')).toBeNull();
+    expect(checkRule('netmask', '255.255.0.255')).not.toBeNull();
+    expect(checkRule('netmask', '255.0.255.0')).not.toBeNull();
+    expect(checkRule('netmask', '24')).not.toBeNull();
     expect(checkRule('hostOrIp', 'syslog.corp.local:514')).toBeNull();
     expect(checkRule('hostOrIp', 'bad host')).not.toBeNull();
     expect(checkRule('httpsUrl', 'https://cs01.corp.local')).toBeNull();
@@ -358,6 +363,31 @@ describe('config validation', () => {
     expect(counts.horizon.error).toBe(0);
     expect(counts.network.error).toBeGreaterThan(0);
     expect(Object.keys(counts)).toEqual(SECTIONS.map((section) => section.id));
+  });
+
+  it('rejects non-contiguous netmasks on active NIC fields', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        deploymentOption: 'threenic',
+        netmask0: '255.255.0.255',
+        netmask1: '255.255.254.1',
+        netmask2: '255.255.255.0'
+      }
+    });
+    const issues = validateConfig(c).filter((issue) => issue.fieldId?.startsWith('netmask'));
+    expect(issues.map((issue) => issue.fieldId)).toEqual(['netmask0', 'netmask1']);
+    expect(issues.every((issue) => issue.message.includes('contiguous IPv4 netmask'))).toBe(true);
+  });
+
+  it('validates static routes per comma-separated row', () => {
+    const c = applyPatch(defaultConfig(), {
+      values: {
+        deploymentOption: 'threenic',
+        routes0: '10.0.0.0/8 192.0.2.1,10.1.0.0/33 192.0.2.1,not-a-route'
+      }
+    });
+    const routeIssues = validateConfig(c).filter((issue) => issue.fieldId === 'routes0');
+    expect(routeIssues.map((issue) => issue.rowIndex)).toEqual([1, 2]);
   });
 
   it('validates required Workspace ONE Tunnel settings and proxy inputs', () => {
