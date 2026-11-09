@@ -208,6 +208,7 @@ nav.side {
 .badge.warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
 .badge.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
 .nav-check { color: var(--ok); font-size: 13px; }
+.nav-optional { color: var(--subtle); font-size: 14px; }
 .nav-assurance { display: grid; grid-template-columns: 20px 1fr; gap: 8px; margin: auto 8px 0; padding-top: 22px; border-top: 1px solid var(--line); color: var(--mut); }
 .nav-assurance strong { display: block; color: var(--tx); font-size: 11px; }
 .nav-assurance p { margin: 3px 0 13px; font-size: 10px; line-height: 1.5; }
@@ -593,7 +594,7 @@ pre.code { flex: 1; margin: 0; padding: 14px 17px 28px; overflow: auto; color: v
   .nav-list { flex-direction: row; }
   .nav-list button { flex: 0 0 auto; width: auto; min-height: 40px; grid-template-columns: 24px auto; padding: 5px 8px; }
   .nav-glyph { width: 24px; height: 24px; }
-  .nav-label small, .nav-list .badge, .nav-check { display: none; }
+  .nav-label small, .nav-list .badge, .nav-check, .nav-optional { display: none; }
   .nav-label strong { font-size: 11px; white-space: nowrap; }
   .center { padding: 24px 14px 38px; }
   .workspace-head { flex-direction: column; gap: 14px; }
