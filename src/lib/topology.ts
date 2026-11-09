@@ -49,7 +49,7 @@ export function buildTopology(c: Config): Topology {
       v.pcoipEnabled === true ? 'PCoIP TCP+UDP 4172' : ''
     ].filter(Boolean) : [];
   const protocolLabel = horizonProtocols.join(' · ');
-  const hasPublishedService = role === 'outer' || role === 'inner' || v.horizon_enabled === true || c.wrp.length > 0;
+  const hasPublishedService = role === 'outer' || role === 'inner' || v.horizon_enabled === true || v.contentGateway_enabled === true || c.wrp.length > 0;
   const nodes: TopologyNode[] = [];
   if (hasPublishedService) {
     nodes.push({
@@ -165,6 +165,31 @@ export function buildTopology(c: Config): Topology {
     edges.push({ from: 'tunnel-client', to: 'uag', label: 'Per-app VPN · TCP/UDP 8443', kind: 'access' });
     edges.push({ from: 'uag', to: 'uem', label: 'API / AWCM configuration', kind: 'service' });
   }
+  if (v.contentGateway_enabled === true) {
+    const shared = v.contentGateway_mode === 'shared';
+    const uemHost = shared ? v.airwatch_apiServerUrl : v.contentGateway_apiServerUrl;
+    nodes.push({
+      id: 'content-gateway-client',
+      label: 'Content Gateway clients',
+      sub: String(shared ? v.airwatch_airwatchServerHostname : v.contentGateway_airwatchServerHostname) || 'public hostname',
+      detail: 'Workspace ONE managed content',
+      kind: 'client',
+      zone: 'untrusted'
+    });
+    const existingUem = nodes.find((node) => node.id === 'uem');
+    if (!existingUem) {
+      nodes.push({
+        id: 'content-uem',
+        label: 'Workspace ONE UEM',
+        sub: host(uemHost),
+        detail: 'Content Gateway configuration',
+        kind: 'identity',
+        zone: 'internal'
+      });
+    }
+    edges.push({ from: 'content-gateway-client', to: 'uag', label: 'HTTPS 443 · managed content', kind: 'access' });
+    edges.push({ from: 'uag', to: existingUem ? 'uem' : 'content-uem', label: 'API / AWCM configuration', kind: 'service' });
+  }
   c.syslog.forEach((item, i) => {
     nodes.push({
       id: `sys${i}`,
@@ -244,6 +269,10 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     L.push('- Verify the deployed VirtualMachine is Running/Ready and check its assigned NICs and IP addresses.');
   }
   L.push('- Gateway Forge never asks for or stores UAG root or Admin UI passwords in the browser. Interactive deployment lets the official script prompt; headless PowerShell reads both passwords from the process environment.');
+  if (v.contentGateway_enabled === true) {
+    const parameter = v.contentGateway_mode === 'shared' ? '-awAPIServerPwd' : '-awCGAPIServerPwd';
+    L.push(`- **Content Gateway UEM password:** interactive deployment prompts for it; headless PowerShell reads \`UAG_CONTENT_GATEWAY_API_PASSWORD\` and passes the vendor \`${parameter}\` parameter. It is never written to INI or JSON.`);
+  }
   L.push(`- **Deployment passwords:** ${MISSING_PASSWORD_WARNING}`);
   L.push('- **Recovery baseline:** retain the validated INI in an approved secrets-managed system and test clean redeployment. Assess break-glass recovery, monitoring, password rotation, backup and compliance requirements.');
   L.push('- Reference: [Omnissa non-interactive deployment parameters](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters) and [Run PowerShell script to deploy](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy).');
@@ -257,8 +286,12 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     if (v.pcoipEnabled === true) L.push(`  - PCoIP: ${v.pcoipExternalUrl || 'default'}`);
   }
   if (v.airwatch_enabled === true) L.push(`- **Workspace ONE Tunnel** → ${v.airwatch_airwatchServerHostname || '(not set)'}; UEM API ${v.airwatch_apiServerUrl || '(not set)'}`);
+  if (v.contentGateway_enabled === true) {
+    const shared = v.contentGateway_mode === 'shared';
+    L.push(`- **Workspace ONE Content Gateway** (${shared ? 'shared [Airwatch]' : 'standalone [AirwatchContentGateway]'}) → ${shared ? v.airwatch_airwatchServerHostname || '(not set)' : v.contentGateway_airwatchServerHostname || '(not set)'}; UEM API ${shared ? v.airwatch_apiServerUrl || '(not set)' : v.contentGateway_apiServerUrl || '(not set)'}`);
+  }
   for (const w of c.wrp) L.push(`- **Web reverse proxy \`${w.instanceId}\`** → ${w.proxyDestinationUrl} (auth: ${w.authMethods})`);
-  if (v.horizon_enabled !== true && v.airwatch_enabled !== true && cascadeRole(v) !== 'outer' && c.wrp.length === 0) L.push('- none');
+  if (v.horizon_enabled !== true && v.airwatch_enabled !== true && v.contentGateway_enabled !== true && cascadeRole(v) !== 'outer' && c.wrp.length === 0) L.push('- none');
   L.push('', '## Authentication', '');
   L.push(v.radius_enabled === true ? `- RADIUS: ${v.radius_hostName}:${v.radius_authPort} (${v.radius_authType})${v.radius_enabledAux === true ? ` + secondary ${v.radius_hostName_2}` : ''}` : '- RADIUS: off');
   L.push(v.saml_enabled === true ? `- SAML IdP: ${v.saml_entityID}` : '- SAML: off');

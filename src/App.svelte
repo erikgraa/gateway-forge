@@ -20,6 +20,7 @@
     network: { eyebrow: 'Platform & connectivity', description: 'Set deployment targets, addressing, DNS, and time synchronization.' },
     horizon: { eyebrow: 'Edge service', description: 'Publish Horizon securely through the UAG with client protocol endpoints.' },
     tunnel: { eyebrow: 'Workspace ONE edge service', description: 'Connect the UAG-hosted Tunnel gateway to Workspace ONE UEM for per-app VPN access.' },
+    contentGateway: { eyebrow: 'Workspace ONE edge service', description: 'Configure standalone or shared Content Gateway access to managed content through Workspace ONE UEM.' },
     wrp: { eyebrow: 'Application publishing', description: 'Add web reverse proxy instances for internal applications and portals.' },
     auth: { eyebrow: 'Identity & MFA', description: 'Configure the authentication providers selected by your published services.' },
     tls: { eyebrow: 'Transport security', description: 'Control appliance certificates and permitted TLS protocols.' },
@@ -28,7 +29,7 @@
   };
 
   const glyphs: Record<SectionId, string> = {
-    general: 'AG', network: 'NW', horizon: 'HZ', tunnel: 'TN', wrp: 'WP', auth: 'ID', tls: 'TS', monitoring: 'OP', templates: 'TP'
+    general: 'AG', network: 'NW', horizon: 'HZ', tunnel: 'TN', contentGateway: 'CG', wrp: 'WP', auth: 'ID', tls: 'TS', monitoring: 'OP', templates: 'TP'
   };
   const issues = $derived(validateConfig(app.config));
   const counts = $derived(countBySection(issues));
@@ -189,6 +190,7 @@
 
       {#if (app.section === 'horizon' && app.config.values.horizon_enabled === true) ||
         (app.section === 'tunnel' && app.config.values.airwatch_enabled === true) ||
+        (app.section === 'contentGateway' && app.config.values.contentGateway_enabled === true) ||
         (app.section === 'wrp' && app.config.wrp.some((item) => item.enabled !== false))}
         <Topology />
       {/if}

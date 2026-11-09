@@ -315,6 +315,15 @@ export function validateConfig(c: Config): Issue[] {
   }
   for (const l of LISTS) {
     c[l.id].forEach((item, index) => {
+      if (hostEntryValues(item, l.fields).length > HOST_ENTRY_MAX) {
+        push({
+          level: 'error',
+          section: l.section,
+          fieldId: l.fields.find((field) => field.hostEntryIndex === HOST_ENTRY_MAX)?.id,
+          message: `${l.itemLabel} ${index + 1}: a maximum of six host entries is supported.`,
+          list: { id: l.id, index }
+        });
+      }
       for (const f of l.fields) {
         if (!fieldAvailable(f, c.version, c.platform, item)) continue;
         const msg = checkField(f, item, c.platform);
@@ -377,11 +386,21 @@ function lint(c: Config, push: Push): void {
   }
 
   if (v.airwatch_enabled === true) {
-    if (v.airwatch_tunnelGatewayEnabled !== true) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_tunnelGatewayEnabled', message: 'Tunnel gateway must be enabled for the [Airwatch] section to configure an active Tunnel service.' });
+    const sharedContentGateway = v.contentGateway_enabled === true && v.contentGateway_mode === 'shared';
+    if (v.airwatch_tunnelGatewayEnabled !== true && !sharedContentGateway) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_tunnelGatewayEnabled', message: 'Tunnel gateway must be enabled unless the shared [Airwatch] section is used for Content Gateway.' });
     if (v.airwatch_outboundProxyHost && isEmpty(v.airwatch_outboundProxyPort)) push({ level: 'error', section: 'tunnel', fieldId: 'airwatch_outboundProxyPort', message: 'Outbound proxy port is required when an outbound proxy host is set.' });
     if (!!v.airwatch_outboundProxyUsername !== !!v.airwatch_outboundProxyPassword) push({ level: 'warn', section: 'tunnel', fieldId: 'airwatch_outboundProxyPassword', message: 'Outbound proxy user and password should be configured together.' });
     if (v.airwatch_tunnelProxyEnabled === true || v.airwatch_airwatchOutboundProxy === true) push({ level: 'info', section: 'tunnel', message: 'Legacy 2212 proxy switches are present only for historical imports; current UAG releases do not document them.' });
     if (v.airwatch_pacFilePath && v.airwatch_pacFileURL) push({ level: 'warn', section: 'tunnel', fieldId: 'airwatch_pacFileURL', message: 'Both PAC file path and URL are set; the 2609 reference does not document how they interact.' });
+  }
+  if (v.contentGateway_enabled === true) {
+    if (v.contentGateway_mode === 'shared') {
+      if (v.airwatch_enabled !== true) push({ level: 'error', section: 'contentGateway', fieldId: 'contentGateway_mode', message: 'Shared Content Gateway requires the [Airwatch] UEM settings to be enabled in Workspace ONE Tunnel.' });
+      push({ level: 'info', section: 'contentGateway', fieldId: 'contentGateway_mode', message: 'Shared mode uses the API URL, user, organization group, hostname, proxy, host entry and certificate inputs from Workspace ONE Tunnel.' });
+    } else {
+      if (v.contentGateway_outboundProxyHost && isEmpty(v.contentGateway_outboundProxyPort)) push({ level: 'error', section: 'contentGateway', fieldId: 'contentGateway_outboundProxyPort', message: 'Outbound proxy port is required when an outbound proxy host is set.' });
+      if (v.contentGateway_outboundProxyUsername) push({ level: 'info', section: 'contentGateway', fieldId: 'contentGateway_outboundProxyUsername', message: 'The official deployment script prompts for the outbound proxy password; Gateway Forge does not store or export it.' });
+    }
   }
 
   if (c.syslog.length === 0) push({ level: 'warn', section: 'monitoring', message: 'No syslog server configured - events stay on the appliance.' });

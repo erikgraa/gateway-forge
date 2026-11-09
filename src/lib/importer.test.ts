@@ -156,6 +156,44 @@ tunnelConfigurationId=tunnel-production`;
   it('does not enable Airwatch when the section is absent', () => {
     expect(importIni('[General]\nuagName=x').config.values.airwatch_enabled).toBe(false);
   });
+  it('imports standalone and shared Content Gateway selection without retaining passwords', () => {
+    const standalone = importIni(`[AirwatchContentGateway]
+apiServerUrl=https://as1234.awmdm.com
+apiServerUsername=domain\\api
+apiServerPassword=secret
+organizationGroupCode=CORP
+airwatchServerHostname=content.example.com
+cgConfigId=cg-production
+outboundProxyPassword=proxy-secret
+trustedCert1=C:\\certs\\uem.pem
+hostEntry1=10.0.0.30 content-api.corp.local`);
+    expect(standalone.config.values).toMatchObject({
+      contentGateway_enabled: true,
+      contentGateway_mode: 'standalone',
+      contentGateway_apiServerUsername: 'domain\\api',
+      contentGateway_cgConfigId: 'cg-production',
+      contentGateway_trustedCert1: 'C:\\certs\\uem.pem',
+      contentGateway_hostEntry1: '10.0.0.30 content-api.corp.local'
+    });
+    expect(standalone.unmapped).toEqual([]);
+    expect(standalone.warnings.join('\n')).toMatch(/runtime secret/);
+    expect(JSON.stringify(standalone.config)).not.toMatch(/secret|proxy-secret/);
+
+    const shared = importIni(`[Airwatch]
+contentGatewayEnabled=true
+apiServerUrl=https://as1234.awmdm.com
+apiServerUsername=domain\\api
+airwatchServerHostname=content.example.com
+cgConfigId=cg-shared`);
+    expect(shared.config.values).toMatchObject({
+      airwatch_enabled: true,
+      airwatch_tunnelGatewayEnabled: false,
+      contentGateway_enabled: true,
+      contentGateway_mode: 'shared',
+      contentGateway_cgConfigId: 'cg-shared'
+    });
+    expect(shared.unmapped).toEqual([]);
+  });
   it('imports historical 2212 Tunnel proxy switches with version warnings', () => {
     const r = importIni('[General]\nsource=euc-unified-access-gateway-22.12.0.0-1.ova\n[Airwatch]\ntunnelProxyEnabled=true\nairwatchOutboundProxy=true');
     expect(r.config.values).toMatchObject({ airwatch_enabled: true, airwatch_tunnelProxyEnabled: true, airwatch_airwatchOutboundProxy: true });
@@ -327,6 +365,71 @@ describe('JSON import', () => {
     expect(r.unmapped).toEqual([]);
     expect(r.config.values.origin).toBe('https://uag.example.com | true | false');
     expect((generateJsonObject(r.config) as any).edgeServiceSettingsList.edgeServiceSettingsList[0].originHeaderDetailsList).toEqual(doc.edgeServiceSettingsList.edgeServiceSettingsList[0].originHeaderDetailsList);
+  });
+
+  it('imports Content Gateway edge services without retaining service passwords', () => {
+    const r = importJson(JSON.stringify({
+      edgeServiceSettingsList: {
+        edgeServiceSettingsList: [{
+          identifier: 'CONTENT_GATEWAY',
+          enabled: true,
+          airwatchComponentsInstalled: 'CG',
+          apiServerUrl: 'https://as1234.awmdm.com',
+          apiServerUsername: 'domain\\api',
+          apiServerPassword: 'secret',
+          organizationGroupCode: 'CORP',
+          airwatchServerHostname: 'content.example.com',
+          cgConfigurationId: 'cg-production',
+          hostEntries: ['10.0.0.30 content-api.corp.local']
+        }]
+      }
+    }));
+    expect(r.unmapped).toEqual([]);
+    expect(r.config.values).toMatchObject({
+      contentGateway_enabled: true,
+      contentGateway_mode: 'standalone',
+      contentGateway_cgConfigId: 'cg-production',
+      contentGateway_hostEntry1: '10.0.0.30 content-api.corp.local'
+    });
+    expect(r.warnings.join('\n')).toMatch(/passwords were not imported/);
+    expect(JSON.stringify(r.config)).not.toContain('secret');
+  });
+
+  it('round-trips isolated WRP host-entry arrays', () => {
+    const r = importJson(JSON.stringify({
+      edgeServiceSettingsList: {
+        edgeServiceSettingsList: [
+          { identifier: 'WEB_REVERSE_PROXY', instanceId: 'one', proxyDestinationUrl: 'https://one.local', hostEntries: ['10.0.0.1 one.local'] },
+          { identifier: 'WEB_REVERSE_PROXY', instanceId: 'two', proxyDestinationUrl: 'https://two.local', hostEntries: ['10.0.0.2 two.local'] }
+        ]
+      }
+    }));
+    expect(r.unmapped).toEqual([]);
+    expect(r.config.wrp[0].hostEntry1).toBe('10.0.0.1 one.local');
+    expect(r.config.wrp[1].hostEntry1).toBe('10.0.0.2 two.local');
+    expect(generateJsonObject(r.config).edgeServiceSettingsList).toEqual({
+      edgeServiceSettingsList: [
+        expect.objectContaining({ instanceId: 'one', hostEntries: ['10.0.0.1 one.local'] }),
+        expect.objectContaining({ instanceId: 'two', hostEntries: ['10.0.0.2 two.local'] })
+      ]
+    });
+  });
+
+  it('upgrades legacy WRP hostEntryN JSON fields to host-entry arrays', () => {
+    const r = importJson(JSON.stringify({
+      edgeServiceSettingsList: {
+        edgeServiceSettingsList: [{
+          identifier: 'WEB_REVERSE_PROXY',
+          instanceId: 'legacy',
+          proxyDestinationUrl: 'https://legacy.local',
+          hostEntry1: '10.0.0.9 legacy.local'
+        }]
+      }
+    }));
+    expect(r.unmapped).toEqual([]);
+    expect(r.config.wrp[0].hostEntry1).toBe('10.0.0.9 legacy.local');
+    expect((generateJsonObject(r.config) as any).edgeServiceSettingsList.edgeServiceSettingsList[0].hostEntries)
+      .toEqual(['10.0.0.9 legacy.local']);
   });
 
   it('imports UAG SSH public-key name/data objects', () => {

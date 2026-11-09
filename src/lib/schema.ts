@@ -38,13 +38,14 @@ export type Rule =
   | 'redirectMappings'
   | 'sourceImage';
 
-export type SectionId = 'general' | 'network' | 'horizon' | 'tunnel' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
+export type SectionId = 'general' | 'network' | 'horizon' | 'tunnel' | 'contentGateway' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
 
 export type Target =
   | 'system'
   | 'deploy'
   | 'horizon'
   | 'airwatch'
+  | 'airwatchContentGateway'
   | 'wrp'
   | 'radius'
   | 'saml'
@@ -164,6 +165,7 @@ export const SECTIONS: SectionDef[] = [
   { id: 'network', title: 'Network & deploy', icon: '🌐' },
   { id: 'horizon', title: 'Horizon', icon: '🖥' },
   { id: 'tunnel', title: 'Workspace ONE Tunnel', icon: '🚇' },
+  { id: 'contentGateway', title: 'Workspace ONE Content Gateway', icon: '▣' },
   { id: 'wrp', title: 'Web reverse proxy', icon: '🔀' },
   { id: 'auth', title: 'Authentication', icon: '🔐' },
   { id: 'tls', title: 'TLS & certs', icon: '🔒' },
@@ -1107,12 +1109,12 @@ export const GROUPS: GroupDef[] = [
   },
   {
     id: 'airwatch',
-    title: 'Workspace ONE Tunnel gateway',
+    title: 'Workspace ONE UEM gateway',
     section: 'tunnel',
     target: 'airwatch',
     iniSection: 'Airwatch',
     enabledBy: 'airwatch_enabled',
-    help: 'Configures the Workspace ONE Tunnel edge service through its documented [Airwatch] PowerShell INI section on any supported UAG deployment platform. The settings JSON mapping is not documented, so this section is INI-only.',
+    help: 'Configures the shared [Airwatch] UEM settings used by Tunnel and, when selected in Content Gateway, a shared Content Gateway service. The shared section is INI-only.',
     fields: [
       bool('airwatch_tunnelGatewayEnabled', 'Enable Tunnel gateway', 'tunnelGatewayEnabled', true, { json: false }),
       text('airwatch_apiServerUrl', 'Workspace ONE UEM API server URL', 'apiServerUrl', {
@@ -1234,6 +1236,104 @@ export const GROUPS: GroupDef[] = [
         inferred: true,
         help: 'Documented in the UAG 2212 sample and absent from the UAG 2303+ sample. Verify against the target release export.'
       })
+    ]
+  },
+  {
+    id: 'contentGateway',
+    title: 'Workspace ONE Content Gateway',
+    section: 'contentGateway',
+    target: 'airwatchContentGateway',
+    iniSection: 'AirwatchContentGateway',
+    enabledBy: 'contentGateway_enabled',
+    help: 'Configures the CONTENT_GATEWAY edge service. Standalone mode emits [AirwatchContentGateway]; shared mode adds contentGatewayEnabled=true to the existing [Airwatch] section and reuses its UEM settings.',
+    fields: [
+      sel('contentGateway_mode', 'Configuration mode', 'configurationMode', [
+        { value: 'standalone', label: 'Standalone [AirwatchContentGateway]' },
+        { value: 'shared', label: 'Shared [Airwatch] section' }
+      ], {
+        default: 'standalone',
+        ini: false,
+        json: false,
+        help: 'Use standalone for a dedicated Content Gateway UEM connection. Shared mode reuses the common values from Workspace ONE Tunnel.'
+      }),
+      text('contentGateway_cgConfigId', 'Content Gateway Configuration ID', 'cgConfigId', {
+        json: 'cgConfigurationId',
+        placeholder: 'content-gateway-production',
+        wide: true,
+        help: 'Optional UEM Content Gateway configuration ID. The vendor script maps this INI key to cgConfigurationId.'
+      }),
+      text('contentGateway_apiServerUrl', 'Workspace ONE UEM API server URL', 'apiServerUrl', {
+        rule: 'httpsOrigin',
+        required: (v) => v.contentGateway_mode === 'standalone',
+        showIf: (v) => v.contentGateway_mode === 'standalone',
+        wide: true,
+        placeholder: 'https://as1234.awmdm.com',
+        help: 'HTTPS API origin from Workspace ONE UEM Site URLs; do not include a path, query or fragment.'
+      }),
+      text('contentGateway_apiServerUsername', 'Workspace ONE UEM API user', 'apiServerUsername', {
+        required: (v) => v.contentGateway_mode === 'standalone',
+        showIf: (v) => v.contentGateway_mode === 'standalone',
+        placeholder: 'domain\\svc-uag-content',
+        help: 'A populated username selects the standalone [AirwatchContentGateway] section in the vendor module. The API password is supplied at deployment time.'
+      }),
+      text('contentGateway_organizationGroupCode', 'Organization Group ID', 'organizationGroupCode', {
+        showIf: (v) => v.contentGateway_mode === 'standalone',
+        placeholder: 'CORP'
+      }),
+      text('contentGateway_airwatchServerHostname', 'Content Gateway hostname', 'airwatchServerHostname', {
+        rule: 'hostOrIp',
+        required: (v) => v.contentGateway_mode === 'standalone',
+        showIf: (v) => v.contentGateway_mode === 'standalone',
+        wide: true,
+        placeholder: 'content.example.com',
+        help: 'External hostname configured for the Content Gateway service.'
+      }),
+      bool('contentGateway_disableAutoConfigUpdate', 'Lock configuration (disable UEM auto-update)', 'disableAutoConfigUpdate', false, {
+        showIf: (v) => v.contentGateway_mode === 'standalone',
+        omitDefault: true,
+        help: 'Prevents Content Gateway configuration auto-updates from Workspace ONE UEM.'
+      }),
+      bool('contentGateway_airwatchOutboundProxy', 'Use outbound proxy for UEM connections', 'airwatchOutboundProxy', false, {
+        showIf: (v) => v.contentGateway_mode === 'standalone',
+        omitDefault: true,
+        help: 'Sets airwatchOutboundProxy=true. Configure the proxy host and port below when required.'
+      }),
+      text('contentGateway_outboundProxyHost', 'Outbound proxy host', 'outboundProxyHost', {
+        rule: 'hostOrIp',
+        showIf: (v) => v.contentGateway_mode === 'standalone'
+      }),
+      num('contentGateway_outboundProxyPort', 'Outbound proxy port', 'outboundProxyPort', {
+        rule: 'port',
+        required: (v) => v.contentGateway_mode === 'standalone' && String(v.contentGateway_outboundProxyHost ?? '').trim() !== '',
+        showIf: (v) => v.contentGateway_mode === 'standalone'
+      }),
+      text('contentGateway_outboundProxyUsername', 'Outbound proxy user', 'outboundProxyUsername', {
+        showIf: (v) => v.contentGateway_mode === 'standalone',
+        help: 'When set, the vendor script prompts for the proxy password; it is not stored or exported by Gateway Forge.'
+      }),
+      bool('contentGateway_reinitializeGatewayProcess', 'Reinitialize gateway process', 'reinitializeGatewayProcess', false, {
+        showIf: (v) => v.contentGateway_mode === 'standalone',
+        omitDefault: true,
+        help: 'Ask the vendor module to reinitialize the Content Gateway process after configuration.'
+      }),
+      ...Array.from({ length: 6 }, (_, i) => text(`contentGateway_hostEntry${i + 1}`, `Host entry ${i + 1}`, `hostEntry${i + 1}`, {
+        rule: 'hostEntry',
+        hostEntryIndex: i + 1,
+        showIf: (v) => v.contentGateway_mode === 'standalone',
+        wide: true,
+        placeholder: '10.0.0.30 content-api.corp.local',
+        json: false,
+        help: 'IP address, hostname, and optional alias, separated by spaces.'
+      })),
+      ...Array.from({ length: 9 }, (_, i) => text(`contentGateway_trustedCert${i + 1}`, `Trusted CA certificate ${i + 1} (PEM path)`, `trustedCert${i + 1}`, {
+        rule: 'pemPath',
+        trustedCertIndex: i + 1,
+        showIf: (v) => v.contentGateway_mode === 'standalone',
+        wide: true,
+        placeholder: 'C:\\certs\\content-gateway-ca.pem',
+        json: false,
+        help: 'PEM certificate file read by uagdeploy and added to the appliance trust store.'
+      }))
     ]
   },
   {
@@ -1507,7 +1607,14 @@ export const LISTS: ListDef[] = [
       text('healthCheckUrl', 'Health check URI', 'healthCheckUrl', { rule: 'path', placeholder: '/favicon.ico' }),
       text('landingPagePath', 'Landing page path', 'landingPagePath', { rule: 'path', default: '/' }),
       text('userNameHeader', 'User name header', 'userNameHeader', { placeholder: 'AccessPoint-User-ID' }),
-      text('hostEntry1', 'Host entry (/etc/hosts)', 'hostEntry1', { placeholder: '10.0.0.5 intranet.corp.local', wide: true }),
+      ...Array.from({ length: 6 }, (_, i) => text(`hostEntry${i + 1}`, `Host entry ${i + 1}`, `hostEntry${i + 1}`, {
+        rule: 'hostEntry',
+        hostEntryIndex: i + 1,
+        json: false,
+        wide: true,
+        placeholder: '10.0.0.5 intranet.corp.local',
+        help: 'IP address, hostname, and optional alias, separated by spaces.'
+      })),
       ...trustedCertFields((n) => `trustedCert${n}`, {
         help: 'CA certificates trusted when connecting to this proxy destination. File paths are deployment-time values.'
       })
@@ -1555,6 +1662,7 @@ export const VIRTUAL_DEFAULTS: Values = {
   certauth_enabled: false,
   obp_enabled: false,
   airwatch_enabled: false,
+  contentGateway_enabled: false,
   run_noSSLVerify: false,
   run_disableVerification: false
 };

@@ -1,4 +1,4 @@
-# Workspace ONE Tunnel `[Airwatch]` source mapping
+# Workspace ONE UEM edge-service source mapping
 
 Gateway Forge models the complete `[Airwatch]` sample in the UAG 2609 PowerShell deployment reference:
 
@@ -49,4 +49,15 @@ The 2212 sample additionally contains `airwatchOutboundProxy` and `tunnelProxyEn
 
 ## JSON export
 
-Omnissa does not document the `[Airwatch]` settings-JSON property/edge-service mapping in the audited references. Gateway Forge therefore imports and generates the documented keys only through INI and excludes them from settings JSON. This avoids inventing an unverified JSON identifier or schema.
+Omnissa's downloaded `uagdeploy.psm1` module was used as the strongest available runtime reference for Content Gateway. `GetEdgeServiceSettingsAWCG` emits:
+
+- identifier `CONTENT_GATEWAY` and `airwatchComponentsInstalled=CG`;
+- the common UEM API URL/user, organization group, external hostname, auto-update and outbound-proxy settings;
+- `cgConfigId` as JSON property `cgConfigurationId`;
+- contiguous `trustedCertN` and `hostEntryN` inputs as trust and host-entry arrays.
+
+Gateway Forge supports both vendor selection modes: `[Airwatch]` with `contentGatewayEnabled=true`, or standalone `[AirwatchContentGateway]` selected by a populated `apiServerUsername`. Standalone headless deployment uses the exact `-awCGAPIServerPwd` parameter; shared mode uses `-awAPIServerPwd`. Interactive deployment leaves the parameter absent so the vendor module prompts. UEM API and outbound-proxy passwords are never written to Content Gateway INI or settings JSON.
+
+Tunnel's existing `[Airwatch]` behavior remains INI-only because the audited references do not establish a complete Tunnel settings-JSON contract for Gateway Forge. Content Gateway JSON is generated from the explicit vendor mapping above; certificate paths remain INI-only because settings JSON requires certificate contents rather than local paths.
+
+The same downloaded module reads contiguous `hostEntryN` values for Web Reverse Proxy. Gateway Forge exposes the established six-row shared editor per WRP instance and preserves each instance's values independently.
