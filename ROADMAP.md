@@ -8,6 +8,7 @@ This roadmap highlights current priorities and longer-running work. It is direct
 
 - 👁️ **Planned — expand contextual visibility.** Progressively reveal relevant settings, helpers, topology and configuration sections only when their prerequisite features are enabled. Extend the existing conditional controls consistently across the workflow; do not imply that all sections are already prerequisite-aware.
 - 🧠 **Planned — add Workspace ONE Intelligence support.** Verify `[WorkspaceOneIntelligenceSettings1]` and its supported keys, version/platform availability and JSON mapping against authoritative sources before adding UI, validation, import/export, topology representation and regression coverage. This integration is not currently implemented.
+
 ## 🔭 Future goals
 
 - 🚀 **Investigative — rewrite `uagdeploy` so vSphere deployment does not require OVF Tool.** Explore a PowerShell `uagdeploy.ps1` path using vSphere PowerCLI rather than requiring `ovftool`. Validate whether `Import-VApp` can import the UAG appliance and correctly apply its deployment properties, network mappings and configuration before choosing an implementation. `Import-VApp` feasibility and this deployment path are not verified or supported today.
