@@ -757,7 +757,7 @@ describe('PowerShell output', () => {
     for (const platform of ['vsphere', 'hyperv', 'azure', 'nutanix', 'openshift'] as const) {
       const ps = generatePowerShell(applyPatch(config, { platform }), 'placeholder', 'interactive');
       expect(ps).toContain(`throw 'Set UAG_NEW_ADMIN_USER_PASSWORDS before running deployment.'`);
-      expect(ps).toContain('username:password format, separated by semicolons');
+      expect(ps.replace(/\n# /g, ' ')).toContain('username:password format, separated by semicolons');
       expect(ps).toContain("# Example: $env:UAG_NEW_ADMIN_USER_PASSWORDS = 'monitoringUser1:<password>;monitoringUser2:<password>'");
       expect(ps).toContain('-NewAdminuserPwd $env:UAG_NEW_ADMIN_USER_PASSWORDS');
     }
@@ -779,7 +779,7 @@ describe('PowerShell output', () => {
 
   it('lets the vendor prompt for the standalone Content Gateway API password interactively', () => {
     const ps = generatePowerShell(contentGateway(), 'placeholder', 'interactive');
-    expect(ps).toContain('prompts for the Content Gateway Workspace ONE UEM API password');
+    expect(ps.replace(/\n# /g, ' ')).toContain('prompts for the Content Gateway Workspace ONE UEM API password');
     expect(ps).not.toContain('-awCGAPIServerPwd');
     expect(ps).not.toContain('-awAPIServerPwd');
     expect(ps).not.toContain('UAG_CONTENT_GATEWAY_API_PASSWORD');
@@ -842,7 +842,7 @@ describe('PowerShell output', () => {
     c.values.adminPassword = 'embedded-admin-secret';
     for (const mode of ['interactive', 'headless'] as const) {
       const ps = generatePowerShell(c, 'include', mode);
-      expect(ps).toContain('When root and Admin UI password parameters are omitted, uagdeploy and its platform variants prompt for them interactively.');
+      expect(ps.replace(/\n# /g, ' ')).toContain('When root and Admin UI password parameters are omitted, uagdeploy and its platform variants prompt for them interactively.');
       expect(ps).not.toContain('embedded-root-secret');
       expect(ps).not.toContain('embedded-admin-secret');
     }

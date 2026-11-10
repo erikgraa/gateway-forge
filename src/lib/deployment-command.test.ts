@@ -35,9 +35,10 @@ describe('named deployment INI arguments', () => {
       expect(ps.includes('Horizon on vSphere is operator-tested with OVF Tool 5.0.')).toBe(platform === 'vsphere');
       if (platform === 'vsphere') {
         expect(ps).toContain('vi://uagdeploy@vsphere.local:PASSWORD@vcenter.example.com/DC1/host/Cluster1');
-        expect(ps).toContain('without password redaction, regardless of secret mode');
-        expect(ps).toContain('Regressions were reported with 5.1 and 9.1');
-        expect(ps).toContain('no validation retries or OVF Tool confirmations requiring input');
+        const prose = ps.replace(/\n# /g, ' ');
+        expect(prose).toContain('without password redaction, regardless of secret mode');
+        expect(prose).toContain('Regressions were reported with 5.1 and 9.1');
+        expect(prose).toContain('no validation retries or OVF Tool confirmations requiring input');
       }
       expect(ps).not.toMatch(/-noSSLVerify|-disableVerification/);
       expect(c.values.target).not.toContain(':PASSWORD@');
