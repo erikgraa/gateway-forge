@@ -160,7 +160,7 @@ export function checkRule(rule: Rule, raw: string, platform: Platform = 'vsphere
   const s = raw.trim();
   switch (rule) {
     case 'securityHeaders':
-      return parseSecurityHeaders(s) ? null : 'Enter a JSON object of header names and string values, or a quoted, escaped JSON value from an appliance INI export';
+      return parseSecurityHeaders(s) ? null : 'Each header requires a non-empty name and value, with unique names (case-insensitive). Raw input must be a JSON object of strings or a quoted, escaped appliance INI value';
     case 'guid':
       return /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(s) ? null : 'Not a valid GUID (expected 8-4-4-4-12 hexadecimal characters with hyphens)';
     case 'ipv4':

@@ -4,6 +4,14 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 
 ## Unreleased
 
+## 0.8.6 - 2026-11-10
+
+### Changed
+
+- Replaced Horizon response security-header text entry with key/value rows. Both fields are required for each added row; no examples, placeholders or appliance defaults are seeded. Removing all rows restores default appliance behavior.
+- Preserved untouched imported spelling/escaping and raw JSON/quoted INI editing. Incomplete rows and duplicate header names remain in saved drafts with accessible errors instead of being silently dropped or overwritten. Header names are compared case-insensitively.
+- Kept the existing UAG 2506 gate, disabled-Horizon value preservation and INI-only serialization; settings JSON and live header combinations remain unverified.
+
 ## 0.8.5 - 2026-11-10
 
 Changes since 0.8.0, including the merged output/configuration work and the reviewed OIDC grouping and deployment warnings. Intermediate 0.8.1–0.8.4 releases were not published. This builder version does not certify every UAG deployment or service.
