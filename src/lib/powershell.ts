@@ -52,9 +52,9 @@ function ceipSwitch(c: Config): string {
 }
 
 function standaloneContentGatewayPasswordSwitch(c: Config, deploymentMode: DeploymentMode): string {
-  return deploymentMode === 'headless' && c.values.contentGateway_enabled === true && c.values.contentGateway_mode !== 'shared'
+  return (deploymentMode === 'headless' && c.values.contentGateway_enabled === true && c.values.contentGateway_mode !== 'shared'
     ? ' -awCGAPIServerPwd $env:UAG_CONTENT_GATEWAY_API_PASSWORD'
-    : '';
+    : '') + (deploymentMode === 'headless' && c.values.seg_enabled === true ? ' @segParams' : '');
 }
 
 function addStandaloneContentGatewayPasswordCheck(c: Config, out: string[]): void {
@@ -139,6 +139,17 @@ export function generatePowerShell(
     out.push(...commentLines(effectiveDeploymentMode === 'interactive'
       ? 'Interactive mode: the official script prompts for the Content Gateway Workspace ONE UEM API password.'
       : 'Environment-password Content Gateway mode reads the UEM API password from UAG_CONTENT_GATEWAY_API_PASSWORD.'), '');
+  }
+  if (c.values.seg_enabled === true) {
+    out.push(...commentLines(effectiveDeploymentMode === 'interactive'
+      ? 'Standalone SEG: the vendor deployment package prompts for the UEM API password when required. Proxy/PFX passwords may also prompt. Verify the SEG role and MEM configuration in UEM.'
+      : 'Standalone SEG: read UAG_SEG_API_PASSWORD at runtime. Package parameter support is checked before invocation; this does not guarantee fully unattended deployment.'), '');
+    if (effectiveDeploymentMode === 'headless') {
+      out.push("if ([string]::IsNullOrWhiteSpace($env:UAG_SEG_API_PASSWORD)) { throw 'Set UAG_SEG_API_PASSWORD before running deployment.' }");
+      out.push(`$segCommand = Get-Command ${psq(`.\\${platformScript(c)}`)} -ErrorAction Stop`);
+      out.push("if (-not $segCommand.Parameters.ContainsKey('awSEGAPIServerPwd')) { throw 'This deployment package does not expose awSEGAPIServerPwd. Verify the UAG package or use interactive SEG deployment.' }");
+      out.push('$segParams = @{ awSEGAPIServerPwd = $env:UAG_SEG_API_PASSWORD }', '');
+    }
   }
   if (c.values.airwatch_enabled === true) {
     out.push(...commentLines('Shared [Airwatch] UEM passwords cover Tunnel and shared Content Gateway and are supplied at runtime only.'));

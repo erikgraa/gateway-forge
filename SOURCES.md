@@ -2,6 +2,8 @@
 
 Gateway Forge distinguishes official product contracts from UI guidance and project inference. This file records the authoritative deployment references used for source-backed behavior.
 
+Older-release compatibility warnings are precautionary guidance, not a vendor declaration that every newer script fails with every older appliance. Version-gated fields are filtered by the builder's recorded schema; deployment packages and INI/settings JSON contracts should still be verified against the selected UAG release.
+
 ## Omnissa Unified Access Gateway 26.09
 
 ### Administrator SAML, management TLS and host entries
@@ -25,6 +27,21 @@ The user-supplied deployment package (`uagdeploy.psm1` and `uag18-saml-external-
 - `uagdeploy.psm1:6094-6139`: the supplied module emits `signAuthNRequestWithAdminCert` correctly; the earlier `signingAuthNRequestWithAdminCert` typo described above belongs to the older public reference only. Administrator SAML signing reuses `[SSLCertAdmin]`; no separate admin-SAML certificate wrapper is invented.
 
 The downloaded `uagdeploy.ps1`, `uagdeployhv.ps1`, `uagdeployaz.ps1`, `uagdeployntnx.ps1`, and `uagdeployopenshift.ps1` all declare `$iniFile` in their `param` blocks. Generated commands consistently name it with `-iniFile`; Azure retains its positional root/admin/CEIP credential arguments, Nutanix remains interactive-only, and OpenShift retains its named root/admin/OpenShift-password flow.
+
+### Horizon response security headers — operator-supplied INI evidence
+
+The user supplied an appliance `[Horizon]` `securityHeaders` export containing the four default headers (X-Frame-Options, Strict-Transport-Security, X-Content-Type-Options and Content-Security-Policy) plus custom `yes: ok` and `yesss: oook` entries. The user explicitly confirmed the actual INI has **one literal backslash** before each inner JSON quote: `securityHeaders="{\"yes\":\"ok\"}"`. The builder quotes/escapes new JSON-object input once, preserves already quoted exports and all explicitly imported header values, and does not prefill or invent appliance defaults. This sample confirms INI serialization only, not settings JSON shape, earliest version availability or deployment certification of every header combination. The existing UAG 2506 availability gate is unchanged.
+
+### Multiple OpenID Connect providers
+
+The pinned [Omnissa EUC deployment module](https://github.com/euc-oss/euc-samples/blob/b75247f2f149fab9c4a3f6d3dca622d7a4f77450/UAG-Samples/uag-terraform/uagdeploy.psm1#L3492-L3555) `GetAuthMethodSettingsOidc` iterates the unnumbered `[OidcProviderSetting]` plus indices 1–99; `GetOidcConfiguration` reads each provider’s own `oidcConfigurationId`, `oidcClientId`, `oidcConfigUrl`, prompt and timeout. `GetOidcSharedSecret` prompts for each configuration’s client secret outside the browser. The sampled loop inserts a comma for numbered entries even when the unnumbered entry is absent, so numbered-only imports are normalized with a visible warning to populate the first unnumbered section. This changes section numbering, not configuration IDs or values. Uniqueness and exact Horizon-ID matching are builder safeguards; no GUID restriction or settings-JSON materialization contract is inferred. The existing UAG 2506 availability gate is retained; deployment against an appliance is not certified by these static/round-trip tests.
+
+### Azure region and subscription validation
+
+- [Microsoft Learn: Azure regions](https://learn.microsoft.com/en-us/azure/reliability/regions-list), document revision `bb9c1e3aeb9a305a8152162cf047248d13108d09`: the bundled advisory catalog uses documented public-cloud programmatic region names, including restricted/preview entries. Recognition does not establish subscription access, UAG support, image availability or VM-size availability; new/sovereign-cloud locations remain accepted with a warning. Values are not rewritten.
+- [Azure SDK AzureLocation](https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/core/Azure.Core/src/AzureLocation.cs) recognizes location names and display names by case-insensitive, space-insensitive matching; the builder uses this only for advisory recognition.
+- [Subscriptions — Get](https://learn.microsoft.com/en-us/rest/api/resources/subscriptions/get?view=rest-resources-2022-12-01) specifies `subscriptionId` as `string (uuid)`. The builder checks the hyphenated hexadecimal GUID shape, without imposing a UUID version or claiming existence/access.
+- [az account list-locations](https://learn.microsoft.com/en-us/cli/azure/account?view=azure-cli-latest#az-account-list-locations) lists regions supported for the current subscription in the authenticated deployment environment. Gateway Forge does not call Azure or read cloud credentials.
 
 ### Nutanix AHV
 
@@ -209,6 +226,18 @@ was last updated on 2025-08-14; this check does **not** independently establish
 the same behavior for the downloaded UAG 2609 package, which was unavailable
 in this workspace. Recheck the exact release module before treating this as
 a release-specific guarantee.
+
+### Secure Email Gateway and JWT pinned reference audit
+
+The [pinned public module](https://github.com/euc-oss/euc-samples/blob/b75247f2f149fab9c4a3f6d3dca622d7a4f77450/UAG-Samples/uag-terraform/uagdeploy.psm1) and [pinned API](https://github.com/euc-dev/uag-apis/blob/b6087a7a038d631a25483439d75b8b274fb399b0/docs/rest-api-swagger.json) were inspected for this implementation. They are reference snapshots, not evidence from the operator's release package or appliance exports.
+
+- Module lines 3984–4007 select standalone `[AirwatchSecureEmailGateway]` using `apiServerUsername`, passing the module-level `awSEGAPIServerPwd` to common UEM credential handling. Shared SEG at lines 3927–3936 appends its result to `edgeServiceSettingsAWCG` but checks/emits `edgeServiceSettingsAWSEG`: a recorded variable mismatch. Forge reports shared INI settings for review rather than converting them to standalone. A JSON `SEG` identifier cannot establish which INI deployment mode produced it.
+- **Wrapper evidence gap:** the module parameter at line 5 is not proof that a deployment wrapper accepts it. The [adjacent pinned Terraform helper named uagdeploy.ps1](https://github.com/euc-oss/euc-samples/blob/b75247f2f149fab9c4a3f6d3dca622d7a4f77450/UAG-Samples/uag-terraform/uagdeploy.ps1) reads JSON from stdin and has no top-level `awSEGAPIServerPwd` parameter. It is not a verified image-deployment wrapper. Forge checks the actual selected command's parameters and fails closed before passing the environment password. Exact release wrapper/module exports and runtime prompt behavior still need operator verification; no unattended SEG success is claimed.
+- `GetJWTSettings` (lines 917–1059) and `GetJWTIssuerSettings` (1064–1266) enumerate profiles 1–99 independently. INI `publicKeyRefreshInterval` maps to nested `urlResponseRefreshInterval` (0 or 10–86400). Consumer URLs use `publicKeyURLSettings`; producers use `encryptionPublicKeyURLSettings`. Their root containers are `{ jwtSettingsList: { jwtSettingsList: [...] } }` and `{ jwtIssuerSettingsList: { jwtIssuerSettingsList: [...] } }`, respectively. The API `JWTSettingsList`, `JWTIssuerSettingsList`, and `ServerSettings` schemas corroborate these structures.
+- Consumer static `publicKeyN` files become `publicKeys` content objects. The module scans up to 99 public-key slots; Forge's existing static-key and trusted-CA editor caps remain nine. Unsupported slots remain visible as unmapped input, not silently supported. Producer `pemPrivKey`/`pemCerts` become `jwtSigningPemCertSettings.privateKeyPem`/`certChainPem`; `pfxCerts` becomes `jwtSigningPfxCertSettings.pfxKeystore` with a runtime password. PEM takes precedence when both signing formats appear; import retains both references and reports the ambiguity. The module's PFX alias lookup uses `Horizon.pfxCertAlias` (line 1139), not an issuer-local alias; no issuer alias key is invented. `encryptionPublicKey` becomes an array of content objects and cannot coexist with a dynamic encryption URL.
+- API `AirWatchSEGEdgeServiceSettings` requires `apiServerPassword`; PFX and trusted certificates also require actual material. Forge omits runtime credentials and file contents from settings JSON. Supported JSON semantic round trips cover representable metadata, booleans, hosts and dynamic JWT URL settings only, not a complete deployment-ready SEG/producer payload. Raw material and unrecognized SEG/JWT values are not included in import diagnostics; secret-stripped drafts retain file references and hidden choices but remove credential/material values. Deliberate secret-mode output for existing secret fields is unchanged.
+
+`src/lib/seg-jwt.test.ts` uses synthetic fixtures, including fresh/populated imports, exact supported mappings, independent lists, PEM/PFX references, malformed/unknown inputs and stripped persistence. No provided appliance exports or live SEG interoperability are claimed; #144/#146 remain operator-evidence gaps. Realm/Keytab remain deferred.
 
 The same UAG 2609 module's `GetNewAdminUserSettings`,
 `GetAdminUserSetting`, `ValidateMonitorUserName`, and `ReadPwdToHash`

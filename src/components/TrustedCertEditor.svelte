@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Field, Values } from '../lib/schema';
+  import type { Field, ListDef, Values } from '../lib/schema';
   import type { Issue } from '../lib/validate';
   import {
     removeTrustedCertPath,
@@ -15,7 +15,7 @@
     issues: Issue[];
     uid: string;
     platform?: 'vsphere' | 'hyperv' | 'azure' | 'nutanix' | 'openshift';
-    list?: { id: 'wrp' | 'syslog' | 'adminUsers'; index: number };
+    list?: { id: ListDef['id']; index: number };
   }
   let { fields, values = $bindable(), issues, uid, platform = 'vsphere', list }: Props = $props();
 

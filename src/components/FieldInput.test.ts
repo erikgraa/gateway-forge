@@ -85,3 +85,109 @@ describe('deployment storage field', () => {
     expect(validateConfig(config).filter((issue) => issue.fieldId === 'ds')).toEqual([]);
   });
 });
+
+const horizonGroup = GROUPS.find((group) => group.fields.some((field) => field.id === 'authMethods'))!;
+const horizonAuth = horizonGroup.fields.find((field) => field.id === 'authMethods')!;
+const gatedMethods = [
+  { method: 'radius-auth', providers: ['radius_enabled'] },
+  { method: 'radius-auth-and-unauthenticated', providers: ['radius_enabled'] },
+  { method: 'securid-auth', providers: ['securid_enabled'] },
+  { method: 'securid-auth-and-unauthenticated', providers: ['securid_enabled'] },
+  { method: 'oidc-auth', providers: ['oidc_enabled'] },
+  { method: 'saml-auth', providers: ['saml_enabled'] },
+  { method: 'saml-auth-and-passthrough', providers: ['saml_enabled'] },
+  { method: 'saml-auth-and-unauthenticated', providers: ['saml_enabled'] },
+  { method: 'certificate-auth', providers: ['certauth_enabled'] },
+  { method: 'certificate-auth-and-passthrough', providers: ['certauth_enabled'] },
+  { method: 'certificate-auth-and-radius-auth', providers: ['certauth_enabled', 'radius_enabled'] },
+  { method: 'device-certificate-auth-and-passthrough', providers: ['certauth_enabled'] },
+  { method: 'device-certificate-auth-and-saml-auth', providers: ['certauth_enabled', 'saml_enabled'] }
+];
+const providerLabels: Record<string, string> = {
+  radius_enabled: 'RADIUS', securid_enabled: 'RSA SecurID', oidc_enabled: 'OpenID Connect',
+  saml_enabled: 'SAML', certauth_enabled: 'X.509 certificate authentication'
+};
+const disabledProviders = Object.fromEntries(Object.keys(providerLabels).map((flag) => [flag, false]));
+const optionTag = (body: string, method: string) => body.match(new RegExp(`<option\\b[^>]*value="${method}"[^>]*>`))?.[0] ?? '';
+
+describe('Horizon authentication provider prerequisites', () => {
+  it.each(gatedMethods)('disables $method with provider-specific accessible guidance', ({ method, providers }) => {
+    const { body } = render(FieldInput, { props: { field: horizonAuth, horizonAuthentication: true, values: { ...disabledProviders, authMethods: 'passthrough' }, platform: 'vsphere' } });
+    expect(optionTag(body, method)).toMatch(/\bdisabled(?:[ =]|>)/);
+    expect(body).toContain(`enable ${providers.map((flag) => providerLabels[flag]).join(' and ')} first`);
+    expect(body).toContain('aria-describedby="f-authMethods-help f-authMethods-prerequisites"');
+  });
+
+  it.each(gatedMethods)('requires every named provider for $method', ({ method, providers }) => {
+    const enabled = Object.fromEntries(providers.map((flag) => [flag, true]));
+    const { body } = render(FieldInput, { props: { field: horizonAuth, horizonAuthentication: true, values: { ...disabledProviders, ...enabled, authMethods: 'passthrough' }, platform: 'vsphere' } });
+    expect(optionTag(body, method)).not.toMatch(/\bdisabled(?:[ =]|>)/);
+    for (const missing of providers) {
+      const { body: partial } = render(FieldInput, { props: { field: horizonAuth, horizonAuthentication: true, values: { ...disabledProviders, ...enabled, [missing]: false, authMethods: method }, platform: 'vsphere' } });
+      expect(optionTag(partial, method)).toMatch(/\bdisabled(?:[ =]|>)/);
+      expect(partial).toContain(`Enable ${providerLabels[missing]} in Identity and access`);
+    }
+  });
+
+  it.each(Object.keys(providerLabels))('enabling only %s unlocks only methods using that provider alone', (flag) => {
+    const { body } = render(FieldInput, { props: { field: horizonAuth, horizonAuthentication: true, values: { ...disabledProviders, [flag]: true, authMethods: 'passthrough' }, platform: 'vsphere' } });
+    for (const { method, providers } of gatedMethods) {
+      expect(/\bdisabled(?:[ =]|>)/.test(optionTag(body, method))).toBe(providers.some((required) => required !== flag));
+    }
+  });
+
+  it('leaves only passthrough selectable without providers and covers every schema method', () => {
+    expect(horizonAuth.options!.map((option) => option.value).sort()).toEqual(['passthrough', ...gatedMethods.map((entry) => entry.method)].sort());
+    const { body } = render(FieldInput, { props: { field: horizonAuth, horizonAuthentication: true, values: { ...disabledProviders, authMethods: 'passthrough' }, platform: 'vsphere' } });
+    expect(optionTag(body, 'passthrough')).not.toMatch(/\bdisabled(?:[ =]|>)/);
+    expect(body).toContain('Only passthrough is available without providers.');
+  });
+
+  it.each(gatedMethods)('preserves imported $method, disabled flags and INI round trips', ({ method, providers }) => {
+    const base = applyPatch(defaultConfig(), { values: { ...disabledProviders, [horizonGroup.enabledBy!]: true } });
+    const config = importIni(`[Horizon]\nauthMethods=${method}\n`, base).config;
+    const before = structuredClone(config);
+    const { body } = render(FieldInput, { props: { field: horizonAuth, horizonAuthentication: true, values: config.values, platform: 'vsphere' } });
+    expect(config).toEqual(before);
+    expect(config.values.authMethods).toBe(method);
+    for (const flag of providers) expect(config.values[flag]).toBe(false);
+    expect(optionTag(body, method)).toMatch(/\bselected(?:[ =]|>)/);
+    expect(body).toContain(`Enable ${providers.map((flag) => providerLabels[flag]).join(' and ')} in Identity and access or choose another method.`);
+    const ini = generateIni(config);
+    expect(ini).toContain(`authMethods=${method}`);
+    expect(importIni(ini, config).config.values.authMethods).toBe(method);
+  });
+
+  it('does not let administrator SAML or truthy imported strings unlock Horizon providers', () => {
+    const { body } = render(FieldInput, { props: { field: horizonAuth, horizonAuthentication: true, values: { adminSaml_enable: true, saml_enabled: 'true', certauth_enabled: 'true', authMethods: 'saml-auth' }, platform: 'vsphere' } });
+    expect(optionTag(body, 'saml-auth')).toMatch(/\bdisabled(?:[ =]|>)/);
+    expect(optionTag(body, 'certificate-auth')).toMatch(/\bdisabled(?:[ =]|>)/);
+  });
+
+  it('does not gate unrelated reverse-proxy authentication selectors', () => {
+    const { body } = render(FieldInput, { props: { field: horizonAuth, values: { authMethods: 'saml-auth' }, platform: 'vsphere' } });
+    for (const { method } of gatedMethods) expect(optionTag(body, method)).not.toMatch(/\bdisabled(?:[ =]|>)/);
+    expect(body).not.toContain('f-authMethods-prerequisites');
+  });
+
+  it('associates errors and prerequisite guidance with the Horizon select', () => {
+    const { body } = render(FieldInput, { props: { field: horizonAuth, horizonAuthentication: true, values: { authMethods: 'radius-auth' }, platform: 'vsphere', error: 'Enable the RADIUS provider' } });
+    expect(body).toContain('aria-invalid="true"');
+    expect(body).toContain('aria-describedby="f-authMethods-error f-authMethods-prerequisites"');
+    expect(body).toContain('id="f-authMethods-error"');
+    expect(body).toContain('id="f-authMethods-prerequisites"');
+  });
+});
+
+it('includes IWA as the final Horizon proxy-pattern example without filling or rewriting stored patterns', () => {
+  const field = horizonGroup.fields.find((entry) => entry.id === 'proxyPattern')!;
+  const values = { proxyPattern: '' };
+  const { body } = render(FieldInput, { props: { field, values, platform: 'vsphere' } });
+  expect(body).toContain('placeholder="(/|/view-client(.*)|/portal(.*)|/appblast(.*)|/iwa(.*))"');
+  expect(new RegExp(field.placeholder!).test('/iwa/login')).toBe(true);
+  expect(values.proxyPattern).toBe('');
+  const config = applyPatch(defaultConfig(), { values: { horizon_enabled: true, proxyPattern: '/custom(.*)' } });
+  const ini = generateIni(config);
+  expect(ini).toContain('proxyPattern=/custom(.*)');
+  expect(importIni(ini, config).config.values.proxyPattern).toBe('/custom(.*)');
+});

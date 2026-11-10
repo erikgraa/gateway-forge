@@ -76,7 +76,7 @@
           {:else if f.id === 'target' && c.platform === 'vsphere'}
             <VCenterTargetEditor field={f} bind:values={app.config.values as Values} error={err(f.id)} />
           {:else if f.trustedCertIndex === undefined && f.hostEntryIndex === undefined}
-            <FieldInput field={f} platform={c.platform} bind:values={app.config.values as Values} error={err(f.id)} />
+            <FieldInput field={f} platform={c.platform} bind:values={app.config.values as Values} error={err(f.id)} horizonAuthentication={group.target === 'horizon'} />
           {/if}
         {/each}
       </div>

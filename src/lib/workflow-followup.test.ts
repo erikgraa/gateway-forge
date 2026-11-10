@@ -110,9 +110,12 @@ describe('UAG workflow follow-ups', () => {
     expect(body).toContain('Workspace ONE Tunnel');
     expect(body).toContain('Workspace ONE Content Gateway');
     expect(body).toContain('Web reverse proxy');
+    expect(body).toContain('Secure Email Gateway');
+    expect(body.indexOf('Horizon')).toBeLessThan(body.indexOf('Web reverse proxy'));
+    expect(body.indexOf('Web reverse proxy')).toBeLessThan(body.indexOf('Workspace ONE Tunnel'));
     expect(body).toContain('1 selected');
     expect(body.match(/aria-pressed="true"/g)).toHaveLength(1);
-    expect(body.match(/Optional · not selected/g)).toHaveLength(3);
+    expect(body.match(/Optional · not selected/g)).toHaveLength(4);
   });
 
   it('exports administrator SAML to INI and the documented settings JSON object', () => {

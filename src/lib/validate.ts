@@ -1,13 +1,15 @@
-import { GROUPS, LISTS, SECTIONS, deploymentNicCount, displayFieldLabel, type Field, type Rule, type SectionId, type Values } from './schema';
-import { fieldAvailable, groupEnabled, isEmpty, type Config } from './model';
+import { GROUPS, LISTS, SECTIONS, deploymentNicCount, displayFieldLabel, type Field, type ListDef, type Rule, type SectionId, type Values } from './schema';
+import { fieldAvailable, groupEnabled, listEnabled, isEmpty, type Config } from './model';
 import { cascadeRole } from './cascade';
-import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion, platformAvailable, platformDef, type Platform } from './versions';
+import { parseSecurityHeaders } from './security-headers';
+import { TLS_LEGACY_UNTIL, VERSIONS, cmpVersion, olderDeploymentWarning, platformAvailable, platformDef, type Platform } from './versions';
 import { parseOriginHeaderDetails } from './generate';
 import { sshPublicKeyValidationError } from './ssh';
 import { parseListValue } from './listValue';
 import { HOST_ENTRY_MAX, hostEntryValues } from './host-entries';
 import { certificateMode, certificatePathsMatch } from './certificate-input';
-import { trustedCertFields } from './trusted-certs';
+import { trustedCertFields, trustedCertPaths } from './trusted-certs';
+import { knownAzureRegion } from './azure-regions';
 
 export type Level = 'error' | 'warn' | 'info';
 
@@ -18,7 +20,7 @@ export interface Issue {
   message: string;
   fieldId?: string;
   /** For list items: list id and 0-based index. */
-  list?: { id: 'wrp' | 'syslog' | 'adminUsers'; index: number };
+  list?: { id: ListDef['id']; index: number };
   /** For a row within a string-backed multi-value field. */
   rowIndex?: number;
 }
@@ -157,6 +159,10 @@ export function validThumbprints(s: string): string | null {
 export function checkRule(rule: Rule, raw: string, platform: Platform = 'vsphere'): string | null {
   const s = raw.trim();
   switch (rule) {
+    case 'securityHeaders':
+      return parseSecurityHeaders(s) ? null : 'Enter a JSON object of header names and string values, or a quoted, escaped JSON value from an appliance INI export';
+    case 'guid':
+      return /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(s) ? null : 'Not a valid GUID (expected 8-4-4-4-12 hexadecimal characters with hyphens)';
     case 'ipv4':
       return IPV4.test(s) ? null : 'Not a valid IPv4 address';
     case 'netmask':
@@ -293,6 +299,24 @@ export function validateConfig(c: Config): Issue[] {
   const push = (i: Omit<Issue, 'id'>) => issues.push({ ...i, id: `${i.section}:${i.fieldId ?? ''}:${issues.length}` });
   const v = c.values;
 
+  if (c.platform === 'azure' && !isEmpty(v.az_location) && !knownAzureRegion(String(v.az_location))) {
+    push({ level: 'warn', section: 'network', fieldId: 'az_location', message: 'This location is not recognized in the bundled Azure public-cloud region catalog. It may be new, cloud-specific, or misspelled. Verify it with az account list-locations in your deployment environment; your value is retained.' });
+  }
+
+  if (v.ha_enabled === true && c.platform === 'azure') {
+    push({ level: 'error', section: 'ha', fieldId: 'ha_enabled', message: 'Native high availability is not supported on Azure. HA values are retained but not emitted.' });
+  }
+
+  if (v.ha_enabled === true && IPV4.test(String(v.ha_virtualIPAddress ?? '').trim())) {
+    const vip = String(v.ha_virtualIPAddress).trim().split('.').map(Number).join('.');
+    for (const nic of [0, 1, 2]) {
+      const address = String(v[`ip${nic}`] ?? '').trim();
+      if (IPV4.test(address) && address.split('.').map(Number).join('.') === vip) {
+        push({ level: 'error', section: 'ha', fieldId: 'ha_virtualIPAddress', message: `The HA Virtual IP Address must differ from the configured NIC${nic} / eth${nic} address (${address}).` });
+      }
+    }
+  }
+
   for (const g of GROUPS) {
     if (!groupEnabled(g, c)) continue;
     for (const selector of g.fields.filter((f) => f.certificateInput)) {
@@ -363,8 +387,31 @@ export function validateConfig(c: Config): Issue[] {
     }
   }
   for (const l of LISTS) {
+    if (!listEnabled(l, c)) continue;
+    if ((l.id === 'jwt' || l.id === 'jwtIssuers' || l.id === 'oidc') && c[l.id].length > l.max) push({ level: 'error', section: 'auth', message: `${l.title}: a maximum of ${l.max} profiles is supported.` });
     c[l.id].forEach((item, index) => {
       if (l.id === 'wrp' && item.enabled === false) return;
+      if (l.id === 'oidc') {
+        const id = item.oidcConfigurationId;
+        const duplicate = !isEmpty(id) && (id === v.oidc_oidcConfigurationId || c.oidc.some((other, n) => n !== index && other.oidcConfigurationId === id));
+        if (duplicate) push({ level: 'error', section: 'auth', fieldId: 'oidcConfigurationId', list: { id: 'oidc', index }, message: `OIDC provider ${index + 1}: configuration IDs must be unique across all providers.` });
+        if (index === 0 && !isEmpty(v.oidc_oidcConfigurationId) && c.oidc.some((other) => other.oidcConfigurationId === v.oidc_oidcConfigurationId)) push({ level: 'error', section: 'auth', fieldId: 'oidc_oidcConfigurationId', message: 'OIDC configuration IDs must be unique across all providers.' });
+      }
+      if (l.id === 'jwt' || l.id === 'jwtIssuers') {
+        const report = (level: 'error' | 'info', fieldId: string, message: string) => push({ level, section: 'auth', fieldId, message: `${l.itemLabel} ${index + 1}: ${message}`, list: { id: l.id, index } });
+        if (item.name && !/^[\p{L}\p{N}\p{M}_.-]+(?: [\p{L}\p{N}\p{M}_.-]+)*$/u.test(String(item.name))) report('error', 'name', 'name must use letters, numbers, single spaces, underscore, dot or hyphen.');
+        if (c[l.id].some((other, n) => n !== index && other.name === item.name && !!item.name)) report('error', 'name', 'profile names must be unique within this profile type.');
+        const refresh = item.publicKeyRefreshInterval;
+        if (item.url && !isEmpty(refresh) && Number(refresh) > 0 && Number(refresh) < 10) report('error', 'publicKeyRefreshInterval', 'refresh interval must be 0 or 10–86400 seconds.');
+        const hasStatic = l.id === 'jwt' ? Array.from({ length: 9 }, (_, i) => item[`publicKey${i + 1}`]).some((value) => !isEmpty(value)) : !isEmpty(item.encryptionPublicKey);
+        if (l.id === 'jwt' && !item.url && !hasStatic) report('error', 'url', 'a dynamic public key URL or at least one static public key file is required.');
+        if (l.id === 'jwtIssuers' && item.url && hasStatic) report('error', 'encryptionPublicKey', 'choose static encryption key or dynamic URL, not both.');
+        if (hasStatic || trustedCertPaths(item, l.fields).length || l.id === 'jwtIssuers') report('info', 'name', 'Settings JSON omits deployment-host key/certificate files. Supply actual material through an approved admin/API workflow before applying this profile; INI deployment reads the files.');
+        for (const [key, value] of Object.entries(item)) {
+          if (typeof value === 'string' && /-----BEGIN[^-]*(?:PRIVATE KEY|PUBLIC KEY|CERTIFICATE)-----/i.test(value)) report('error', key, 'use a deployment-host file path, not raw key/certificate material.');
+          if (/^(publicKey\d+|encryptionPublicKey)$/.test(key) && /(?:^|[\\/])Public_Key_From_URL$/i.test(String(value))) report('error', key, 'Public_Key_From_URL is a reserved filename.');
+        }
+      }
       if (hostEntryValues(item, l.fields).length > HOST_ENTRY_MAX) {
         push({
           level: 'error',
@@ -451,12 +498,13 @@ function lint(c: Config, push: Push): void {
     || horizon
     || (v.airwatch_enabled === true && v.airwatch_tunnelGatewayEnabled === true)
     || v.contentGateway_enabled === true
+    || v.seg_enabled === true
     || c.wrp.some((item) => item.enabled !== false);
 
   if (!hasPublishedService) {
     push({
       level: 'warn',
-      section: 'general',
+      section: 'services',
       message: 'No edge service is enabled or published; the UAG will deploy without Horizon, Workspace ONE, or web reverse proxy access.'
     });
   }
@@ -509,6 +557,14 @@ function lint(c: Config, push: Push): void {
     if (v.airwatch_tunnelProxyEnabled === true || v.airwatch_airwatchOutboundProxy === true) push({ level: 'info', section: 'tunnel', message: 'Legacy 2212 proxy switches are present only for historical imports; current UAG releases do not document them.' });
     if (v.airwatch_pacFilePath && v.airwatch_pacFileURL) push({ level: 'warn', section: 'tunnel', fieldId: 'airwatch_pacFileURL', message: 'Both PAC file path and URL are set; the 2609 reference does not document how they interact.' });
   }
+  if (typeof v.quiesceMode !== 'boolean') push({ level: 'error', section: 'general', fieldId: 'quiesceMode', message: 'Quiesce mode must be true or false.' });
+  if (v.seg_enabled === true) {
+    for (const field of GROUPS.find((g) => g.id === 'seg')!.fields.filter((f) => f.type === 'bool')) {
+      if (typeof v[field.id] !== 'boolean') push({ level: 'error', section: 'seg', fieldId: field.id, message: `${field.label} must be true or false.` });
+    }
+    if ((v.seg_airwatchOutboundProxy === true || !isEmpty(v.seg_outboundProxyUsername) || !isEmpty(v.seg_outboundProxyPort)) && isEmpty(v.seg_outboundProxyHost)) push({ level: 'error', section: 'seg', fieldId: 'seg_outboundProxyHost', message: 'Outbound proxy host is required when proxy settings are configured.' });
+    push({ level: 'info', section: 'seg', fieldId: 'seg_apiServerUsername', message: 'SEG API/proxy/PFX passwords are runtime-only. Settings JSON omits credentials and local certificate files; complete it through an approved admin/API workflow before applying. Environment-password deployment verifies that your script exposes awSEGAPIServerPwd.' });
+  }
   if (v.contentGateway_enabled === true) {
     if (v.contentGateway_mode === 'shared') {
       if (v.airwatch_enabled !== true) push({ level: 'error', section: 'contentGateway', fieldId: 'contentGateway_mode', message: 'Shared Content Gateway requires the [Airwatch] UEM settings to be enabled in Workspace ONE Tunnel.' });
@@ -527,7 +583,12 @@ function lint(c: Config, push: Push): void {
   if (!nonEmpty('cert_pemCerts') && !nonEmpty('cert_pfxCerts')) push({ level: 'warn', section: 'tls', message: 'No server certificate configured - the appliance keeps its self-signed certificate. Use a CA-signed cert in production.' });
 
   if (v.sshEnabled === true) {
-    push({ level: 'warn', section: 'general', fieldId: 'sshEnabled', message: 'SSH is enabled - restrict TCP/22 to admin source IPs or use console access.' });
+    const rawPort = isEmpty(v.sshPort) ? 22 : v.sshPort;
+    const port = typeof rawPort === 'number' || typeof rawPort === 'string' ? Number(rawPort) : NaN;
+    const validPort = Number.isInteger(port) && port >= 1 && port <= 65535;
+    push({ level: 'warn', section: 'general', fieldId: 'sshEnabled', message: validPort
+      ? `SSH is enabled - restrict TCP/${port} to admin source IPs or use console access.`
+      : 'SSH is enabled - configure a valid SSH port before defining the firewall restriction; restrict access to admin source IPs or use console access.' });
     if (v.sshPasswordAccessEnabled === true) push({ level: 'warn', section: 'general', fieldId: 'sshPasswordAccessEnabled', message: 'SSH password authentication is enabled - prefer key-based access.' });
   }
   if (c.platform !== 'openshift' && v.run_noSSLVerify === true) push({ level: 'warn', section: 'network', fieldId: 'run_noSSLVerify', message: '-noSSLVerify is on: the deployment script will not verify SSL/TLS certificates. Avoid in production.' });
@@ -554,6 +615,8 @@ function lint(c: Config, push: Push): void {
   }
 
   const latest = VERSIONS.find((x) => x.latest);
+  const deploymentWarning = olderDeploymentWarning(c.version, latest?.id);
+  if (deploymentWarning) push({ level: 'warn', section: 'general', message: deploymentWarning });
   if (latest && c.version !== latest.id) push({ level: 'info', section: 'general', message: `UAG ${latest.id} is available; you are targeting ${c.version}. Stay current for security fixes.` });
 
   if (String(v.deploymentOption).startsWith('onenic') && v.gatewayLocation === 'external' && horizon) push({ level: 'info', section: 'network', fieldId: 'deploymentOption', message: 'Single-NIC deployment: for DMZ use consider twonic/threenic to separate Internet, management and backend traffic.' });
@@ -596,6 +659,10 @@ function lint(c: Config, push: Push): void {
     if (usesRadius && v.radius_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses RADIUS authentication but RADIUS is not configured.' });
     if (usesSaml && v.saml_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses SAML authentication but no SAML identity provider is configured.' });
     if (v.authMethods === 'oidc-auth' && v.oidc_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses OpenID Connect authentication but no OIDC provider is configured.' });
+    if (v.authMethods === 'oidc-auth' && listEnabled(LISTS.find((list) => list.id === 'oidc')!, c) && !isEmpty(v.horizon_oidcConfigurationId)
+      && ![v.oidc_oidcConfigurationId, ...c.oidc.map((provider) => provider.oidcConfigurationId)].includes(v.horizon_oidcConfigurationId)) {
+      push({ level: 'error', section: 'horizon', fieldId: 'horizon_oidcConfigurationId', message: 'OIDC configuration ID does not match a configured provider in Identity and access. The selected ID is retained.' });
+    }
     if (String(v.authMethods).startsWith('securid-auth') && v.securid_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses RSA SecurID authentication but RSA SecurID is not configured.' });
     if (String(v.authMethods).includes('certificate-auth') && v.certauth_enabled !== true) push({ level: 'error', section: 'auth', message: 'Horizon uses certificate authentication but it is not configured.' });
     if (usesUnauthenticated && v.gatewayLocation !== 'internal') push({ level: 'error', section: 'horizon', fieldId: 'gatewayLocation', message: 'Unauthenticated Horizon authentication methods require Gateway location "internal".' });

@@ -40,9 +40,9 @@ export function removeTrustedCertPath(values: Values, fields: Field[], index: nu
   writeTrustedCertPaths(values, fields, paths);
 }
 
-export function compactConfigTrustedCerts(config: { values: Values; wrp: Values[]; syslog: Values[]; adminUsers: Values[] }): void {
+export function compactConfigTrustedCerts(config: { values: Values; wrp: Values[]; syslog: Values[]; adminUsers: Values[]; jwt?: Values[]; jwtIssuers?: Values[]; oidc?: Values[] }): void {
   for (const group of GROUPS) compactTrustedCertPaths(config.values, group.fields);
   for (const list of LISTS) {
-    for (const item of config[list.id]) compactTrustedCertPaths(item, list.fields);
+    for (const item of config[list.id] ?? []) compactTrustedCertPaths(item, list.fields);
   }
 }

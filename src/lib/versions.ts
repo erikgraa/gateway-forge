@@ -34,6 +34,11 @@ export const VERSIONS: UagVersion[] = [
 
 export const DEFAULT_VERSION = '2609';
 
+export function olderDeploymentWarning(version: string, latestVersion: string = DEFAULT_VERSION): string | null {
+  if (cmpVersion(version, latestVersion) >= 0) return null;
+  return `You are targeting an older UAG release (${version}). Newer uagdeploy.ps1 packages and platform variants may not be compatible, and INI/settings JSON schemas can differ between releases. Use the deployment package and documentation for UAG ${version}, and verify generated settings against that release before deployment.`;
+}
+
 /** First UAG release whose admin UI no longer offers the TLS 1.0/1.1 toggles (TLS 1.2/1.3 only). */
 export const TLS_LEGACY_UNTIL = '2412';
 

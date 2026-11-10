@@ -7,6 +7,8 @@ export type Values = Record<string, Primitive>;
 export type FieldType = 'text' | 'number' | 'bool' | 'select' | 'secret' | 'textarea';
 
 export type Rule =
+  | 'securityHeaders'
+  | 'guid'
   | 'ipv4'
   | 'netmask'
   | 'dnsDomain'
@@ -42,7 +44,7 @@ export type Rule =
   | 'sourceImage'
   | 'monitoringUserName';
 
-export type SectionId = 'general' | 'adminUsers' | 'network' | 'services' | 'horizon' | 'tunnel' | 'contentGateway' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
+export type SectionId = 'general' | 'adminUsers' | 'network' | 'ha' | 'services' | 'horizon' | 'tunnel' | 'contentGateway' | 'seg' | 'wrp' | 'auth' | 'tls' | 'monitoring' | 'templates';
 
 export type Target =
   | 'system'
@@ -50,6 +52,7 @@ export type Target =
   | 'horizon'
   | 'airwatch'
   | 'airwatchContentGateway'
+  | 'airwatchSecureEmailGateway'
   | 'wrp'
   | 'radius'
   | 'saml'
@@ -63,7 +66,10 @@ export type Target =
   | 'certauth'
   | 'proxy'
   | 'cascade'
-  | 'adminSaml';
+  | 'adminSaml'
+  | 'ha'
+  | 'jwt'
+  | 'jwtIssuers';
 
 export function deploymentNicCount(v: Values): 1 | 2 | 3 {
   const option = String(v.deploymentOption);
@@ -174,7 +180,7 @@ export interface GroupDef {
 }
 
 export interface ListDef {
-  id: 'wrp' | 'syslog' | 'adminUsers';
+  id: 'wrp' | 'syslog' | 'adminUsers' | 'jwt' | 'jwtIssuers' | 'oidc';
   title: string;
   itemLabel: string;
   section: SectionId;
@@ -183,6 +189,8 @@ export interface ListDef {
   max: number;
   fields: Field[];
   help?: string;
+  enabledBy?: string;
+  since?: string;
 }
 
 export interface SectionDef {
@@ -194,15 +202,17 @@ export interface SectionDef {
 export const SECTIONS: SectionDef[] = [
   { id: 'general', title: 'General', icon: '⚙' },
   { id: 'network', title: 'Network & deploy', icon: '🌐' },
-  { id: 'tls', title: 'TLS & certs', icon: '🔒' },
-  { id: 'auth', title: 'Authentication', icon: '🔐' },
+  { id: 'tls', title: 'TLS Server Certificates', icon: '🔒' },
+  { id: 'auth', title: 'Identity and access', icon: '🔐' },
   { id: 'monitoring', title: 'Syslog & SNMP', icon: '📈' },
   { id: 'adminUsers', title: 'Additional admin users', icon: '👤' },
+  { id: 'ha', title: 'High availability', icon: '⇄' },
   { id: 'services', title: 'Edge services', icon: '◫' },
   { id: 'horizon', title: 'Horizon', icon: '🖥' },
+  { id: 'wrp', title: 'Web reverse proxy', icon: '🔀' },
   { id: 'tunnel', title: 'Workspace ONE Tunnel', icon: '🚇' },
   { id: 'contentGateway', title: 'Workspace ONE Content Gateway', icon: '▣' },
-  { id: 'wrp', title: 'Web reverse proxy', icon: '🔀' },
+  { id: 'seg', title: 'Secure Email Gateway', icon: '✉' },
   { id: 'templates', title: 'Templates', icon: '📋' }
 ];
 
@@ -485,7 +495,11 @@ export const GROUPS: GroupDef[] = [
         since: '2609',
         help: 'Enable the expanded UAG 2609 server-certificate validation checks.'
       }),
-      bool('tlsPortSharingEnabled', 'TLS port sharing', 'tlsPortSharingEnabled', true, { omitDefault: true })
+      bool('tlsPortSharingEnabled', 'TLS port sharing', 'tlsPortSharingEnabled', true, { omitDefault: true }),
+      bool('quiesceMode', 'Quiesce mode', 'quiesceMode', false, {
+        omitDefault: true,
+        help: 'Requests quiescing to stop accepting new connections so the UAG can be drained before maintenance, disabling, or replacement. Monitor remaining sessions before taking it offline; session behavior depends on the edge service. Turn off Quiesce mode to accept new connections again. This checkbox changes generated configuration only, not a running appliance.'
+      })
     ]
   },
   {
@@ -976,9 +990,15 @@ export const GROUPS: GroupDef[] = [
     platforms: ['azure'],
     help: 'The [Azure] section replaces the VMware/Hyper-V network keys. Use uagdeployaz.ps1.',
     fields: [
-      text('az_subscriptionID', 'Subscription ID', 'subscriptionID', { required: true, placeholder: '12345678-1234-1234-1234-123456788901', json: false }),
+      text('az_subscriptionID', 'Subscription ID', 'subscriptionID', {
+        required: true, rule: 'guid', placeholder: '12345678-1234-1234-1234-123456788901', json: false,
+        help: 'Azure subscription GUID: 8-4-4-4-12 hexadecimal characters, with hyphens. Format validation does not verify the subscription exists or that you have access.'
+      }),
       text('az_resourceGroupName', 'Resource group', 'resourceGroupName', { required: true, json: false }),
-      text('az_location', 'Location', 'location', { required: true, placeholder: 'uksouth', json: false }),
+      text('az_location', 'Location', 'location', {
+        required: true, placeholder: 'uksouth', json: false,
+        help: 'Use an Azure region name such as uksouth or northeurope. Unrecognized locations produce a warning, not a block: the bundled public-cloud catalog can lag new regions and does not cover sovereign clouds. A recognized region may be restricted or in preview; verify availability with az account list-locations in your deployment environment.'
+      }),
       text('az_managedImageName', 'Managed image name', 'managedImageName', { required: true, json: false }),
       text('az_vmSize', 'VM size', 'vmSize', { default: 'Standard_A2_v2', json: false }),
       text('az_virtualNetworkName', 'Virtual network', 'virtualNetworkName', { required: true, json: false }),
@@ -989,6 +1009,26 @@ export const GROUPS: GroupDef[] = [
       text('az_networkSecurityGroupName0', 'eth0 network security group', 'networkSecurityGroupName0', { json: false }),
       text('az_networkSecurityGroupName1', 'eth1 network security group', 'networkSecurityGroupName1', { json: false }),
       text('az_publicIpAddrResourceGroupName', 'eth0 public IP object', 'publicIpAddrResourceGroupName', { json: false })
+    ]
+  },
+  {
+    id: 'ha',
+    title: 'High availability',
+    section: 'ha',
+    target: 'ha',
+    iniSection: 'HighAvailability',
+    enabledBy: 'ha_enabled',
+    platforms: ['vsphere', 'hyperv', 'nutanix', 'openshift'],
+    help: 'Optional native HA configuration for this UAG. Use the same Group ID and VIP on each node in the HA group. Reserve a unique, available IPv4 VIP and a Group ID unique to that group within the subnet. Configure and verify each node separately; topology and failover are not verified by Gateway Forge. Native HA is not supported on Azure.',
+    fields: [
+      num('ha_groupId', 'Group ID', 'groupId', {
+        json: 'groupID', required: true, rule: 'int', min: 1, max: 255,
+        help: 'An integer from 1–255. UAGs in the same HA group must use the same groupId. Use a different Group ID for other HA groups in the same subnet.'
+      }),
+      text('ha_virtualIPAddress', 'Virtual IP address', 'virtualIPAddress', {
+        required: true, rule: 'ipv4', placeholder: '192.0.2.100',
+        help: 'The Virtual IP Address used for High Availability. This IP should be in the same subnet as the eth0 interface. IPv4 only; the VIP must be unique and available.'
+      })
     ]
   },
   {
@@ -1022,7 +1062,7 @@ export const GROUPS: GroupDef[] = [
       }),
       sel('authMethods', 'Auth method', 'authMethods', AUTH_METHODS, {
         default: 'passthrough',
-        help: 'Passthrough is the default and is omitted from generated Horizon INI. Other methods are emitted explicitly; configure their providers under Authentication.'
+        help: 'Passthrough is the default and is omitted from generated Horizon INI. Other methods are emitted explicitly; configure their providers under Identity and access.'
       }),
       sel('gatewayLocation', 'Gateway location', 'gatewayLocation', ['external', 'internal'], { default: 'external' }),
       sel('proxyDestinationIPSupport', 'Connection Server IP mode', 'proxyDestinationIPSupport', ['IPV4', 'IPV6', 'IPV4+IPV6'], { default: 'IPV4', omitDefault: true }),
@@ -1184,7 +1224,7 @@ export const GROUPS: GroupDef[] = [
       text('healthCheckUrl', 'Health check URI', 'healthCheckUrl', { rule: 'path', placeholder: '/favicon.ico' }),
       text('proxyPattern', 'Proxy pattern (regex)', 'proxyPattern', {
         wide: true,
-        placeholder: '(/|/view-client(.*)|/portal(.*)|/appblast(.*))',
+        placeholder: '(/|/view-client(.*)|/portal(.*)|/appblast(.*)|/iwa(.*))',
         help: 'Leave empty for the Horizon default.'
       }),
       text('redirectHostPortMappingList', 'Host/port redirect mappings', 'redirectHostPortMappingList', {
@@ -1196,9 +1236,11 @@ export const GROUPS: GroupDef[] = [
       text('securityHeaders', 'Response security headers', 'securityHeaders', {
         since: '2506',
         type: 'textarea',
+        rule: 'securityHeaders',
         wide: true,
         json: false,
-        help: 'INI serialization copied from an appliance export. JSON object shape is not documented and is intentionally not exported.'
+        placeholder: '{"yes":"ok","yesss":"oook"}',
+        help: 'Horizon only. Enter a JSON object of custom header names and string values, or paste the quoted JSON value from an appliance INI export. INI adds the outer quotes and escapes inner quotes once. Leave empty to retain appliance defaults: X-Frame-Options, Strict-Transport-Security, X-Content-Type-Options and Content-Security-Policy. Explicitly imported headers are preserved, including defaults you intentionally override. Settings JSON output is not documented and remains omitted.'
       }),
       ...Array.from({ length: 6 }, (_, i) => text(`hostEntry${i + 1}`, `Host entry ${i + 1}`, `hostEntry${i + 1}`, {
         rule: 'hostEntry',
@@ -1434,6 +1476,64 @@ export const GROUPS: GroupDef[] = [
     ]
   },
   {
+    id: 'seg',
+    title: 'Secure Email Gateway',
+    section: 'seg',
+    target: 'airwatchSecureEmailGateway',
+    iniSection: 'AirwatchSecureEmailGateway',
+    enabledBy: 'seg_enabled',
+    help: 'Standalone Workspace ONE Secure Email Gateway (SEG). Configure Mobile Email Management in UEM first and copy its MEM Configuration GUID. Shared [Airwatch] SEG is not supported by this builder; verify deployment-package support. Passwords are runtime-only. JSON omits passwords and local certificate files; supply them through an approved admin/API workflow before applying settings. No live deployment or mail-flow validation is implied.',
+    fields: [
+      text('seg_memConfigurationId', 'MEM Configuration GUID', 'memConfigurationId', {
+        required: true, wide: true,
+        help: 'Copy the auto-generated Mobile Email Management configuration GUID from Workspace ONE UEM Email Settings. Do not invent a new identifier.'
+      }),
+      text('seg_apiServerUrl', 'Workspace ONE UEM API server URL', 'apiServerUrl', {
+        rule: 'httpsOrigin', required: true, wide: true, placeholder: 'https://uem-api.example.com',
+        help: 'HTTPS API origin from Workspace ONE UEM; include a non-default port when required, without a path, query or fragment.'
+      }),
+      text('seg_apiServerUsername', 'Workspace ONE UEM API user', 'apiServerUsername', {
+        required: true,
+        help: 'Use an account with at least the Secure Email Gateway role permissions. A populated username selects standalone SEG in the vendor module. The pinned module accepts awSEGAPIServerPwd, but that does not establish wrapper support. Environment-password mode reads UAG_SEG_API_PASSWORD and checks the actual deployment command before passing this parameter; unsupported packages fail closed. Verify the exact release package, including interactive prompts. Forge never stores this password.'
+      }),
+      text('seg_organizationGroupCode', 'Organization Group ID', 'organizationGroupCode', {
+        required: true, placeholder: 'CORP',
+        help: 'UEM organization group for SEG; required by the published AirWatchSEGEdgeServiceSettings API model.'
+      }),
+      text('seg_airwatchServerHostname', 'Secure Email Gateway server hostname', 'airwatchServerHostname', {
+        rule: 'hostPort', required: true, wide: true, placeholder: 'seg.example.com',
+        help: 'Hostname used to configure the SEG edge settings; include a port if required by your UEM configuration.'
+      }),
+      bool('seg_disableAutoConfigUpdate', 'Lock configuration (disable UEM auto-update)', 'disableAutoConfigUpdate', false, { omitDefault: true }),
+      bool('seg_reinitializeGatewayProcess', 'Reinitialize gateway process', 'reinitializeGatewayProcess', false, { omitDefault: true }),
+      bool('seg_airwatchOutboundProxy', 'Use outbound proxy for UEM connections', 'airwatchOutboundProxy', false, { omitDefault: true }),
+      text('seg_outboundProxyHost', 'Outbound proxy host', 'outboundProxyHost', { rule: 'hostPort' }),
+      num('seg_outboundProxyPort', 'Outbound proxy port', 'outboundProxyPort', {
+        rule: 'port', required: (v) => v.seg_airwatchOutboundProxy === true || String(v.seg_outboundProxyHost ?? '').trim() !== ''
+      }),
+      text('seg_outboundProxyUsername', 'Outbound proxy user', 'outboundProxyUsername', {
+        help: 'When set, the vendor script prompts for the outbound proxy password. It is not stored or exported by Forge.'
+      }),
+      bool('seg_ntlmAuthentication', 'Outbound proxy uses NTLM authentication', 'ntlmAuthentication', false, { omitDefault: true }),
+      text('seg_pfxCerts', 'Local SEG SSL certificate (PFX/P12 path)', 'pfxCerts', {
+        rule: 'pfxPath', wide: true, json: false, placeholder: 'C:\\certs\\seg.pfx',
+        help: 'Optional local PKCS#12 certificate path when local SSL upload is enabled in UEM Email Settings. Otherwise upload/configure the certificate in UEM. The deployment module reads the file and prompts for its password. A file path is not JSON certificate content.'
+      }),
+      text('seg_pfxCertAlias', 'SEG certificate alias', 'pfxCertAlias', {
+        showIf: (v) => String(v.seg_pfxCerts ?? '').trim() !== '', json: false,
+        help: 'Optional alias within the local PFX/P12 certificate. Its password is never stored or exported.'
+      }),
+      ...Array.from({ length: 6 }, (_, i) => text(`seg_hostEntry${i + 1}`, `Host entry ${i + 1}`, `hostEntry${i + 1}`, {
+        rule: 'hostEntry', hostEntryIndex: i + 1, wide: true, json: false,
+        help: 'IP address, hostname, and optional hostname alias, separated by spaces.'
+      })),
+      ...Array.from({ length: 9 }, (_, i) => text(`seg_trustedCert${i + 1}`, `Trusted CA certificate ${i + 1} (PEM path)`, `trustedCert${i + 1}`, {
+        rule: 'pemPath', trustedCertIndex: i + 1, wide: true, json: false,
+        help: 'Local PEM certificate file read by uagdeploy and added to the appliance trust store. Paths are not settings JSON certificate content.'
+      }))
+    ]
+  },
+  {
     id: 'radius',
     title: 'RADIUS',
     section: 'auth',
@@ -1510,7 +1610,7 @@ export const GROUPS: GroupDef[] = [
     iniSection: 'OidcProviderSetting',
     enabledBy: 'oidc_enabled',
     since: '2506',
-    help: 'OIDC provider for Horizon. Select OpenID Connect as the auth method on the Horizon edge service and set the OIDC configuration ID there. INI only; not emitted to JSON.',
+    help: 'First OIDC provider, written to [OidcProviderSetting]. Add further providers below; each needs a unique configuration ID. Horizon references one provider by its configuration ID. Client secrets are requested by the deployment script, not stored here. INI only; not emitted to JSON.',
     fields: [
       text('oidc_oidcConfigurationId', 'Configuration ID', 'oidcConfigurationId', { required: true, placeholder: 'entra-horizon', json: false }),
       text('oidc_oidcConfigUrl', 'Discovery (config) URL', 'oidcConfigUrl', { rule: 'httpsUrl', required: true, wide: true, placeholder: 'https://login.example.com/.well-known/openid-configuration', json: false }),
@@ -1686,7 +1786,44 @@ export const GROUPS: GroupDef[] = [
   }
 ];
 
+const jwtUrlFields = (): Field[] => [
+  text('name', 'Name', 'name', { required: true, maxLength: 50, help: 'Unique profile name. Use letters, numbers, spaces, underscore, dot or hyphen.' }),
+  text('issuer', 'Issuer', 'issuer', { help: 'Case-sensitive issuer claim. Leave unset to use the appliance default (the profile name). Consumer issuer configuration is used with Horizon Cloud Service.' }),
+  text('url', 'Dynamic public key URL', 'url', { rule: 'httpsUrl', json: false, wide: true, help: 'Trusted HTTPS endpoint serving a public key or JWKS. Omnissa recommends dynamic keys; use static files only when the URL cannot be reached.' }),
+  text('urlThumbprints', 'Public key URL thumbprints', 'urlThumbprints', { rule: 'thumbprints', json: false, showIf: (v) => !!v.url, help: 'If unset, the endpoint certificate must be issued by a trusted CA. Do not disable certificate verification.' }),
+  num('publicKeyRefreshInterval', 'Public key refresh interval (seconds)', 'publicKeyRefreshInterval', { rule: 'int', min: 0, max: 86400, json: false, showIf: (v) => !!v.url, help: '0 fetches once; otherwise use 10–86400 seconds. Leave unset for the appliance default.' }),
+  ...Array.from({ length: 9 }, (_, i) => text(`trustedCert${i + 1}`, `Public key URL trusted CA ${i + 1}`, `trustedCert${i + 1}`, { trustedCertIndex: i + 1, rule: 'pemPath', json: false, showIf: (v) => !!v.url, help: 'Deployment-host PEM path, not certificate contents. Settings JSON cannot read these files.' }))
+];
+
 export const LISTS: ListDef[] = [
+  {
+    id: 'oidc', title: 'Additional OpenID Connect providers', itemLabel: 'OIDC provider', section: 'auth', target: 'oidc',
+    iniSection: (n) => `OidcProviderSetting${n}`, max: 99, enabledBy: 'oidc_enabled', since: '2506',
+    help: 'Additional providers use [OidcProviderSetting1] through [OidcProviderSetting99]. Configuration IDs must be unique across the first provider and these entries. Removing an entry does not change Horizon’s selected ID. Disabled or unavailable providers are retained but not emitted.',
+    fields: GROUPS.find((group) => group.id === 'oidc')!.fields.map((field) => ({ ...field, id: field.key }))
+  },
+  {
+    id: 'jwt', title: 'JWT consumer settings', itemLabel: 'JWT consumer', section: 'auth', target: 'jwt',
+    iniSection: (n) => `JWTSettings${n}`, max: 99,
+    help: 'Configure token verification trust for the consuming service. This does not enable JWT authentication on Horizon automatically. Public-key and CA file references are INI/deployment-only; JSON reports the materialization gap instead of treating paths as key contents.',
+    fields: [
+      ...jwtUrlFields(),
+      ...Array.from({ length: 9 }, (_, i) => text(`publicKey${i + 1}`, `Static public key ${i + 1} (PEM path)`, `publicKey${i + 1}`, { rule: 'pemPath', json: false, showIf: (v) => i === 0 || !!v[`publicKey${i}`] || !!v[`publicKey${i + 1}`], help: 'Public key file on the deployment host containing BEGIN PUBLIC KEY. Never paste private key material. The reserved filename Public_Key_From_URL is not allowed.' }))
+    ]
+  },
+  {
+    id: 'jwtIssuers', title: 'JWT producer settings', itemLabel: 'JWT producer', section: 'auth', target: 'jwtIssuers',
+    iniSection: (n) => `JWTIssuerSettings${n}`, max: 99,
+    help: 'Signing files remain on the deployment host. Gateway Forge stores file references only; signing material and PFX passwords are never imported into a draft or emitted as JSON contents. The pinned vendor module reads a PFX alias from Horizon rather than this profile: use a single-key PFX or PEM and verify your package; no invented issuer alias key is emitted.',
+    fields: [
+      ...jwtUrlFields(),
+      sel('signingMode', 'JWT signing certificate type', 'signingMode', ['PEM', 'PFX'], { default: 'PEM', ini: false, json: false }),
+      text('pemPrivKey', 'JWT signing private key (PEM path)', 'pemPrivKey', { rule: 'pemKeyPath', json: false, required: (v) => v.signingMode !== 'PFX', showIf: (v) => v.signingMode !== 'PFX', help: 'Deployment-host file path only. Do not paste raw private key material.' }),
+      text('pemCerts', 'JWT signing certificate chain (PEM path)', 'pemCerts', { rule: 'pemPath', json: false, required: (v) => v.signingMode !== 'PFX', showIf: (v) => v.signingMode !== 'PFX' }),
+      text('pfxCerts', 'JWT signing certificate (PFX path)', 'pfxCerts', { rule: 'pfxPath', json: false, required: (v) => v.signingMode === 'PFX', showIf: (v) => v.signingMode === 'PFX', help: 'The official deployment script prompts for any required PFX password. No password is stored in this form.' }),
+      text('encryptionPublicKey', 'Static encryption public key (PEM path)', 'encryptionPublicKey', { rule: 'pemPath', json: false, help: 'Optional public key file. Choose this OR a dynamic encryption public key URL, not both.' })
+    ]
+  },
   {
     id: 'adminUsers',
     title: 'Additional admin and API users',
@@ -1788,6 +1925,7 @@ export const LISTS: ListDef[] = [
 
 /** Virtual (non-INI) toggles and settings that live in `values` next to real fields. */
 export const VIRTUAL_DEFAULTS: Values = {
+  ha_enabled: false,
   horizon_enabled: false,
   radius_enabled: false,
   saml_enabled: false,
@@ -1798,6 +1936,7 @@ export const VIRTUAL_DEFAULTS: Values = {
   obp_enabled: false,
   airwatch_enabled: false,
   contentGateway_enabled: false,
+  seg_enabled: false,
   run_noSSLVerify: false,
   run_disableVerification: false
 };

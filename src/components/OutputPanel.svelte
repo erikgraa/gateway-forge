@@ -95,8 +95,9 @@
     <span><strong>{rendered.filename}</strong><small>{hints[app.tab]}</small></span>
   </div>
   {#if app.tab === 'ps'}
-    <fieldset class="runtime-controls">
-      <legend>Run-time options (uagdeploy.ps1)</legend>
+    <details class="runtime-options" open>
+      <summary id={`${contentId}-runtime-title`}>Run-time options (uagdeploy.ps1)</summary>
+      <fieldset class="runtime-controls" aria-labelledby={`${contentId}-runtime-title`}>
       <div class="deployment-mode">
         <span class="runtime-label" id="deployment-mode-label">Root / Admin UI passwords</span>
         <div class="mode-selector" role="radiogroup" aria-labelledby="deployment-mode-label">
@@ -150,7 +151,8 @@
         {/if}
       </div>
       <p class="runtime-note">These switches affect only PowerShell runtime commands. They are never written to deployment INI or settings JSON.</p>
-    </fieldset>
+      </fieldset>
+    </details>
   {/if}
   {#if app.tab === 'json'}
     <p class="notice">Certificate and metadata file paths are deployment INI inputs, not settings JSON certificate content. IdP URL trust and PEM signing/encryption paths are omitted here; deploy the INI so uagdeploy can read the files and metadata XML.</p>

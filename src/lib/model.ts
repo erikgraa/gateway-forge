@@ -20,9 +20,12 @@ export interface Config {
   wrp: Values[];
   syslog: Values[];
   adminUsers: Values[];
+  jwt: Values[];
+  jwtIssuers: Values[];
+  oidc: Values[];
 }
 
-export type SelectableService = 'horizon' | 'tunnel' | 'contentGateway' | 'wrp';
+export type SelectableService = 'horizon' | 'tunnel' | 'contentGateway' | 'seg' | 'wrp';
 
 export function activeWrpItems(c: Config): Values[] {
   return c.wrp.filter((item) => item.enabled !== false);
@@ -32,6 +35,7 @@ export function setServiceSelected(c: Config, service: SelectableService, select
   if (service === 'horizon') c.values.horizon_enabled = selected;
   else if (service === 'tunnel') c.values.airwatch_enabled = selected;
   else if (service === 'contentGateway') c.values.contentGateway_enabled = selected;
+  else if (service === 'seg') c.values.seg_enabled = selected;
   else if (selected) {
     if (c.wrp.length === 0) c.wrp.push(newListItem('wrp'));
     c.wrp.forEach((item) => { item.enabled = true; });
@@ -41,12 +45,14 @@ export function setServiceSelected(c: Config, service: SelectableService, select
 }
 
 export function sectionSelected(c: Config, section: SectionId): boolean {
+  if (section === 'ha') return c.values.ha_enabled === true;
   if (section === 'horizon') return c.values.horizon_enabled === true;
   if (section === 'tunnel') return c.values.airwatch_enabled === true;
   if (section === 'contentGateway') return c.values.contentGateway_enabled === true;
+  if (section === 'seg') return c.values.seg_enabled === true;
   if (section === 'wrp') return activeWrpItems(c).length > 0;
   if (section === 'auth') {
-    return GROUPS.some((group) =>
+    return c.jwt.length > 0 || c.jwtIssuers.length > 0 || GROUPS.some((group) =>
       group.section === 'auth'
       && !!group.enabledBy
       && c.values[group.enabledBy] === true
@@ -74,7 +80,10 @@ export function defaultConfig(): Config {
     values,
     wrp: [],
     syslog: [],
-    adminUsers: []
+    adminUsers: [],
+    jwt: [],
+    jwtIssuers: [],
+    oidc: []
   };
 }
 
@@ -93,6 +102,10 @@ export function fieldAvailable(f: Field, version: string, platform: Platform, v:
 export function groupAvailable(g: GroupDef, version: string, platform: Platform): boolean {
   if (g.platforms && !g.platforms.includes(platform)) return false;
   return inVersion(version, g.since);
+}
+
+export function listEnabled(list: ListDef, c: Config): boolean {
+  return inVersion(c.version, list.since) && (!list.enabledBy || c.values[list.enabledBy] === true);
 }
 
 export function groupEnabled(g: GroupDef, c: Config): boolean {
@@ -116,6 +129,17 @@ export function isDefault(f: Field, value: unknown): boolean {
   return f.default !== undefined && String(f.default) === String(value);
 }
 
+export function unsafeSegJwtValue(key: string, value: unknown): boolean {
+  if (/password|passwd|pwd$|token|credential|privateKeyPem|pfxKeystore|jsonWebKeySet|jwtSigning/i.test(key)) return true;
+  if (typeof value !== 'string') return value !== null && typeof value === 'object';
+  if (/-----BEGIN[^-]*(?:PRIVATE KEY|PUBLIC KEY|CERTIFICATE)-----|"(?:d|k|privateKeyPem|pfxKeystore)"\s*:|\beyJ[\w-]+\.[\w-]+\.[\w-]+/i.test(value)) return true;
+  if (/^(?:seg_)?(?:pemPrivKey|pemCerts|pfxCerts|trustedCert\d+|publicKey\d+|encryptionPublicKey)$/i.test(key)) {
+    return !!value.trim() && (/[\r\n]/.test(value) || !/\.(?:pem|key|crt|cer|pfx|p12)$/i.test(value.trim()));
+  }
+  if (/url$/i.test(key) && /:\/\/[^/]*@|[?&](?:access_token|token|password|api_key|apikey|secret)=/i.test(value)) return true;
+  return false;
+}
+
 /** Replace every secret value with an empty string (used before persisting a draft). */
 export function stripSecrets(c: Config): Config {
   const out = cloneConfig(c);
@@ -123,10 +147,21 @@ export function stripSecrets(c: Config): Config {
   for (const key of ['rootPwd', 'adminPwd', 'rootPassword', 'adminPassword', 'UAG_ROOT_PASSWORD', 'UAG_ADMIN_PASSWORD']) {
     delete out.values[key];
   }
+  for (const id of ['jwt', 'jwtIssuers'] as const) {
+    const allowed = new Set(listDef(id).fields.map((f) => f.id));
+    out[id] = (out[id] ?? []).map((item) => Object.fromEntries(Object.entries(item).filter(([key, value]) => allowed.has(key) && !unsafeSegJwtValue(key, value))));
+  }
+  const segFields = new Set(GROUPS.find((g) => g.id === 'seg')!.fields.map((f) => f.id));
+  for (const key of Object.keys(out.values)) {
+    if (/^(?:seg|jwt|UAG_SEG_|awSEG)/i.test(key)
+      && (!segFields.has(key) && key !== 'seg_enabled' || unsafeSegJwtValue(key, out.values[key]))) delete out.values[key];
+  }
   const adminFields = new Set(listDef('adminUsers').fields.map((field) => field.id));
   out.adminUsers = out.adminUsers.map((item) => Object.fromEntries(
     Object.entries(item).filter(([key]) => adminFields.has(key))
   ));
+  const oidcFields = new Set(listDef('oidc').fields.map((field) => field.id));
+  out.oidc = (out.oidc ?? []).map((item) => Object.fromEntries(Object.entries(item).filter(([key]) => oidcFields.has(key))));
   compactConfigTrustedCerts(out);
   return out;
 }
@@ -144,6 +179,13 @@ export function applyPatch(base: Config, patch: Partial<Omit<Config, 'values'>> 
     return values;
   });
   if (patch.syslog) out.syslog = patch.syslog.map((item) => ({ ...newListItem('syslog'), ...item }));
+  for (const id of ['jwt', 'jwtIssuers'] as const) {
+    if (patch[id]) out[id] = patch[id].map((item) => ({ ...newListItem(id), ...item }));
+    else out[id] ??= [];
+  }
+  const oidcFields = listDef('oidc').fields.map((field) => field.id);
+  if (patch.oidc) out.oidc = patch.oidc.map((item) => ({ ...newListItem('oidc'), ...Object.fromEntries(oidcFields.filter((key) => key in item).map((key) => [key, item[key]])) }));
+  else out.oidc ??= [];
   if (patch.adminUsers) {
     const fields = listDef('adminUsers').fields.map((field) => field.id);
     out.adminUsers = patch.adminUsers.map((item) => ({
