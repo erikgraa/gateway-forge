@@ -44,6 +44,22 @@ describe('guided vCenter target', () => {
     expect(body).not.toContain('id="f-target-username"');
   });
 
+  it('links advanced target input to credential persistence guidance without changing the stored value', () => {
+    const target = 'vi://' + 'uagdeploy@vsphere.local' + ':SYNTHETIC@vc.example.com/DC1/host/Cluster1';
+    const values = { target };
+    const { body } = render(VCenterTargetEditor, { props: { field, values, error: 'Check target' } });
+    expect(body).toContain('aria-describedby="f-target-credentials-help f-target-error"');
+    expect(body).toContain('id="f-target-credentials-help"');
+    expect(body).toContain('vi://uagdeploy@vsphere.local:PASSWORD@vcenter.example.com/DC1/host/Cluster1');
+    expect(body).toContain('saved in the browser draft');
+    expect(body).toContain('without password redaction, regardless of secret mode');
+    expect(body).toContain('outside Gateway Forge');
+    expect(body).not.toContain('type="password"');
+    expect(body).not.toContain('Assembled target');
+    expect(values.target).toBe(target);
+    expect(importIni(generateIni(applyPatch(defaultConfig(), { values }))).config.values.target).toBe(target);
+  });
+
   it('renders accessible guided inputs and distinguishes compute destination from VM folder', () => {
     const { body } = render(VCenterTargetEditor, { props: { field, values: defaultConfig().values } });
     expect(body).toContain('for="f-target-username"');

@@ -274,7 +274,10 @@ export function generateIni(c: Config, opts: GenerateOptions = { secrets: 'place
   ];
   for (const b of blocks) {
     lines.push(`[${b.section}]`);
-    for (const e of b.entries) lines.push(`${e.key}=${formatIniValue(e.value)}`);
+    const entries = b.section === 'Horizon'
+      ? [...b.entries.filter((e) => e.key === 'authMethods' && e.value !== 'passthrough'), ...b.entries.filter((e) => e.key !== 'authMethods')]
+      : b.entries;
+    for (const e of entries) lines.push(`${e.key}=${formatIniValue(e.value)}`);
     lines.push('');
   }
   return lines.join('\n').replace(/\n+$/, '\n');

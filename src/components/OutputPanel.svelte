@@ -2,7 +2,8 @@
   import { app, type OutputTab } from '../lib/store.svelte';
   import { render, copy, highlight } from '../lib/render';
   import { VERSIONS } from '../lib/versions';
-  import { MISSING_PASSWORD_WARNING } from '../lib/powershell';
+  import { ADMIN_PASSWORD_GUIDANCE, adminSamlEnabled, MISSING_PASSWORD_WARNING, VSPHERE_HEADLESS_GUIDANCE } from '../lib/powershell';
+  import { VCENTER_CREDENTIAL_TARGET_EXAMPLE, VCENTER_INLINE_PASSWORD_WARNING, OVF_TOOL_VERSION_GUIDANCE } from '../lib/vcenterTarget';
 
   const tabs = $derived.by((): { id: OutputTab; label: string }[] => [
     { id: 'ini', label: 'INI' },
@@ -58,7 +59,7 @@
     <fieldset class="runtime-controls">
       <legend>Run-time options (uagdeploy.ps1)</legend>
       <div class="deployment-mode">
-        <span class="runtime-label" id="deployment-mode-label">Deployment mode</span>
+        <span class="runtime-label" id="deployment-mode-label">Root / Admin UI passwords</span>
         <div class="mode-selector" role="radiogroup" aria-labelledby="deployment-mode-label">
           <label class:active={app.deploymentMode === 'interactive'}>
             <input type="radio" name="deployment-mode" value="interactive" bind:group={app.deploymentMode} />
@@ -66,11 +67,21 @@
           </label>
           <label class:active={app.deploymentMode === 'headless'} class:disabled={app.config.platform === 'nutanix'}>
             <input type="radio" name="deployment-mode" value="headless" bind:group={app.deploymentMode} disabled={app.config.platform === 'nutanix'} />
-            <span><strong>Headless</strong><small>Use runtime environment</small></span>
+            <span><strong>Environment passwords</strong><small>Other prompts may remain</small></span>
           </label>
         </div>
       </div>
       <p class="notice">{MISSING_PASSWORD_WARNING}</p>
+      {#if app.config.platform === 'vsphere'}
+        <p class="runtime-note"><strong>Fully unattended vSphere:</strong> {VSPHERE_HEADLESS_GUIDANCE}</p>
+        <p class="runtime-note"><strong>vCenter target example (synthetic):</strong> <code>{VCENTER_CREDENTIAL_TARGET_EXAMPLE}</code>. The UPN domain belongs before the colon; check special-character handling against the installed OVF Tool release. {VCENTER_INLINE_PASSWORD_WARNING}</p>
+        <p class="runtime-note">{OVF_TOOL_VERSION_GUIDANCE}</p>
+      {/if}
+      <p class="runtime-note"><strong>Admin UI password policy:</strong> {ADMIN_PASSWORD_GUIDANCE} Do not skip the admin password prompt if password-based access is required. <a href="https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/PasswordRequirementsforUAG" target="_blank" rel="noreferrer">UAG 2609 password requirements</a>; check your deployed release.</p>
+      {#if adminSamlEnabled(app.config)}
+        <p class="notice">Administrator SAML is enabled: default <code>admin</code> password authentication is disabled. Use the configured identity provider for Admin UI access.</p>
+      {/if}
+      <p class="runtime-note">CEIP is passed explicitly from your configuration as <code>-ceipEnabled 'yes'</code> or <code>-ceipEnabled 'no'</code>, removing the CEIP prompt only.</p>
       <p class="runtime-note">Password-protected PFX files prompt interactively in uagdeploy, including when root/admin passwords are supplied. PFX passwords are never collected or exported here.</p>
       {#if app.deploymentMode === 'headless'}
         <p class="runtime-note">Set <code>UAG_ROOT_PASSWORD</code> and <code>UAG_ADMIN_PASSWORD</code> in the deployment process environment. The generated script fails before invoking uagdeploy if either is absent.</p>

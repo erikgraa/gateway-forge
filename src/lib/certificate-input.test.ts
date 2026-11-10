@@ -119,7 +119,7 @@ describe('source-backed certificate input modes', () => {
     expect(render(FieldInput, { props: { field: selector, values: c.values, platform: c.platform } }).body)
       .toContain('password-protected');
     expect(generateIni(c)).toContain('[SSLCert]\npfxCerts=C:\\cert.pfx');
-    expect(generateIni(c)).not.toMatch(/cert_mode|password/i);
+    expect(generateIni(c)).not.toMatch(/cert_mode|^(?:pfxPassword|pfxCertsPassword|password)=/im);
     expect(JSON.stringify(generateJsonObject(c))).not.toMatch(/cert\.pfx|pfxPassword|pfxCertPassword/i);
   });
 

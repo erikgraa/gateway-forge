@@ -2,12 +2,34 @@ import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import { GROUPS } from '../lib/schema';
 import { defaultConfig } from '../lib/model';
+import { validateConfig } from '../lib/validate';
 import RowListEditor from './RowListEditor.svelte';
 
 const field = GROUPS.find((group) => group.id === 'dns')!.fields.find((item) => item.id === 'dnsSearch')!;
 const blastField = GROUPS.find((group) => group.id === 'horizon')!.fields.find((item) => item.id === 'blastAllowedHostHeaderValues')!;
 
 describe('RowListEditor', () => {
+  it.each([
+    ['dns', 1, 'Duplicate server'],
+    ['ntpServers', 1, 'Duplicate server'],
+    ['fallBackNtpServers', 0, 'Already configured as NTP server 1']
+  ] as const)('associates %s uniqueness errors with the offending rows without deleting values', (fieldId, rowIndex, message) => {
+    const config = defaultConfig();
+    Object.assign(config.values, {
+      dns: '192.0.2.10 192.0.2.10',
+      ntpServers: 'ntp1.corp.local NTP1.corp.local',
+      fallBackNtpServers: 'ntp1.corp.local ntp2.corp.local'
+    });
+    const before = JSON.stringify(config);
+    const serverField = GROUPS.find((group) => group.id === 'dns')!.fields.find((item) => item.id === fieldId)!;
+    const { body } = render(RowListEditor, { props: { field: serverField, values: config.values, issues: validateConfig(config), platform: config.platform } });
+    expect(body).toContain('aria-invalid="true"');
+    expect(body).toContain(`aria-describedby="f-${fieldId}-${rowIndex}-error"`);
+    expect(body).toContain(`id="f-${fieldId}-${rowIndex}-error"`);
+    expect(body).toContain(message);
+    expect(body.match(/type="text"/g)).toHaveLength(2);
+    expect(JSON.stringify(config)).toBe(before);
+  });
   it('renders SSH keys with spaces intact and a conditional required indicator', () => {
     const keyField = GROUPS.find((group) => group.id === 'appliance')!.fields.find((item) => item.id === 'sshPublicKeys')!;
     const values = { ...defaultConfig().values, sshEnabled: true, sshKeyAccessEnabled: true, sshPublicKeys: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7 admin@host\nC:\\SSH keys\\backup.pub' };

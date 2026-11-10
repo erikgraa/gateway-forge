@@ -5,7 +5,8 @@ import { TEMPLATES } from './templates';
 import { generatePowerShell } from './powershell';
 import { generateDocs } from './topology';
 import { validateConfig } from './validate';
-import { GROUPS } from './schema';
+import { AUTH_METHODS, GROUPS } from './schema';
+import { VERSIONS } from './versions';
 import { render } from './render';
 
 const radiusMfa = () => TEMPLATES.find((t) => t.id === 'horizon-radius')!.build(defaultConfig());
@@ -39,6 +40,63 @@ describe('INI generation', () => {
     expect(ini).toContain('sharedSecret=s3cret');
     expect(ini).toContain('[SyslogServerSettings1]');
     expect(ini).toContain('sysLogType=TLS');
+  });
+
+  it.each(VERSIONS.map(({ id }) => id))('omits only Horizon passthrough from INI and PowerShell for %s, retaining JSON and saved values', (version) => {
+    const c = applyPatch(radiusMfa(), { version, values: { authMethods: 'passthrough' } });
+    c.wrp = TEMPLATES.find((t) => t.id === 'wrp-intranet')!.build(defaultConfig()).wrp.map((item) => ({ ...item, authMethods: 'passthrough' }));
+    const original = structuredClone(c);
+    const blocks = collectBlocks(c);
+    const json = generateJson(c);
+    const ini = generateIni(c);
+    const sections = ini.trimEnd().split('\n\n');
+    for (const block of blocks) {
+      const actual = sections.find((section) => section.startsWith(`[${block.section}]\n`))!.split('\n').slice(1);
+      const expected = block.entries
+        .filter((entry) => block.section !== 'Horizon' || entry.key !== 'authMethods')
+        .map((entry) => `${entry.key}=${String(entry.value)}`);
+      expect(actual).toEqual(expected);
+    }
+    expect(ini).toContain('authMethods=passthrough'); // WRP authentication must not change.
+    expect(generatePowerShell(c).match(/\[Horizon\]\n([\s\S]*?)(?=\n\[|$)/)?.[1]).not.toMatch(/^authMethods=/m);
+    expect(generateJsonObject(c).edgeServiceSettingsList).toEqual({ edgeServiceSettingsList: expect.arrayContaining([
+      expect.objectContaining({ identifier: 'VIEW', authMethods: 'passthrough' })
+    ]) });
+    expect(generateJson(c)).toBe(json);
+    expect(collectBlocks(c)).toEqual(blocks);
+    expect(c).toEqual(original);
+  });
+
+  it.each(AUTH_METHODS.filter(({ value }) => value !== 'passthrough').map(({ value }) => value))('puts %s authentication first in Horizon INI without changing other output', (authMethods) => {
+    const c = applyPatch(radiusMfa(), { values: { authMethods } });
+    const original = structuredClone(c);
+    const json = generateJson(c);
+    const blocks = collectBlocks(c);
+    const sections = generateIni(c).trimEnd().split('\n\n');
+    for (const block of blocks) {
+      const actual = sections.find((section) => section.startsWith(`[${block.section}]\n`))!.split('\n').slice(1);
+      const expected = block.entries.map((entry) => `${entry.key}=${String(entry.value)}`);
+      if (block.section === 'Horizon') {
+        expect(actual[0]).toBe(`authMethods=${authMethods}`);
+        expect(actual.slice(1)).toEqual(expected.filter((line) => !line.startsWith('authMethods=')));
+      } else {
+        expect(actual).toEqual(expected);
+      }
+    }
+    expect(generateJson(c)).toBe(json);
+    expect(c).toEqual(original);
+  });
+
+  it('preserves Horizon entry order when no authentication method is emitted', () => {
+    const c = applyPatch(radiusMfa(), { values: { authMethods: '' } });
+    const horizon = collectBlocks(c).find((block) => block.section === 'Horizon')!;
+    const section = generateIni(c).split('\n\n').find((block) => block.startsWith('[Horizon]\n'))!;
+    expect(section.split('\n').slice(1)).toEqual(horizon.entries.map((entry) => `${entry.key}=${String(entry.value)}`));
+    expect(section).not.toContain('authMethods=');
+  });
+
+  it('places Horizon authentication first in the embedded PowerShell INI', () => {
+    expect(generatePowerShell(radiusMfa())).toContain('[Horizon]\nauthMethods=radius-auth\n');
   });
 
   it('orders sections General, Horizon, RADIUS, Syslog', () => {
@@ -187,8 +245,9 @@ describe('INI generation', () => {
     const ini = generateIni(c, { secrets: 'include' });
     expect(ini).toContain('[AdminUser1]\nname=MonitorUser1\nenabled=true\nadminMonitoringPasswordPreExpired=true');
     expect(ini).toContain('[AdminUser2]\nname=MonitorUser2\nenabled=false\nadminMonitoringPasswordPreExpired=false');
-    expect(ini).not.toContain('password');
-    expect(generateJson(c, { secrets: 'include' })).not.toMatch(/AdminUser|MonitorUser|password/i);
+    expect(ini).not.toMatch(/^password=/im);
+    expect(ini).not.toContain('not-persisted');
+    expect(generateJson(c, { secrets: 'include' })).not.toMatch(/AdminUser|MonitorUser|not-persisted|"password"/i);
     expect(JSON.stringify(stripSecrets(c))).not.toContain('not-persisted');
   });
 
@@ -629,7 +688,7 @@ describe('run-time options', () => {
     expect(hv).toContain('-noSSLVerify');
     expect(hv).not.toContain('-disableVerification');
     const az = generatePowerShell(applyPatch(radiusMfa(), { platform: 'azure', values: v }), 'placeholder', 'headless');
-    expect(az).toContain('.\\uagdeployaz.ps1 -iniFile .\\uag-dmz-01.ini $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no -noSSLVerify');
+    expect(az).toContain(".\\uagdeployaz.ps1 -iniFile .\\uag-dmz-01.ini $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD -noSSLVerify -ceipEnabled 'no'");
     expect(az).not.toContain('-disableVerification');
   });
   it('removes runtime controls from the form schema while retaining false defaults', () => {
@@ -734,7 +793,7 @@ describe('PowerShell output', () => {
     expect(ps).toContain('$ini = @\'');
     expect(ps).not.toContain('Read-Host');
     expect(ps).not.toContain('ConvertTo-PlainTextAtInvocation');
-    expect(ps).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini\n');
+    expect(ps).toContain(".\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini -ceipEnabled 'no'\n");
     expect(ps).not.toMatch(/ -rootPwd| -adminPwd/);
     expect(ps).not.toMatch(/\\$plain|UAG_ROOT_PASSWORD|UAG_ADMIN_PASSWORD/);
     expect(ps).toContain('<REDACTED>');
@@ -742,39 +801,39 @@ describe('PowerShell output', () => {
   });
   it('omits password parameters for native Interactive prompting on every platform', () => {
     const hyperv = generatePowerShell(applyPatch(radiusMfa(), { platform: 'hyperv' }));
-    expect(hyperv).toContain('.\\uagdeployhv.ps1 -iniFile .\\uag-dmz-01.ini\n');
+    expect(hyperv).toContain(".\\uagdeployhv.ps1 -iniFile .\\uag-dmz-01.ini -ceipEnabled 'no'\n");
 
     const azure = generatePowerShell(applyPatch(radiusMfa(), { platform: 'azure' }));
-    expect(azure).toContain('.\\uagdeployaz.ps1 -iniFile .\\uag-dmz-01.ini\n');
+    expect(azure).toContain(".\\uagdeployaz.ps1 -iniFile .\\uag-dmz-01.ini -ceipEnabled 'no'\n");
     expect(azure).not.toContain('.\\uagdeployaz.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd');
 
     const nutanix = generatePowerShell(applyPatch(radiusMfa(), { platform: 'nutanix' }));
-    expect(nutanix).toContain('.\\uagdeployntnx.ps1 -iniFile .\\uag-dmz-01.ini\n');
+    expect(nutanix).toContain(".\\uagdeployntnx.ps1 -iniFile .\\uag-dmz-01.ini -ceipEnabled 'no'\n");
     expect(nutanix).toContain('The official script prompts for the Prism Central password.');
 
     const openshift = generatePowerShell(TEMPLATES.find((t) => t.id === 'openshift-virtualization')!.build(defaultConfig()));
     expect(openshift).toContain('.\\uagdeployopenshift.ps1 -iniFile .\\uag-openshift-01.ini\n');
   });
-  it('generates a headless command that reads and validates runtime environment passwords', () => {
+  it('generates a deployment command that reads and validates environment passwords', () => {
     const c = radiusMfa();
     c.values.rootPassword = 'embedded-root-secret';
     c.values.adminPassword = 'embedded-admin-secret';
     const ps = generatePowerShell(c, 'placeholder', 'headless');
-    expect(ps).toContain(`throw 'Set UAG_ROOT_PASSWORD before running headless deployment.'`);
-    expect(ps).toContain(`throw 'Set UAG_ADMIN_PASSWORD before running headless deployment.'`);
+    expect(ps).toContain(`throw 'Set UAG_ROOT_PASSWORD before running deployment.'`);
+    expect(ps).toContain(`throw 'Set UAG_ADMIN_PASSWORD before running deployment.'`);
     expect(ps).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD');
     expect(ps).not.toContain('Read-Host');
     expect(ps).not.toContain('embedded-root-secret');
     expect(ps).not.toContain('embedded-admin-secret');
     expect(ps.match(/^\s*\.\\uagdeploy(?:hv|az)?\.ps1 /gm)).toHaveLength(1);
   });
-  it('keeps Headless environment-variable behavior unchanged on each supported platform', () => {
+  it('keeps environment-variable password behavior on each supported platform', () => {
     const c = radiusMfa();
     expect(generatePowerShell(c, 'placeholder', 'headless')).toContain('.\\uagdeploy.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD');
     expect(generatePowerShell(applyPatch(c, { platform: 'hyperv' }), 'placeholder', 'headless')).toContain('.\\uagdeployhv.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD');
-    expect(generatePowerShell(applyPatch(c, { platform: 'azure' }), 'placeholder', 'headless')).toContain('.\\uagdeployaz.ps1 -iniFile .\\uag-dmz-01.ini $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no');
+    expect(generatePowerShell(applyPatch(c, { platform: 'azure' }), 'placeholder', 'headless')).toContain(".\\uagdeployaz.ps1 -iniFile .\\uag-dmz-01.ini $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD -ceipEnabled 'no'");
     const openshift = generatePowerShell(applyPatch(c, { platform: 'openshift' }), 'omit', 'headless');
-    expect(openshift).toContain('.\\uagdeployopenshift.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD no -openshiftPassword $env:OPENSHIFT_PASSWORD');
+    expect(openshift).toContain(".\\uagdeployopenshift.ps1 -iniFile .\\uag-dmz-01.ini -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD -openshiftPassword $env:OPENSHIFT_PASSWORD -ceipEnabled 'no'");
     expect(openshift).not.toContain('Read-Host');
   });
   it('explains omitted password prompting and never embeds runtime passwords', () => {
@@ -809,7 +868,7 @@ describe('PowerShell output', () => {
   it('uses the Hyper-V and Azure scripts', () => {
     expect(generatePowerShell(applyPatch(radiusMfa(), { platform: 'hyperv' }))).toContain('uagdeployhv.ps1 -iniFile');
     const az = generatePowerShell(applyPatch(radiusMfa(), { platform: 'azure' }), 'placeholder', 'headless');
-    expect(az).toContain('uagdeployaz.ps1 -iniFile .\\uag-dmz-01.ini $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no');
+    expect(az).toContain("uagdeployaz.ps1 -iniFile .\\uag-dmz-01.ini $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD -ceipEnabled 'no'");
   });
   it('uses the Nutanix script without vSphere/Azure-only fields', () => {
     const c = TEMPLATES.find((t) => t.id === 'nutanix-ahv')!.build(defaultConfig());

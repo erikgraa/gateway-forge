@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import type { Field, Values } from '../lib/schema';
-  import { buildVCenterTarget, parseVCenterTarget, vCenterTargetFeedback, type VCenterTarget } from '../lib/vcenterTarget';
+  import { buildVCenterTarget, parseVCenterTarget, vCenterTargetFeedback, VCENTER_CREDENTIAL_TARGET_EXAMPLE, VCENTER_INLINE_PASSWORD_WARNING, type VCenterTarget } from '../lib/vcenterTarget';
   import FieldDetails from './FieldDetails.svelte';
 
   interface Props { field: Field; values: Values; error?: string }
@@ -47,9 +47,10 @@
       <label class="field wide" for="f-target-raw">
         <span class="lbl">Full OVF Tool locator</span>
         <input id="f-target-raw" type="text" autocomplete="off" spellcheck="false" required class:bad={!!error}
-          aria-invalid={!!error || undefined} aria-describedby={error ? 'f-target-error' : undefined}
+          aria-invalid={!!error || undefined} aria-describedby={error ? 'f-target-credentials-help f-target-error' : 'f-target-credentials-help'}
           value={values[field.id]} placeholder={field.placeholder} oninput={(e) => updateRaw(e.currentTarget.value)} />
       </label>
+      <p class="hint wide" id="f-target-credentials-help">Unattended target syntax (synthetic): <code class="locator-example">{VCENTER_CREDENTIAL_TARGET_EXAMPLE}</code>. The UPN domain belongs before the colon; check special-character handling against the installed OVF Tool release. {VCENTER_INLINE_PASSWORD_WARNING}</p>
     {:else}
       <p class="hint wide">Builder guidance only — these checks do not change your locator or add deployment restrictions.</p>
       <label class="field" for="f-target-username">
@@ -58,7 +59,7 @@
           aria-describedby="f-target-username-help f-target-username-feedback" aria-invalid={feedback.username?.warning || undefined}
           class:bad={feedback.username?.warning}
           value={parts.username} placeholder="administrator@vsphere.local" oninput={(e) => update('username', e.currentTarget.value)} />
-        <span class="hint" id="f-target-username-help">A UPN is commonly username@domain.fqdn. The password is supplied at deployment.</span>
+        <span class="hint" id="f-target-username-help">A UPN is commonly username@domain.fqdn. Guided targets omit the password, so OVF Tool prompts for it. For unattended deployment, add credentials to a protected full locator after export.</span>
         <span class="hint" class:err={feedback.username?.warning} id="f-target-username-feedback" aria-live="polite">{feedback.username?.message ?? ''}</span>
       </label>
       <label class="field" for="f-target-server">
@@ -93,5 +94,5 @@
 
 <style>
   .target-preview { display: grid; gap: .5rem; min-width: 0; padding: .8rem; border: 1px solid var(--line); border-radius: .6rem; }
-  .target-preview code { overflow-wrap: anywhere; white-space: pre-wrap; }
+  .target-preview code, .locator-example { overflow-wrap: anywhere; white-space: pre-wrap; }
 </style>

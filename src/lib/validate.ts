@@ -255,7 +255,8 @@ function checkField(f: Field, values: Values, platform: Platform): string | null
   const v = f.certificateInput ? certificateMode(values, f.id, f.certificateInput) : values[f.id];
   const required = typeof f.required === 'function' ? f.required(values) : f.required;
   const label = displayFieldLabel(f, values);
-  if (isEmpty(v)) return required ? `${label} is required` : null;
+  const emptyRequiredPemPath = required && f.rule === 'pemPath' && !String(v ?? '').trim();
+  if (isEmpty(v) || emptyRequiredPemPath) return required ? `${label} is required` : null;
   if (f.type === 'number') {
     const n = Number(v);
     if (!Number.isFinite(n)) return `${label} must be a number`;
@@ -396,11 +397,49 @@ export function validateConfig(c: Config): Issue[] {
     });
   }
 
+  validateNetworkServers(c, push);
   lint(c, push);
   return issues;
 }
 
 type Push = (i: Omit<Issue, 'id'>) => void;
+
+function networkServerIdentity(raw: string): string {
+  const host = raw.trim().replace(/:\d+$/, '');
+  const octets = host.split('.');
+  const numericIpv4 = octets.length === 4 && octets.every((octet) => /^\d+$/.test(octet) && Number(octet) <= 255);
+  return numericIpv4 ? octets.map(Number).join('.') : host.toLowerCase();
+}
+
+function validateNetworkServers(c: Config, push: Push): void {
+  const group = GROUPS.find((group) => group.id === 'dns')!;
+  const regularNtp = new Map<string, number>();
+  for (const id of ['dns', 'ntpServers', 'fallBackNtpServers']) {
+    const field = group.fields.find((field) => field.id === id)!;
+    if (!groupEnabled(group, c) || !fieldAvailable(field, c.version, c.platform, c.values)) continue;
+    const seen = new Map<string, number>();
+    parseListValue(c.values[id], field.rows!.separator).forEach((row, index) => {
+      if (checkRule(field.rows!.rule!, row, c.platform)) return;
+      const identity = networkServerIdentity(row);
+      const previous = seen.get(identity);
+      const regular = regularNtp.get(identity);
+      const message = previous !== undefined
+        ? `Duplicate server already used in ${field.rows!.itemLabel} ${previous + 1}. Remove this row or enter a different server.`
+        : id === 'fallBackNtpServers' && regular !== undefined
+          ? `Already configured as NTP server ${regular + 1}. Remove it here or choose a different fallback server.`
+          : null;
+      if (message) push({
+        level: 'error',
+        section: group.section,
+        fieldId: id,
+        rowIndex: index,
+        message: `${field.rows!.itemLabel} ${index + 1}: ${message}`
+      });
+      if (previous === undefined) seen.set(identity, index);
+      if (id === 'ntpServers' && !regularNtp.has(identity)) regularNtp.set(identity, index);
+    });
+  }
+}
 
 function lint(c: Config, push: Push): void {
   const v = c.values;

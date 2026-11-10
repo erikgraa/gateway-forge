@@ -97,6 +97,7 @@ function sampleConfig(): Config {
     },
     syslog: [
       {
+        // Leave the required CA path empty until the operator supplies real trust material.
         sysLogType: 'TLS',
         syslogCategory: 'ALL',
         syslogFormat: 'TEXT',
