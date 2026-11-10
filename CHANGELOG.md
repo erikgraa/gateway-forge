@@ -4,8 +4,17 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 
 ## Unreleased
 
+## 0.8.0 - 2026-11-10
+
+First tagged Gateway Forge release. The previous package-only `1.0.0` value was not a published release. This pre-1.0 version identifies the builder, not the selected UAG version or certification of every deployment path.
+
 ### Added
 
+- Displayed the Gateway Forge version in the tool footer, sourced from package metadata and independent of the selected UAG release; added a README badge tracking the latest GitHub release.
+- Explicitly recorded Admin UI SAML authentication, Workspace ONE Content Gateway and Workspace ONE Tunnel as still untested, without extending confirmed Horizon or scoped Hyper-V deployment coverage.
+- Platform-specific vSphere `.ova` and Hyper-V `.vhdx` source image examples, with no seeded VMware source in fresh drafts and no rewriting of saved/imported paths. Documented operator-supplied named-adapter VLAN examples for one/two/three NICs while preserving generated deployment/identity safeguards.
+- Optional active-layout Hyper-V access VLAN fields (1–4094), saved in browser drafts and emitted as guarded post-deployment PowerShell without adding vendor INI/JSON keys. Adapter-role checks are based on read-only vendor-script inspection; live Hyper-V execution remains unverified.
+- Added display-only line-number gutters to INI, JSON and PowerShell previews, with long-line horizontal scrolling and unchanged selection, clipboard and downloaded artifact content.
 - Added guided vCenter target editing and accessible feedback for missing locator parts, incomplete usernames, and pasted protocols/paths, while retaining imported spelling and advanced locators ([#128](https://github.com/erikgraa/gateway-forge/pull/128), [#131](https://github.com/erikgraa/gateway-forge/pull/131)).
 - Added expandable explanations for hidden SSH/key-access, Horizon protocol, and NIC/static-IPv4 settings without discarding their saved values ([#131](https://github.com/erikgraa/gateway-forge/pull/131)).
 - Added static social-sharing metadata and a branded preview image, with rehosting and crawler-cache guidance ([#134](https://github.com/erikgraa/gateway-forge/pull/134)).
@@ -25,6 +34,7 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 
 ### Changed
 
+- Updated Hyper-V support status to distinguish implemented storage/image/VLAN generation from scoped operator deployment evidence and pending full-platform validation ([#139](https://github.com/erikgraa/gateway-forge/issues/139)); no live generated-VLAN or untested-service coverage is claimed.
 - Gave Templates a dedicated violet section accent and each template card a distinct, theme-aware accent with descriptive labels, preserving template behavior ([#132](https://github.com/erikgraa/gateway-forge/pull/132), [#133](https://github.com/erikgraa/gateway-forge/pull/133)).
 - Explained fully unattended vSphere prerequisites, credentialed UPN target ordering, plaintext target persistence, and the generated PowerShell wrapper's INI rewrite across UI and deployment documentation ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).
 - Expanded the roadmap with a deployment-time secret wrapper, functional deployment tests, and an investigative PowerCLI/API bootstrap alternative; these remain planned, not implemented ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).
@@ -42,6 +52,8 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 
 ### Fixed
 
+- Removed the fresh-draft VMware datastore sample so Hyper-V can show its filesystem-path placeholder; existing saved/imported/custom values are not guessed at or reset.
+- Clarified Hyper-V deployment storage as a host filesystem path with a Windows path example, while retaining the `ds` INI key, imported/custom values and vSphere datastore terminology.
 - Omitted exact default Horizon `authMethods=passthrough` from INI so appliance defaults can apply; placed explicit non-default methods first and restored passthrough when importing a Horizon section without the key. JSON and saved selections remain unchanged ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).
 - Passed the configured CEIP choice explicitly as the named `-ceipEnabled 'yes'`/`'no'` runtime argument instead of a hardcoded positional value ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).
 - Flagged duplicate DNS/NTP servers and regular/fallback NTP overlap with row-specific errors, without rewriting stored values or restricting reuse across DNS and NTP ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).

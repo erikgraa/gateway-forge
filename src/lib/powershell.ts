@@ -3,6 +3,7 @@ import { GROUPS } from './schema';
 import { deploymentCommand, generateBootableVolumeManifest, generateIni, generateJson, iniFileName, jsonFileName, manifestFileName, platformScript, type SecretMode } from './generate';
 import { platformDef } from './versions';
 import { sshPublicKeys } from './ssh';
+import { hypervVlanDeployment } from './hyperv-vlan';
 import { VCENTER_CREDENTIAL_TARGET_EXAMPLE, VCENTER_INLINE_PASSWORD_WARNING, OVF_TOOL_VERSION_GUIDANCE } from './vcenterTarget';
 
 const psq = (s: string) => `'${s.replace(/'/g, "''")}'`;
@@ -149,7 +150,7 @@ export function generatePowerShell(
   }
   if (effectiveDeploymentMode === 'interactive') {
     out.push('# Interactive mode: the official script prompts for root and Admin UI passwords.');
-    out.push(`${invocation}${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`);
+    out.push(...hypervVlanDeployment(c, `${invocation}${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`));
     out.push('Clear-History');
   } else {
     out.push('# Environment-password mode: root/admin passwords are read from the process environment, not embedded in this script or the INI.');
@@ -158,7 +159,7 @@ export function generatePowerShell(
     if (def.nonInteractive === 'positional') {
       out.push(`${invocation} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`);
     } else {
-      out.push(`${invocation} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`);
+      out.push(...hypervVlanDeployment(c, `${invocation} -rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`));
     }
   }
   out.push('');

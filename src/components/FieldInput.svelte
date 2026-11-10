@@ -18,7 +18,8 @@
   const id = $derived(`f-${uid ?? field.id}`);
   const help = $derived(fieldHelp(field, platform));
   const required = $derived(typeof field.required === 'function' ? field.required(values) : field.required === true);
-  const label = $derived(displayFieldLabel(field, values));
+  const label = $derived(displayFieldLabel(field, values, platform));
+  const placeholder = $derived(field.platformPlaceholders?.[platform] ?? field.placeholder);
 
   function setNumber(e: Event) {
     const raw = (e.currentTarget as HTMLInputElement).value;
@@ -74,17 +75,17 @@
         </select>
       {/if}
     {:else if field.type === 'number'}
-      <input {id} type="number" class:bad={!!error} {required} min={field.min} max={field.max} value={values[field.id]} oninput={setNumber} placeholder={field.placeholder} />
+      <input {id} type="number" class:bad={!!error} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : help ? `${id}-help` : undefined} {required} min={field.min} max={field.max} value={values[field.id]} oninput={setNumber} {placeholder} />
     {:else if field.type === 'secret'}
       <span class="secret-wrap">
-        <input {id} type={reveal ? 'text' : 'password'} autocomplete="off" spellcheck="false" class:bad={!!error} {required} bind:value={values[field.id]} placeholder={field.placeholder ?? 'not stored'} />
+        <input {id} type={reveal ? 'text' : 'password'} autocomplete="off" spellcheck="false" class:bad={!!error} {required} bind:value={values[field.id]} placeholder={placeholder ?? 'not stored'} />
         <button type="button" class="small" onclick={() => (reveal = !reveal)} aria-label={reveal ? 'Hide secret' : 'Show secret'}>{reveal ? 'Hide' : 'Show'}</button>
       </span>
     {:else if field.type === 'textarea'}
-      <textarea {id} rows="3" maxlength={field.maxLength} class:bad={!!error} {required} bind:value={values[field.id]} placeholder={field.placeholder}></textarea>
+      <textarea {id} rows="3" maxlength={field.maxLength} class:bad={!!error} {required} bind:value={values[field.id]} {placeholder}></textarea>
     {:else}
-      <input {id} type="text" maxlength={field.maxLength} autocomplete="off" spellcheck="false" class:bad={!!error} {required} bind:value={values[field.id]} placeholder={field.placeholder} />
+      <input {id} type="text" maxlength={field.maxLength} autocomplete="off" spellcheck="false" class:bad={!!error} {required} bind:value={values[field.id]} {placeholder} />
     {/if}
-    {#if error}<span class="err">{error}</span>{:else if help}<span class="hint">{help}</span>{/if}
+    {#if error}<span class="err" id={`${id}-error`}>{error}</span>{:else if help}<span class="hint" id={`${id}-help`}>{help}</span>{/if}
   </label>
 {/if}

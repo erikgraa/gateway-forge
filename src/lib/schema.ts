@@ -72,9 +72,10 @@ export function deploymentNicCount(v: Values): 1 | 2 | 3 {
   return 1;
 }
 
-export function displayFieldLabel(field: Field, values: Values): string {
-  if (deploymentNicCount(values) !== 3) return field.label;
-  return field.label
+export function displayFieldLabel(field: Field, values: Values, platform?: Platform): string {
+  const label = fieldLabel(field, platform);
+  if (deploymentNicCount(values) !== 3) return label;
+  return label
     .replace('Management / Backend network (NIC1)', 'Management-only network NIC1')
     .replace('NIC1 Management / Backend', 'NIC1 Management-only')
     .replace('Backend network (NIC2)', 'Backend-only network NIC2')
@@ -94,6 +95,8 @@ export interface Option {
 export interface Field {
   id: string;
   label: string;
+  platformLabels?: Partial<Record<Platform, string>>;
+  platformPlaceholders?: Partial<Record<Platform, string>>;
   type: FieldType;
   /** INI key (case as documented by Omnissa). */
   key: string;
@@ -101,7 +104,7 @@ export interface Field {
   json?: string | false;
   default?: Primitive;
   options?: Option[];
-  help?: string | ((platform: Platform) => string);
+  help?: string | ((platform: Platform) => string | undefined);
   placeholder?: string;
   since?: string;
   until?: string;
@@ -146,6 +149,10 @@ export interface Field {
   escapeNewlines?: boolean;
   /** Render select options as accessible buttons instead of a dropdown. */
   buttonOptions?: boolean;
+}
+
+export function fieldLabel(field: Field, platform?: Platform): string {
+  return (platform && field.platformLabels?.[platform]) ?? field.label;
 }
 
 export function fieldHelp(field: Field, platform: Platform): string | undefined {
@@ -539,11 +546,12 @@ export const GROUPS: GroupDef[] = [
         wide: true,
         required: true,
         rule: 'sourceImage',
-        placeholder: 'C:\\ova\\euc-unified-access-gateway-26.09.0.0-xxxxxxxx_OVF10.ova',
+        placeholder: 'C:\\images\\euc-unified-access-gateway-26.09.0.0-[..].ova',
+        platformPlaceholders: { hyperv: 'C:\\images\\euc-unified-access-gateway-26.09.0.0-[..].vhdx' },
         platforms: vsphereHyperv,
         help: (platform) => platform === 'hyperv'
-          ? 'Local Hyper-V .vhdx path. URLs and VMware .ova files are not supported.'
-          : 'Local .ova path or HTTP(S) URL ending in .ova.'
+          ? 'Local Hyper-V .vhdx path. URLs and VMware .ova files are not supported. Replace [..] with the actual image filename build text.'
+          : 'Local .ova path or HTTP(S) URL ending in .ova. Replace [..] with the actual image filename build text.'
       }),
       text('target', 'vCenter target', 'target', {
         wide: true,
@@ -553,7 +561,16 @@ export const GROUPS: GroupDef[] = [
         help: 'OVF Tool locator. Must reference a vCenter host or cluster; deploying directly to an ESXi host is not supported.'
       }),
       text('folder', 'VM folder', 'folder', { platforms: ['vsphere'], help: 'VMs and Templates folder; must exist.' }),
-      text('ds', 'Datastore', 'ds', { platforms: vsphereHyperv, required: true, placeholder: 'datastore1' })
+      text('ds', 'Datastore', 'ds', {
+        platforms: vsphereHyperv,
+        required: true,
+        placeholder: 'datastore1',
+        platformLabels: { hyperv: 'VM storage path' },
+        platformPlaceholders: { hyperv: 'C:\\ClusterStorage\\Volume1\\uag-name' },
+        help: (platform) => platform === 'hyperv'
+          ? 'Filesystem path on the Hyper-V deployment host for the VM files, for example C:\\ClusterStorage\\Volume1\\uag-name. Exported as ds in the INI; not a vSphere datastore name.'
+          : undefined
+      })
     ]
   },
   {
@@ -584,6 +601,20 @@ export const GROUPS: GroupDef[] = [
         showIf: (v) => deploymentNicCount(v) === 3,
         placeholder: 'DMZ-Backend',
         help: 'The dedicated Backend interface is available only with threenic.'
+      }),
+      num('hv_vlan0', 'NIC0 Internet access VLAN', 'hv_vlan0', {
+        platforms: ['hyperv'], ini: false, json: false, min: 1, max: 4094, rule: 'int',
+        help: 'Optional host-side access VLAN (1–4094), applied after successful deployment by the PowerShell output, not the vendor INI. Leave blank to keep the adapter unchanged. A shared external switch/uplink must carry the selected VLANs; separate access-network switches or one common network are alternatives.'
+      }),
+      num('hv_vlan1', 'NIC1 Management / Backend access VLAN', 'hv_vlan1', {
+        platforms: ['hyperv'], ini: false, json: false, min: 1, max: 4094, rule: 'int',
+        showIf: (v) => deploymentNicCount(v) >= 2,
+        help: 'Optional host-side access VLAN (1–4094). Two NICs: management/backend; three NICs: management-only. Saved in the project, not exported to vendor INI/settings JSON. Blank leaves this adapter unchanged.'
+      }),
+      num('hv_vlan2', 'NIC2 Backend access VLAN', 'hv_vlan2', {
+        platforms: ['hyperv'], ini: false, json: false, min: 1, max: 4094, rule: 'int',
+        showIf: (v) => deploymentNicCount(v) === 3,
+        help: 'Optional host-side access VLAN (1–4094) for the dedicated backend adapter. Saved in the project; only active with three NICs. Blank leaves this adapter unchanged. Generated VLAN commands have not been validated on a live Hyper-V host.'
       }),
       text('ip0', 'NIC0 Internet IPv4 address', 'ip0', {
         rule: 'ipv4',

@@ -1,7 +1,7 @@
 {
   "name": "gateway-forge",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.8.0",
   "description": "Client-side visual config builder for Omnissa Unified Access Gateway (UAG)",
   "type": "module",
   "scripts": {

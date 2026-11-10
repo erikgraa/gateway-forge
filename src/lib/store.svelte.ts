@@ -53,10 +53,8 @@ function sampleConfig(): Config {
     values: {
       uagName: 'uag-dmz-01',
       name: 'uag-dmz-01',
-      source: 'C:\\images\\euc-unified-access-gateway-26.09.0.0_OVF10.ova',
       target: 'vi://administrator@vsphere.local@vcsa.corp.local/DC1/host/Cluster1',
       folder: 'DMZ Gateways',
-      ds: 'vsanDatastore',
       netInternet: 'DMZ-Internet',
       netManagementNetwork: 'DMZ-Management',
       deploymentOption: 'twonic-large',
