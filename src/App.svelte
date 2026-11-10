@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import packageInfo from '../package.json';
   import { app } from './lib/store.svelte';
-  import { sectionSelected, listEnabled, listDef } from './lib/model';
+  import { sectionSelected } from './lib/model';
   import { GROUPS, LISTS, SECTIONS, type SectionId } from './lib/schema';
   import { VERSIONS, PLATFORMS, LIFECYCLE_SNAPSHOT, platformAvailable } from './lib/versions';
   import { validateConfig, countBySection } from './lib/validate';
@@ -12,6 +12,7 @@
   import GroupCard from './components/GroupCard.svelte';
   import ListEditor from './components/ListEditor.svelte';
   import JwtSettings from './components/JwtSettings.svelte';
+  import OidcSettings from './components/OidcSettings.svelte';
   import OutputPanel from './components/OutputPanel.svelte';
   import OutputSplitter from './components/OutputSplitter.svelte';
   import ImportDialog from './components/ImportDialog.svelte';
@@ -251,8 +252,11 @@
           <div class="notice">Native high availability is not supported on Azure. Existing HA values are retained but not emitted.</div>
         {/if}
         {#each groups as g (g.id)}
-          <GroupCard group={g} {issues} />
-          {#if g.id === 'oidc' && listEnabled(listDef('oidc'), app.config)}<ListEditor list={listDef('oidc')} {issues} />{/if}
+          {#if g.id === 'oidc'}
+            <OidcSettings {issues} />
+          {:else}
+            <GroupCard group={g} {issues} />
+          {/if}
         {/each}
         {#each lists.filter((list) => list.id !== 'jwt' && list.id !== 'jwtIssuers' && list.id !== 'oidc') as l (l.id)}<ListEditor list={l} {issues} />{/each}
         {#if app.section === 'auth'}<JwtSettings {issues} />{/if}

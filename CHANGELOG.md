@@ -4,8 +4,14 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 
 ## Unreleased
 
+## 0.8.5 - 2026-11-10
+
+Changes since 0.8.0, including the merged output/configuration work and the reviewed OIDC grouping and deployment warnings. Intermediate 0.8.1–0.8.4 releases were not published. This builder version does not certify every UAG deployment or service.
+
 ### Added
 
+- Repeatable OIDC provider configuration, numbered INI import/export, duplicate-ID and Horizon-reference checks, safe legacy imports and OIDC/JWT draft restoration on reload ([#148](https://github.com/erikgraa/gateway-forge/pull/148)).
+- A prominent VM-replacement advisory for all five supported platforms, also emitted before deployment in PowerShell and Docs: same-name VMs are deleted/recreated, not updated in place. The warning identifies the deployment VM name rather than the OS hostname, includes Azure OS-disk/NIC deletion, Nutanix cluster/duplicate-name handling and OpenShift namespace/deletion-wait behavior, and recommends checking the target, backups and downtime.
 - A draggable desktop divider between the form and configuration preview, with keyboard resizing, bounded widths, a locally remembered preference and double-click reset. Collapse and narrow-screen stacked layouts are preserved.
 - Optional High availability configuration before Edge services: unseeded integer Group ID (1–255), IPv4 VIP, exact `[HighAvailability]` INI keys, verified `loadBalancerSettings` JSON mapping, retained disabled values and field-associated guidance. Azure is excluded; multi-node deployment and live failover remain unverified.
 - Standalone-first Secure Email Gateway configuration and independent JWT consumer/producer profiles in one settings card, with source-backed INI mappings, synthetic round-trip coverage, secret/material stripping and explicit deployment-host file/JSON limitations. Appliance exports and live SEG interoperability remain unverified.
@@ -15,7 +21,7 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 ### Changed
 
 - Made subsection Enabled controls more prominent with larger native checkboxes, bordered controls, green active states and visible keyboard focus; disabled sections retain their configuration values.
-- Added independent, removable additional OIDC provider cards, numbered INI import/export, duplicate-ID and Horizon-reference checks, safe legacy imports and OIDC/JWT draft restoration on reload. Client secrets remain deployment-time prompts.
+- Grouped all OIDC provider cards in one enabled section. Confirmed the vendor module intentionally starts with unnumbered `[OidcProviderSetting]`; visual card numbering does not change INI suffixes, stored values or Horizon references. Client secrets remain deployment-time prompts.
 - Added distinct theme-aware platform-button accents while preserving keyboard focus, selected emphasis and disabled release gating.
 - Disabled all non-passthrough Horizon authentication methods until their RADIUS, RSA SecurID, OpenID Connect, SAML or X.509 providers are enabled in Identity and access. Combined methods require every named provider; existing/imported selections remain intact with accessible prerequisite guidance. Reverse-proxy authentication selectors are unchanged.
 - Added `/iwa(.*)` as the last alternative in the Horizon proxy-pattern example, without filling or rewriting existing patterns.
@@ -26,6 +32,8 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 - Made INI, JSON, PowerShell and Docs output tabs more prominent with distinct icons, larger labeled buttons, a stronger selected state and keyboard arrow/Home/End navigation. Tabs wrap on narrow screens without overlapping Copy; generated artifacts are unchanged.
 - Gave the desktop output preview more width while retaining its collapse control and horizontal scrolling for long commands and configuration lines.
 - Split PowerShell deployment/password guidance into short comment lines with spacing between topics. Executable commands and embedded configuration remain unchanged; the formatted comments also appear in copied/downloaded scripts.
+- Refreshed all six README screenshots for 0.8.5 and updated their capture helper to use current section labels rather than obsolete step numbers.
+- Closed the implemented Hyper-V support and native HA/VIP tracking items ([#139](https://github.com/erikgraa/gateway-forge/issues/139), [#145](https://github.com/erikgraa/gateway-forge/issues/145)) and removed their pending roadmap entries. Specific live-test and certification limitations remain documented.
 
 ## 0.8.0 - 2026-11-10
 

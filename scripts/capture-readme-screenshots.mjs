@@ -125,15 +125,15 @@ try {
   await command('Runtime.enable');
   await viewport();
   await reset('dark');
-  await clickByText('Network & deployStep 2');
+  await clickByText('Network & deploy');
   await capture('builder-dark.png');
 
   await reset('light');
-  await clickByText('Network & deployStep 2');
+  await clickByText('Network & deploy');
   await capture('builder-light.png');
 
   await reset('dark');
-  await clickByText('AuthenticationStep 7');
+  await clickByText('Identity and access');
   await capture('radius.png');
 
   await reset('dark');
