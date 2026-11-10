@@ -1239,8 +1239,7 @@ export const GROUPS: GroupDef[] = [
         rule: 'securityHeaders',
         wide: true,
         json: false,
-        placeholder: '{"yes":"ok","yesss":"oook"}',
-        help: 'Horizon only. Enter a JSON object of custom header names and string values, or paste the quoted JSON value from an appliance INI export. INI adds the outer quotes and escapes inner quotes once. Leave empty to retain appliance defaults: X-Frame-Options, Strict-Transport-Security, X-Content-Type-Options and Content-Security-Policy. Explicitly imported headers are preserved, including defaults you intentionally override. Settings JSON output is not documented and remains omitted.'
+        help: 'Horizon only. Each custom header requires a name and a value; header names must be unique (case-insensitive). Raw editing also accepts a JSON object or the quoted JSON value from an appliance INI export. INI adds the outer quotes and escapes inner quotes once. Leave empty to retain appliance defaults: X-Frame-Options, Strict-Transport-Security, X-Content-Type-Options and Content-Security-Policy. Explicitly imported headers are preserved, including defaults you intentionally override. Settings JSON output is not documented and remains omitted.'
       }),
       ...Array.from({ length: 6 }, (_, i) => text(`hostEntry${i + 1}`, `Host entry ${i + 1}`, `hostEntry${i + 1}`, {
         rule: 'hostEntry',

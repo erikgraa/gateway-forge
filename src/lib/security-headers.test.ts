@@ -61,7 +61,7 @@ describe('Horizon security headers appliance INI format', () => {
     expect(config.values.securityHeaders).toBe('');
     expect(headerIssues('')).toEqual([]);
     const { body } = render(FieldInput, { props: { field, values: config.values, platform: 'vsphere' } });
-    expect(body).toContain('placeholder="{&quot;yes&quot;:&quot;ok&quot;,&quot;yesss&quot;:&quot;oook&quot;}"');
+    expect(body).not.toContain('placeholder=');
     expect(body).toContain('Leave empty to retain appliance defaults');
   });
 

@@ -2,7 +2,9 @@
 
 This roadmap highlights current priorities and longer-running work. It is directional rather than a release commitment: items may be reprioritized as UAG guidance and project needs evolve.
 
-## 📍 Current state — 0.8.5
+## 📍 Current state — 0.8.6
+
+- **Included in 0.8.6:** Horizon response security-header rows with required name/value fields, no seeded examples, retained raw-import/draft compatibility and unchanged INI-only output.
 
 - **Implemented:** wider/collapsible output, artifact tabs and adjustable divider; HA fields, standalone-first SEG, independent JWT profiles, repeatable OIDC providers, Horizon authentication prerequisites/security-header serialization and distinct platform controls. The output/configuration work is merged in [#147](https://github.com/erikgraa/gateway-forge/pull/147) and [#148](https://github.com/erikgraa/gateway-forge/pull/148).
 - **Included in 0.8.5:** all OIDC providers grouped in one enabled box without changing the vendor's unnumbered-first INI contract, and source-backed same-name VM replacement warnings for all five platforms in the workspace and generated PowerShell/Docs. See [CHANGELOG.md](CHANGELOG.md) for the complete changes since 0.8.0.

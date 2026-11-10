@@ -8,6 +8,7 @@
   import VCenterTargetEditor from './VCenterTargetEditor.svelte';
   import TrustedCertEditor from './TrustedCertEditor.svelte';
   import RowListEditor from './RowListEditor.svelte';
+  import SecurityHeadersEditor from './SecurityHeadersEditor.svelte';
   import HostEntryEditor from './HostEntryEditor.svelte';
   import AllowedOriginEditor from './AllowedOriginEditor.svelte';
   import FieldDetails from './FieldDetails.svelte';
@@ -73,6 +74,8 @@
             <RowListEditor field={f} platform={c.platform} bind:values={app.config.values as Values} {issues} />
           {:else if f.originDetails}
             <AllowedOriginEditor field={f} platform={c.platform} bind:values={app.config.values as Values} {issues} />
+          {:else if f.id === 'securityHeaders' && group.target === 'horizon'}
+            <SecurityHeadersEditor field={f} platform={c.platform} bind:values={app.config.values as Values} error={err(f.id)} />
           {:else if f.id === 'target' && c.platform === 'vsphere'}
             <VCenterTargetEditor field={f} bind:values={app.config.values as Values} error={err(f.id)} />
           {:else if f.trustedCertIndex === undefined && f.hostEntryIndex === undefined}
