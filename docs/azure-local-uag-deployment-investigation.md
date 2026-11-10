@@ -1,6 +1,6 @@
 # UAG deployment on Azure Local: investigation
 
-**Reviewed:** 2026-11-10  
+**Reviewed:** 2026-11-10
 **Scope:** Compatibility of the documented UAG Azure and Hyper-V deployment paths with Azure Local/Arc-managed VMs. This is documentation research, not a deployment test or support certification.
 
 ## Conclusion
