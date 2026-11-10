@@ -46,6 +46,7 @@
   const latestVersion = VERSIONS.find((v) => v.latest)!;
 
   let exportOpen = $state(false);
+  let outputCollapsed = $state(false);
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
   $effect(() => {
@@ -133,7 +134,7 @@
     </div>
   </header>
 
-  <main class="layout">
+  <main class="layout" class:output-collapsed={outputCollapsed}>
     <nav class="side" aria-label="Configuration sections">
       <div class="nav-heading"><span>Setup</span><small>{SECTIONS.filter((s) => s.id !== 'templates' && !counts[s.id].error).length}/{SECTIONS.length - 1} sections clear</small></div>
       <div class="nav-list">
@@ -245,7 +246,7 @@
       <LintPanel {issues} />
     </div>
 
-    <OutputPanel />
+    <OutputPanel bind:collapsed={outputCollapsed} />
   </main>
 
   <footer class="site-footer">

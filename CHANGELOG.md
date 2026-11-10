@@ -4,6 +4,14 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 
 ## Unreleased
 
+### Added
+
+- An accessible output-pane collapse/expand control: a desktop side tab or compact bar on narrower layouts, keeping the configuration, selected artifact and mounted preview intact.
+
+### Changed
+
+- Gave the desktop output preview slightly more width without changing artifact wrapping, copying or downloads.
+
 ## 0.8.0 - 2026-11-10
 
 First tagged Gateway Forge release. The previous package-only `1.0.0` value was not a published release. This pre-1.0 version identifies the builder, not the selected UAG version or certification of every deployment path.
