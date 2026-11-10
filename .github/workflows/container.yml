@@ -1,15 +1,32 @@
-name: Nightly container
+name: Container build and retention
 
 on:
   schedule:
     - cron: '30 2 * * *'
   push:
     branches: [main]
-    paths:
+    paths: &container-paths
       - 'Dockerfile'
+      - '.dockerignore'
       - 'docker/**'
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'svelte.config.js'
+      - 'tsconfig.json'
+      - 'vite.config.ts'
+      - 'scripts/container-retention*'
       - '.github/workflows/container.yml'
+  pull_request:
+    paths: *container-paths
   workflow_dispatch:
+    inputs:
+      cleanup_dry_run:
+        description: 'Preview retention without deleting package versions (image is still built)'
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -50,6 +67,7 @@ jobs:
 
   publish:
     name: Build and push image
+    if: github.event_name != 'pull_request'
     needs: verify
     runs-on: ubuntu-latest
     permissions:
@@ -88,3 +106,28 @@ jobs:
           curl -fsS http://127.0.0.1:8080/ | grep -q "Gateway Forge"
           curl -fsSI http://127.0.0.1:8080/ | grep -i "content-security-policy"
           docker rm -f gf
+
+  cleanup:
+    name: Retain protected images and prune expired builds
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Apply 30-day container retention
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE_OWNER_TYPE: ${{ github.event.repository.owner.type }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.cleanup_dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/container-retention.mjs --dry-run
+          else
+            node scripts/container-retention.mjs --apply
+          fi

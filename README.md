@@ -145,7 +145,7 @@ Omnissa documents the JSON as an *export/import format* of the admin UI but does
 
 ## 🐳 Container
 
-A self-contained image (static files + nginx, non-root, no outbound calls, strict CSP) is built nightly at 02:30 UTC by [container.yml](.github/workflows/container.yml), after type-check, tests and a Lifecycle Matrix comparison pass, and published as multi-arch (amd64/arm64) to GitHub Container Registry:
+A self-contained image (static files + nginx, non-root, no outbound calls, strict CSP) is built nightly at 02:30 UTC and when application or build inputs change on `main` by [container.yml](.github/workflows/container.yml), after type-check, tests and a Lifecycle Matrix comparison pass, and published as multi-arch (amd64/arm64) to GitHub Container Registry. Documentation-only changes do not trigger a build; relevant pull requests run verification without publishing or deleting images:
 
 ```bash
 # Docker
@@ -157,7 +157,13 @@ podman run --rm -p 8080:8080 ghcr.io/erikgraa/gateway-forge:nightly
 # then open http://localhost:8080
 ```r
 
-Tags: `nightly` / `latest` (newest build), `nightly-YYYYMMDD` and `sha-<commit>` (pin these for reproducibility). Build locally with `docker build -t gateway-forge .` or `podman build -t gateway-forge .`.
+Tags: `nightly` / `latest` (newest build), `nightly-YYYYMMDD` and `sha-<seven-character commit>` (short-term reproducibility). Build locally with `docker build -t gateway-forge .` or `podman build -t gateway-forge .`.
+
+After a successful publish and smoke test, automatic retention deletes versions older than **30 days** only when **every** tag is an expired `nightly-YYYYMMDD` or `sha-<seven-character commit>` tag. Both creation and last-update timestamps must be older than the cutoff. Versions carrying `latest`, `nightly`, release tags (for example `v1.2.3`), or any unknown/non-policy tag are always kept. Release-tagged versions are not subject to this expiration policy; dated/SHA pins may stop resolving after 30 days.
+
+Retention inspects the complete package/registry manifest inventory before deletion and preserves **all untagged versions** and **all referenced digests**, including platform manifests, nested indexes, and attestations. This deliberately leaves untagged storage behind rather than risking broken multi-architecture images. Missing current tags, incomplete/malformed metadata, unsupported manifests, authentication failures, or inventory changes abort cleanup. The inventory is rechecked before each deletion; GitHub's delete API has no atomic tag guard, so external publishers/retaggers must not run concurrently with cleanup. This workflow serializes its own builds and cleanup in the `container` concurrency group.
+
+Manual workflow runs default to **cleanup dry run** (they still build and smoke-test the image); deselect that input to apply retention. The script also defaults to read-only: `node scripts/container-retention.mjs --dry-run`, with `GITHUB_REPOSITORY`, `GITHUB_ACTOR`, `PACKAGE_OWNER_TYPE` (`User` or `Organization`), and `GH_TOKEN` set. Fixture tests run with `npm test -- scripts/container-retention.test.ts`; they never contact GHCR. Cleanup uses the workflow's `GITHUB_TOKEN` with job-scoped `packages: write` and requires repository **admin access to the package**, normally granted automatically when this repository publishes it. See GitHub's [package deletion permissions](https://docs.github.com/en/packages/learn-github-packages/deleting-and-restoring-a-package) and [Packages REST API](https://docs.github.com/en/rest/packages/packages). A cleanup failure is reported as a failed job, not silently ignored.
 
 ## 🛠️ Develop
 
