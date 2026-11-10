@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Platform } from '../lib/versions';
+  import { olderDeploymentWarning, type Platform } from '../lib/versions';
 
   let {
     platform,
@@ -14,6 +14,7 @@
   } = $props();
 
   const usingLatestVersion = $derived(version === latestVersionId);
+  const deploymentWarning = $derived(olderDeploymentWarning(version, latestVersionId));
 </script>
 
 <aside class="form-notice-stack" aria-label="Release and platform advisories">
@@ -37,6 +38,7 @@
           Other releases remain available for migration and maintenance, but may no longer be supported or include important security fixes present in UAG {latestVersionId}. Review the Omnissa lifecycle matrix and security advisories before deployment.
         {/if}
       </p>
+      {#if deploymentWarning}<p>{deploymentWarning}</p>{/if}
     </div>
     {#if usingLatestVersion}
       <span class="version-pill">CURRENT</span>

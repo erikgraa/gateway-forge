@@ -18,6 +18,7 @@ describe('NoticeStack', () => {
 
     expect(body).toContain('aria-label="Release and platform advisories"');
     expect(body).toContain('recommended security baseline');
+    expect(body).not.toContain('Newer uagdeploy.ps1 packages');
     expect(body).not.toContain('Limited Availability');
     expect(body).not.toContain('Nutanix QCOW2 and VM replacement');
   });
@@ -46,5 +47,8 @@ describe('NoticeStack', () => {
 
     expect(body).toContain('older than the recommended release');
     expect(body).toContain('Use UAG 2609');
+    expect(body).toContain('Newer uagdeploy.ps1 packages and platform variants may not be compatible');
+    expect(body).toContain('INI/settings JSON schemas can differ between releases');
+    expect(body).toContain('documentation for UAG 2606');
   });
 });

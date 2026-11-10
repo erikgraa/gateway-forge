@@ -7,10 +7,22 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 ### Added
 
 - A draggable desktop divider between the form and configuration preview, with keyboard resizing, bounded widths, a locally remembered preference and double-click reset. Collapse and narrow-screen stacked layouts are preserved.
+- Optional High availability configuration before Edge services: unseeded integer Group ID (1–255), IPv4 VIP, exact `[HighAvailability]` INI keys, verified `loadBalancerSettings` JSON mapping, retained disabled values and field-associated guidance. Azure is excluded; multi-node deployment and live failover remain unverified.
+- Standalone-first Secure Email Gateway configuration and independent JWT consumer/producer profiles in one settings card, with source-backed INI mappings, synthetic round-trip coverage, secret/material stripping and explicit deployment-host file/JSON limitations. Appliance exports and live SEG interoperability remain unverified.
+- SEG MEM and Azure subscription GUID-format validation, advisory unknown-Azure-region feedback, and precautionary older-release deployment-script/schema guidance. Unknown regions remain accepted.
 - An accessible output-pane collapse/expand control: a desktop side tab or compact bar on narrower layouts, keeping the configuration, selected artifact and mounted preview intact.
 
 ### Changed
 
+- Made subsection Enabled controls more prominent with larger native checkboxes, bordered controls, green active states and visible keyboard focus; disabled sections retain their configuration values.
+- Added independent, removable additional OIDC provider cards, numbered INI import/export, duplicate-ID and Horizon-reference checks, safe legacy imports and OIDC/JWT draft restoration on reload. Client secrets remain deployment-time prompts.
+- Added distinct theme-aware platform-button accents while preserving keyboard focus, selected emphasis and disabled release gating.
+- Disabled all non-passthrough Horizon authentication methods until their RADIUS, RSA SecurID, OpenID Connect, SAML or X.509 providers are enabled in Identity and access. Combined methods require every named provider; existing/imported selections remain intact with accessible prerequisite guidance. Reverse-proxy authentication selectors are unchanged.
+- Added `/iwa(.*)` as the last alternative in the Horizon proxy-pattern example, without filling or rewriting existing patterns.
+- Matched the operator-confirmed Horizon security-header INI format: quoted JSON with one escaping layer, string-map validation, no prefilled appliance defaults, and preservation of explicitly imported defaults/custom headers. Settings JSON support remains unverified and omitted.
+- Renamed steps to TLS Server Certificates and Identity and access, placed Web reverse proxy between Horizon and Workspace ONE Tunnel, grouped JWT settings, and moved default-off Quiesce mode to the end of Appliance settings.
+- Made SSH restriction guidance follow the effective configured port, rejected HA VIP collisions with any retained NIC0–NIC2 IPv4 address, and marked an empty Edge services step with warning feedback.
+- Made the PowerShell preview's Run-time options section collapsible, expanded by default. Collapsing preserves selected options and generated artifacts.
 - Made INI, JSON, PowerShell and Docs output tabs more prominent with distinct icons, larger labeled buttons, a stronger selected state and keyboard arrow/Home/End navigation. Tabs wrap on narrow screens without overlapping Copy; generated artifacts are unchanged.
 - Gave the desktop output preview more width while retaining its collapse control and horizontal scrolling for long commands and configuration lines.
 - Split PowerShell deployment/password guidance into short comment lines with spacing between topics. Executable commands and embedded configuration remain unchanged; the formatted comments also appear in copied/downloaded scripts.

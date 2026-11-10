@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { GROUPS, LISTS, SECTIONS } from './schema';
 
 describe('schema integrity', () => {
+  it('places Quiesce mode last in Appliance without changing its default or vendor key', () => {
+    const field = GROUPS.find((group) => group.id === 'appliance')!.fields.at(-1)!;
+    expect(field.id).toBe('quiesceMode');
+    expect(field.key).toBe('quiesceMode');
+    expect(field.default).toBe(false);
+  });
   it('orders shared setup before optional edge service editors', () => {
     expect(SECTIONS.map((section) => section.id)).toEqual([
       'general',
@@ -10,11 +16,13 @@ describe('schema integrity', () => {
       'auth',
       'monitoring',
       'adminUsers',
+      'ha',
       'services',
       'horizon',
+      'wrp',
       'tunnel',
       'contentGateway',
-      'wrp',
+      'seg',
       'templates'
     ]);
   });

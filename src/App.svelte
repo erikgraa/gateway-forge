@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import packageInfo from '../package.json';
   import { app } from './lib/store.svelte';
-  import { sectionSelected } from './lib/model';
+  import { sectionSelected, listEnabled, listDef } from './lib/model';
   import { GROUPS, LISTS, SECTIONS, type SectionId } from './lib/schema';
   import { VERSIONS, PLATFORMS, LIFECYCLE_SNAPSHOT, platformAvailable } from './lib/versions';
   import { validateConfig, countBySection } from './lib/validate';
@@ -11,6 +11,7 @@
   import LintPanel from './components/LintPanel.svelte';
   import GroupCard from './components/GroupCard.svelte';
   import ListEditor from './components/ListEditor.svelte';
+  import JwtSettings from './components/JwtSettings.svelte';
   import OutputPanel from './components/OutputPanel.svelte';
   import OutputSplitter from './components/OutputSplitter.svelte';
   import ImportDialog from './components/ImportDialog.svelte';
@@ -23,10 +24,12 @@
     general: { eyebrow: 'Appliance profile', description: 'Define the appliance identity and administrative hardening baseline.' },
     adminUsers: { eyebrow: 'Administrative access', description: 'Create additional monitoring-role Admin UI and API users without storing their passwords.' },
     network: { eyebrow: 'Platform & connectivity', description: 'Set deployment targets, addressing, DNS, and time synchronization.' },
+    ha: { eyebrow: 'Shared virtual IP', description: 'Configure the native high-availability Group ID and IPv4 VIP for this UAG; deploy and verify the other nodes separately.' },
     services: { eyebrow: 'Publishing model', description: 'Choose which edge services this UAG should publish; unselected services remain optional and disabled.' },
     horizon: { eyebrow: 'Edge service', description: 'Publish Horizon securely through the UAG with client protocol endpoints.' },
     tunnel: { eyebrow: 'Workspace ONE edge service', description: 'Connect the UAG-hosted Tunnel gateway to Workspace ONE UEM for per-app VPN access.' },
     contentGateway: { eyebrow: 'Workspace ONE edge service', description: 'Configure standalone or shared Content Gateway access to managed content through Workspace ONE UEM.' },
+    seg: { eyebrow: 'Workspace ONE edge service', description: 'Configure a standalone Secure Email Gateway using your UEM Mobile Email Management configuration.' },
     wrp: { eyebrow: 'Application publishing', description: 'Add web reverse proxy instances for internal applications and portals.' },
     auth: { eyebrow: 'Identity & MFA', description: 'Configure the authentication providers selected by your published services.' },
     tls: { eyebrow: 'Transport security', description: 'Control appliance certificates and permitted TLS protocols.' },
@@ -90,7 +93,7 @@
     app.say(`Switched to the recommended UAG ${latestVersion.id} baseline`);
   }
 
-  const optionalSections: SectionId[] = ['horizon', 'tunnel', 'contentGateway', 'wrp', 'auth', 'monitoring', 'adminUsers'];
+  const optionalSections: SectionId[] = ['ha', 'horizon', 'tunnel', 'contentGateway', 'seg', 'wrp', 'auth', 'monitoring', 'adminUsers'];
 
   const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform);
 </script>
@@ -206,6 +209,7 @@
               <button
                 type="button"
                 class="environment-choice"
+                data-platform={p.id}
                 class:active={app.config.platform === p.id}
                 aria-pressed={app.config.platform === p.id}
                 disabled={!platformAvailable(p.id, app.config.version)}
@@ -229,6 +233,7 @@
       {#if (app.section === 'horizon' && app.config.values.horizon_enabled === true) ||
         (app.section === 'tunnel' && app.config.values.airwatch_enabled === true) ||
         (app.section === 'contentGateway' && app.config.values.contentGateway_enabled === true) ||
+        (app.section === 'seg' && app.config.values.seg_enabled === true) ||
         (app.section === 'wrp' && sectionSelected(app.config, 'wrp'))}
         <Topology />
       {/if}
@@ -242,8 +247,15 @@
           <span>Current section</span>
           <strong>{currentIssues.length ? `${currentIssues.length} finding${currentIssues.length === 1 ? '' : 's'} to review` : 'No findings in this section'}</strong>
         </div>
-        {#each groups as g (g.id)}<GroupCard group={g} {issues} />{/each}
-        {#each lists as l (l.id)}<ListEditor list={l} {issues} />{/each}
+        {#if app.section === 'ha' && app.config.platform === 'azure'}
+          <div class="notice">Native high availability is not supported on Azure. Existing HA values are retained but not emitted.</div>
+        {/if}
+        {#each groups as g (g.id)}
+          <GroupCard group={g} {issues} />
+          {#if g.id === 'oidc' && listEnabled(listDef('oidc'), app.config)}<ListEditor list={listDef('oidc')} {issues} />{/if}
+        {/each}
+        {#each lists.filter((list) => list.id !== 'jwt' && list.id !== 'jwtIssuers' && list.id !== 'oidc') as l (l.id)}<ListEditor list={l} {issues} />{/each}
+        {#if app.section === 'auth'}<JwtSettings {issues} />{/if}
       {/if}
       <LintPanel {issues} />
     </div>

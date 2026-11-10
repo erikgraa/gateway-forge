@@ -51,7 +51,7 @@ export function buildTopology(c: Config): Topology {
       v.pcoipEnabled === true ? 'PCoIP TCP+UDP 4172' : ''
     ].filter(Boolean) : [];
   const protocolLabel = horizonProtocols.join(' · ');
-  const hasPublishedService = role === 'outer' || role === 'inner' || v.horizon_enabled === true || v.contentGateway_enabled === true || wrp.length > 0;
+  const hasPublishedService = role === 'outer' || role === 'inner' || v.horizon_enabled === true || v.contentGateway_enabled === true || v.seg_enabled === true || wrp.length > 0;
   const nodes: TopologyNode[] = [];
   if (hasPublishedService) {
     nodes.push({
@@ -192,6 +192,12 @@ export function buildTopology(c: Config): Topology {
     edges.push({ from: 'content-gateway-client', to: 'uag', label: 'HTTPS 443 · managed content', kind: 'access' });
     edges.push({ from: 'uag', to: existingUem ? 'uem' : 'content-uem', label: 'API / AWCM configuration', kind: 'service' });
   }
+  if (v.seg_enabled === true) {
+    nodes.push({ id: 'seg-client', label: 'Secure Email Gateway clients', sub: String(v.seg_airwatchServerHostname || 'SEG hostname not set'), detail: 'Managed email access; verify mail-flow topology separately', kind: 'client', zone: 'untrusted' });
+    nodes.push({ id: 'seg-uem', label: 'SEG Workspace ONE UEM', sub: host(v.seg_apiServerUrl), detail: 'Mobile Email Management configuration', kind: 'identity', zone: 'internal' });
+    edges.push({ from: 'seg-client', to: 'uag', label: 'SEG managed email', kind: 'access' });
+    edges.push({ from: 'uag', to: 'seg-uem', label: 'UEM API configuration', kind: 'service' });
+  }
   c.syslog.forEach((item, i) => {
     nodes.push({
       id: `sys${i}`,
@@ -295,6 +301,13 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   if (adminSamlEnabled(c)) L.push('- **Administrator SAML:** default admin password authentication is disabled. Use the configured identity provider for Admin UI access.');
   L.push('- **Recovery baseline:** retain the validated INI in an approved secrets-managed system and test clean redeployment. Assess break-glass recovery, monitoring, password rotation, backup and compliance requirements.');
   L.push('- Reference: [Omnissa non-interactive deployment parameters](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters) and [Run PowerShell script to deploy](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy).');
+  if (v.ha_enabled === true) {
+    L.push('', '## High availability', '');
+    L.push(`- **Group ID:** ${v.ha_groupId || '(not set)'}. UAGs in the same HA group must use the same groupId (integer 1–255).`);
+    L.push(`- **Virtual IP address:** ${v.ha_virtualIPAddress || '(not set)'}. The Virtual IP Address used for High Availability. This IP should be in the same subnet as the eth0 interface.`);
+    L.push('- Reserve a unique, available IPv4 VIP and a Group ID unique to this group in the subnet. Forge does not verify address availability or infer DHCP subnets.');
+    L.push('- JSON uses `loadBalancerSettings` with `groupID`, `virtualIPAddress` and `loadBalancerMode: ONEARM`. Native HA is not supported on Azure. Deploy/configure nodes separately; topology, VIP ownership and failover require lab verification.');
+  }
   L.push('', '## Edge services', '');
   if (cascadeRole(v) === 'outer') L.push(`- **Cascade - outer UAG (DMZ 1)** reverse proxy → ${v.cascade_innerUrl || '(not set)'}`);
   if (cascadeRole(v) === 'inner') L.push('- **Cascade - inner UAG (DMZ 2)**: Horizon external URLs must point to the outer UAG');
@@ -310,15 +323,19 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     L.push(`- **Workspace ONE Content Gateway** (${shared ? 'shared [Airwatch]' : 'standalone [AirwatchContentGateway]'}) → ${shared ? v.airwatch_airwatchServerHostname || '(not set)' : v.contentGateway_airwatchServerHostname || '(not set)'}; UEM API ${shared ? v.airwatch_apiServerUrl || '(not set)' : v.contentGateway_apiServerUrl || '(not set)'}`);
   }
   for (const w of wrp) L.push(`- **Web reverse proxy \`${w.instanceId}\`** → ${w.proxyDestinationUrl} (auth: ${w.authMethods})`);
-  if (v.horizon_enabled !== true && v.airwatch_enabled !== true && v.contentGateway_enabled !== true && cascadeRole(v) !== 'outer' && wrp.length === 0) L.push('- none');
+  if (v.seg_enabled === true) L.push(`- **Secure Email Gateway** (standalone) → ${v.seg_apiServerUrl}; MEM configuration: ${v.seg_memConfigurationId}. Verify package credentials and real mail flow separately.`);
+  if (v.horizon_enabled !== true && v.airwatch_enabled !== true && v.contentGateway_enabled !== true && v.seg_enabled !== true && cascadeRole(v) !== 'outer' && wrp.length === 0) L.push('- none');
   L.push('', '## Additional admin and API users', '');
   for (const user of c.adminUsers) {
     L.push(`- ${user.name || '(name required)'} (${user.enabled === false ? 'disabled' : 'enabled'}; \`ROLE_MONITORING\`; pre-expired password: ${user.adminMonitoringPasswordPreExpired === false ? 'no' : 'yes'})`);
   }
   if (c.adminUsers.length === 0) L.push('- none');
-  L.push('', '## Authentication', '');
+  L.push('', '## Identity and access', '');
   L.push(v.radius_enabled === true ? `- RADIUS: ${v.radius_hostName}:${v.radius_authPort} (${v.radius_authType})${v.radius_enabledAux === true ? ` + secondary ${v.radius_hostName_2}` : ''}` : '- RADIUS: off');
   L.push(v.saml_enabled === true ? `- SAML IdP: ${v.saml_entityID}` : '- SAML: off');
+  for (const item of c.jwt) L.push(`- JWT consumer: ${item.name || '(name required)'}. Configure the consuming service separately; public key/CA file paths require INI deployment or external JSON materialization.`);
+  for (const item of c.jwtIssuers) L.push(`- JWT producer: ${item.name || '(name required)'}. Signing files/passwords remain on the deployment host; settings JSON alone is incomplete.`);
+  if (v.quiesceMode === true) L.push('- Quiesce mode requested in generated configuration. Monitor service sessions before taking the appliance offline; this builder does not change a running appliance.');
   L.push('', '## Firewall / ports to publish', '');
   const ports = new Set<string>(['TCP 443 (HTTPS / XML-API / tunnel)']);
   if (v.horizon_enabled === true && v.blastEnabled === true) ports.add('TCP+UDP 8443 (Blast)');

@@ -32,7 +32,7 @@ function loadDraft(): Config {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Config;
-      const merged = applyPatch(defaultConfig(), { version: parsed.version, platform: parsed.platform, values: parsed.values });
+      const merged = applyPatch(defaultConfig(), { version: parsed.version, platform: parsed.platform, values: parsed.values, oidc: parsed.oidc, jwt: parsed.jwt, jwtIssuers: parsed.jwtIssuers });
       if (typeof merged.values.sessionTimeout === 'number' && merged.values.sessionTimeout >= 60000) {
         merged.values.sessionTimeout /= 60000;
       }

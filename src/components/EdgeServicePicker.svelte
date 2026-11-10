@@ -4,9 +4,10 @@
 
   const services = [
     { id: 'horizon', icon: '🖥', title: 'Horizon', description: 'Connection Server, Blast, Tunnel, PCoIP, and double-DMZ cascade roles.' },
+    { id: 'wrp', icon: '🔀', title: 'Web reverse proxy', description: 'Publish internal web applications and portals with one or more instances.' },
     { id: 'tunnel', icon: '🚇', title: 'Workspace ONE Tunnel', description: 'Per-app and device traffic tunnel connected to Workspace ONE UEM.' },
     { id: 'contentGateway', icon: '▣', title: 'Workspace ONE Content Gateway', description: 'Managed content access through Workspace ONE UEM.' },
-    { id: 'wrp', icon: '🔀', title: 'Web reverse proxy', description: 'Publish internal web applications and portals with one or more instances.' }
+    { id: 'seg', icon: '✉', title: 'Secure Email Gateway', description: 'Standalone Mobile Email Management gateway configured through Workspace ONE UEM.' }
   ] as const;
 
   function selected(id: SelectableService): boolean {

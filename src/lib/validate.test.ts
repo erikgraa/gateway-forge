@@ -229,7 +229,9 @@ describe('config validation', () => {
   it('warns when no edge service is configured and suppresses it for each service type', () => {
     const warning = (config: ReturnType<typeof defaultConfig>) => validateConfig(config)
       .find((issue) => issue.message.startsWith('No edge service'));
-    expect(warning(defaultConfig())).toMatchObject({ level: 'warn', section: 'general' });
+    expect(warning(defaultConfig())).toMatchObject({ level: 'warn', section: 'services' });
+    expect(countBySection(validateConfig(defaultConfig())).services).toMatchObject({ error: 0, warn: 1 });
+    expect(warning(applyPatch(defaultConfig(), { values: { seg_enabled: true } }))).toBeUndefined();
     expect(warning(applyPatch(defaultConfig(), { values: { horizon_enabled: true } }))).toBeUndefined();
     expect(warning(applyPatch(defaultConfig(), { values: { airwatch_enabled: true, airwatch_tunnelGatewayEnabled: true } }))).toBeUndefined();
     expect(warning(applyPatch(defaultConfig(), { values: { contentGateway_enabled: true } }))).toBeUndefined();
