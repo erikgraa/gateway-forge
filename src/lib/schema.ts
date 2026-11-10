@@ -606,14 +606,14 @@ export const GROUPS: GroupDef[] = [
         platforms: vsphereHyperv,
         required: true,
         showIf: (v) => deploymentNicCount(v) >= 2,
-        placeholder: 'DMZ-Management',
+        placeholder: 'Management',
         help: 'Two NICs: NIC1 carries management and backend traffic. Three NICs: NIC1 is management-only; NIC2 is backend-only.'
       }),
       text('netBackendNetwork', 'Backend network (NIC2)', 'netBackendNetwork', {
         platforms: vsphereHyperv,
         required: true,
         showIf: (v) => deploymentNicCount(v) === 3,
-        placeholder: 'DMZ-Backend',
+        placeholder: 'Backend',
         help: 'The dedicated Backend interface is available only with threenic.'
       }),
       num('hv_vlan0', 'NIC0 Internet access VLAN', 'hv_vlan0', {
