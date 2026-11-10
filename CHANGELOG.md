@@ -10,6 +10,7 @@ First tagged Gateway Forge release. The previous package-only `1.0.0` value was 
 
 ### Added
 
+- Displayed the Gateway Forge version in the tool footer, sourced from package metadata and independent of the selected UAG release; added a README badge tracking the latest GitHub release.
 - Explicitly recorded Admin UI SAML authentication, Workspace ONE Content Gateway and Workspace ONE Tunnel as still untested, without extending confirmed Horizon or scoped Hyper-V deployment coverage.
 - Platform-specific vSphere `.ova` and Hyper-V `.vhdx` source image examples, with no seeded VMware source in fresh drafts and no rewriting of saved/imported paths. Documented operator-supplied named-adapter VLAN examples for one/two/three NICs while preserving generated deployment/identity safeguards.
 - Optional active-layout Hyper-V access VLAN fields (1–4094), saved in browser drafts and emitted as guarded post-deployment PowerShell without adding vendor INI/JSON keys. Adapter-role checks are based on read-only vendor-script inspection; live Hyper-V execution remains unverified.

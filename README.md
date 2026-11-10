@@ -4,6 +4,9 @@
 
 <h1 align="center">Gateway Forge</h1>
 <p align="center">Visual config builder for <strong>Omnissa Unified Access Gateway (UAG)</strong> - generates <code>uagdeploy</code> INI, settings JSON and PowerShell. 100% client-side.</p>
+<p align="center">
+  <a href="https://github.com/erikgraa/gateway-forge/releases/latest"><img src="https://img.shields.io/github/v/release/erikgraa/gateway-forge?label=version" alt="Latest Gateway Forge release" /></a>
+</p>
 
 ![Gateway Forge builder (dark)](docs/screenshots/builder-dark.png)
 
@@ -17,7 +20,7 @@ references, the project evidence labels, and the source-review policy.
 
 ### Gateway Forge releases
 
-Gateway Forge uses its own version, separate from the UAG schema target. **v0.8.0** is the first tagged pre-1.0 release; it replaces the previous package-only `1.0.0` value, which was not a published release. See the [changelog](CHANGELOG.md) for release notes. A builder release does not certify every generated deployment or service; the support and test status below records actual coverage. Container `nightly`/`latest` tags remain rolling builds, not versioned release images.
+Gateway Forge uses its own version, separate from the UAG schema target, and displays it in the tool footer from package metadata. **v0.8.0** is the first tagged pre-1.0 release; it replaces the previous package-only `1.0.0` value, which was not a published release. See the [changelog](CHANGELOG.md) for release notes. A builder release does not certify every generated deployment or service; the support and test status below records actual coverage. Container `nightly`/`latest` tags remain rolling builds, not versioned release images.
 
 ### Planned and investigative work
 

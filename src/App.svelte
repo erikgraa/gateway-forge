@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import packageInfo from '../package.json';
   import { app } from './lib/store.svelte';
   import { sectionSelected } from './lib/model';
   import { GROUPS, LISTS, SECTIONS, type SectionId } from './lib/schema';
@@ -251,7 +252,7 @@
     <strong>Gateway Forge is a community-driven, unofficial tool.</strong>
     It is <strong>not affiliated with, endorsed by, or supported by Omnissa</strong>. Omnissa, Unified Access Gateway, UAG and Horizon are trademarks of their respective owners. Always review generated configuration before deploying it, and refer to the <a href="https://docs.omnissa.com/" target="_blank" rel="noopener noreferrer">official Omnissa documentation</a>.
     <a href="https://github.com/erikgraa/gateway-forge" target="_blank" rel="noopener noreferrer">Source on GitHub</a> · MIT license
-  </footer>
+        <span>· Gateway Forge v{packageInfo.version}</span>  </footer>
 </div>
 
 {#if app.showImport}<ImportDialog />{/if}
