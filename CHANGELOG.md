@@ -6,6 +6,10 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 
 ### Added
 
+- Added guided vCenter target editing and accessible feedback for missing locator parts, incomplete usernames, and pasted protocols/paths, while retaining imported spelling and advanced locators ([#128](https://github.com/erikgraa/gateway-forge/pull/128), [#131](https://github.com/erikgraa/gateway-forge/pull/131)).
+- Added expandable explanations for hidden SSH/key-access, Horizon protocol, and NIC/static-IPv4 settings without discarding their saved values ([#131](https://github.com/erikgraa/gateway-forge/pull/131)).
+- Added static social-sharing metadata and a branded preview image, with rehosting and crawler-cache guidance ([#134](https://github.com/erikgraa/gateway-forge/pull/134)).
+- Documented operator-tested Horizon settings application on vSphere with UAG 2609 and OVF Tool 5.0; distinguished reported 5.1/9.1 regressions and untested platforms from verified results ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).
 - Added source-backed external IdP trusted CA rows (maximum nine), optional comma-separated URL thumbprints, and PEM-only SAML signing/encryption and dedicated IdP certificate inputs.
 - Added UAG 2609 administrator SAML access (`[adminSAMLSettings]`) with settings JSON import/export and IdP validation, plus separate management/Admin UI certificate paths (`[SSLCertAdmin]`).
 - Added Workspace ONE Content Gateway support, Tunnel row-based trusted CA paths, and additional Admin UI/API monitoring users with runtime-only password handling.
@@ -21,20 +25,27 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 
 ### Changed
 
+- Gave Templates a dedicated violet section accent and each template card a distinct, theme-aware accent with descriptive labels, preserving template behavior ([#132](https://github.com/erikgraa/gateway-forge/pull/132), [#133](https://github.com/erikgraa/gateway-forge/pull/133)).
+- Explained fully unattended vSphere prerequisites, credentialed UPN target ordering, plaintext target persistence, and the generated PowerShell wrapper's INI rewrite across UI and deployment documentation ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).
+- Expanded the roadmap with a deployment-time secret wrapper, functional deployment tests, and an investigative PowerCLI/API bootstrap alternative; these remain planned, not implemented ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).
 - Made TLS PEM/key and PFX inputs mutually exclusive, with explicit mode selection, imported-conflict validation, and deployment-time protected-PFX password guidance. Certificate file paths remain INI-only, with an explicit JSON-preview notice.
 - Split deployment and networking fields into separate Step 2 cards, replaced platform and recommended-release dropdowns with direct buttons, and renamed legacy release choices to “Other releases”.
 - Disabled Horizon, Blast and Horizon Tunnel on first load/reset; templates still opt in explicitly.
 - Show the topology only in enabled Horizon, Workspace ONE Tunnel and Web Reverse Proxy sections; clarify management-only NIC1 and backend-only NIC2 for three-NIC deployments.
 - Redesigned the UAG configuration workspace into a responsive layout with section navigation, live readiness and validation context, and persistent INI, JSON, PowerShell, and Docs previews.
 - Added a source-backed UAG 2609 deployment gap matrix covering implemented settings, NIC applicability, exclusions, and uncertain keys.
-- Moved `uagdeploy` runtime switches into the PowerShell output panel and added interactive or environment-backed headless deployment modes.
-- Added platform-aware VM-name guidance and corrected root/Admin UI password guidance: omitted parameters trigger the official deployment scripts' prompts; headless mode requires both passwords.
+- Moved `uagdeploy` runtime switches into the PowerShell output panel and added interactive or environment-password deployment modes; supplying root/Admin UI passwords alone does not guarantee unattended execution.
+- Added platform-aware VM-name guidance and explained separate root/Admin UI password rules, the Admin UI FIPS minimum, and administrator SAML's effect on password authentication. Omitted password parameters trigger the official deployment scripts' prompts ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).
 - Validated deployment image formats per platform, retained vSphere `.ova` local/URL input, and restricted Hyper-V source images to local `.vhdx` paths.
 - Kept Blast allowed Host header values comma-separated in INI and arrays in settings JSON while providing a validated add/remove row editor.
 - Expanded UAG 2609 Horizon coverage and documented where sample, runtime-only, unsupported, or uncertain settings differ from the published schema.
 
 ### Fixed
 
+- Omitted exact default Horizon `authMethods=passthrough` from INI so appliance defaults can apply; placed explicit non-default methods first and restored passthrough when importing a Horizon section without the key. JSON and saved selections remain unchanged ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).
+- Passed the configured CEIP choice explicitly as the named `-ceipEnabled 'yes'`/`'no'` runtime argument instead of a hardcoded positional value ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).
+- Flagged duplicate DNS/NTP servers and regular/fallback NTP overlap with row-specific errors, without rewriting stored values or restricting reuse across DNS and NTP ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).
+- Required an operator-provided syslog server CA PEM path for TLS and emitted the configured Admin UI minimum password length explicitly, including its default ([#136](https://github.com/erikgraa/gateway-forge/pull/136)).
 - Unified deployment command generation so every PowerShell variant explicitly passes `-iniFile`, including Azure and Nutanix; retained named INI arguments across both OpenShift preparation and credential flows.
 - Tightened NIC network requirements and topology gating across one-, two-, and three-NIC deployments.
 - Removed duplicate Nutanix/OpenShift schema groups that prevented Network & deploy from rendering after navigating away from another section.
