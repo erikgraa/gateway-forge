@@ -12,6 +12,7 @@
   import GroupCard from './components/GroupCard.svelte';
   import ListEditor from './components/ListEditor.svelte';
   import OutputPanel from './components/OutputPanel.svelte';
+  import OutputSplitter from './components/OutputSplitter.svelte';
   import ImportDialog from './components/ImportDialog.svelte';
   import CommandPalette from './components/CommandPalette.svelte';
   import Templates from './components/Templates.svelte';
@@ -47,6 +48,7 @@
 
   let exportOpen = $state(false);
   let outputCollapsed = $state(false);
+  let layout = $state<HTMLElement>();
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
   $effect(() => {
@@ -134,7 +136,7 @@
     </div>
   </header>
 
-  <main class="layout" class:output-collapsed={outputCollapsed}>
+  <main class="layout" class:output-collapsed={outputCollapsed} bind:this={layout}>
     <nav class="side" aria-label="Configuration sections">
       <div class="nav-heading"><span>Setup</span><small>{SECTIONS.filter((s) => s.id !== 'templates' && !counts[s.id].error).length}/{SECTIONS.length - 1} sections clear</small></div>
       <div class="nav-list">
@@ -246,6 +248,7 @@
       <LintPanel {issues} />
     </div>
 
+    <OutputSplitter {layout} collapsed={outputCollapsed} />
     <OutputPanel bind:collapsed={outputCollapsed} />
   </main>
 

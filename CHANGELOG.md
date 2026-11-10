@@ -6,10 +6,12 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 
 ### Added
 
+- A draggable desktop divider between the form and configuration preview, with keyboard resizing, bounded widths, a locally remembered preference and double-click reset. Collapse and narrow-screen stacked layouts are preserved.
 - An accessible output-pane collapse/expand control: a desktop side tab or compact bar on narrower layouts, keeping the configuration, selected artifact and mounted preview intact.
 
 ### Changed
 
+- Made INI, JSON, PowerShell and Docs output tabs more prominent with distinct icons, larger labeled buttons, a stronger selected state and keyboard arrow/Home/End navigation. Tabs wrap on narrow screens without overlapping Copy; generated artifacts are unchanged.
 - Gave the desktop output preview more width while retaining its collapse control and horizontal scrolling for long commands and configuration lines.
 - Split PowerShell deployment/password guidance into short comment lines with spacing between topics. Executable commands and embedded configuration remain unchanged; the formatted comments also appear in copied/downloaded scripts.
 
