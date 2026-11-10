@@ -6,6 +6,7 @@ import { ADMIN_PASSWORD_GUIDANCE, adminSamlEnabled, MISSING_PASSWORD_WARNING, ru
 import { VCENTER_CREDENTIAL_TARGET_EXAMPLE, VCENTER_INLINE_PASSWORD_WARNING, OVF_TOOL_VERSION_GUIDANCE } from './vcenterTarget';
 import type { Issue } from './validate';
 import { platformDef } from './versions';
+import { vmReplacementWarning } from './deployment-safety';
 
 export interface TopologyNode {
   id: string;
@@ -262,6 +263,8 @@ export function generateDocs(c: Config, issues: Issue[]): string {
   if (v.dns) L.push(`- **DNS:** ${v.dns}`);
   if (v.ntpServers) L.push(`- **NTP:** ${v.ntpServers}`);
   L.push('', '## Deployment', '');
+  const replacementWarning = vmReplacementWarning(c.platform);
+  if (replacementWarning) L.push(`**WARNING:** ${replacementWarning}`, '');
   L.push(`- Run: \`${deploymentCommand(c, runtimeSwitches(c))}\``);
   if (c.platform === 'nutanix') {
     L.push('- Upload the UAG QCOW2 image to Prism Central; the cluster and subnet names referenced by the INI must already exist.');

@@ -3,6 +3,7 @@ import { GROUPS } from './schema';
 import { deploymentCommand, generateBootableVolumeManifest, generateIni, generateJson, iniFileName, jsonFileName, manifestFileName, platformScript, type SecretMode } from './generate';
 import { platformDef } from './versions';
 import { sshPublicKeys } from './ssh';
+import { vmReplacementWarning } from './deployment-safety';
 import { hypervVlanDeployment } from './hyperv-vlan';
 import { VCENTER_CREDENTIAL_TARGET_EXAMPLE, VCENTER_INLINE_PASSWORD_WARNING, OVF_TOOL_VERSION_GUIDANCE } from './vcenterTarget';
 
@@ -95,8 +96,10 @@ export function generatePowerShell(
   const sw = runtimeSwitches(c) + ceipSwitch(c);
   const invocation = deploymentCommand(c);
   const effectiveDeploymentMode = c.platform === 'nutanix' ? 'interactive' : deploymentMode;
+  const replacementWarning = vmReplacementWarning(c.platform);
   const out: string[] = [
     `# Gateway Forge - UAG ${c.version} on ${def.label}`,
+    ...(replacementWarning ? [...commentLines(`WARNING: ${replacementWarning}`), ''] : []),
     `# Prerequisites: extract the uagdeploy scripts from the Omnissa Customer Connect download`,
     `# (${script}${c.platform === 'openshift' ? ' + uagdeploy.psm1' : ''})${c.platform === 'vsphere' ? ' and install OVF Tool 4.4.3 or later' : ''}.`,
     ...(c.platform === 'openshift' ? ['# Run on Windows with PowerShell 5 or 7; install oc and authenticate to a cluster with the required RBAC.'] : []),

@@ -1610,7 +1610,7 @@ export const GROUPS: GroupDef[] = [
     iniSection: 'OidcProviderSetting',
     enabledBy: 'oidc_enabled',
     since: '2506',
-    help: 'First OIDC provider, written to [OidcProviderSetting]. Add further providers below; each needs a unique configuration ID. Horizon references one provider by its configuration ID. Client secrets are requested by the deployment script, not stored here. INI only; not emitted to JSON.',
+    help: 'Configure OIDC providers together. Each needs a unique configuration ID; Horizon references one provider by that ID. Client secrets are requested by the deployment script, not stored here. INI only; not emitted to JSON.',
     fields: [
       text('oidc_oidcConfigurationId', 'Configuration ID', 'oidcConfigurationId', { required: true, placeholder: 'entra-horizon', json: false }),
       text('oidc_oidcConfigUrl', 'Discovery (config) URL', 'oidcConfigUrl', { rule: 'httpsUrl', required: true, wide: true, placeholder: 'https://login.example.com/.well-known/openid-configuration', json: false }),
@@ -1797,9 +1797,9 @@ const jwtUrlFields = (): Field[] => [
 
 export const LISTS: ListDef[] = [
   {
-    id: 'oidc', title: 'Additional OpenID Connect providers', itemLabel: 'OIDC provider', section: 'auth', target: 'oidc',
+    id: 'oidc', title: 'OpenID Connect providers', itemLabel: 'OIDC provider', section: 'auth', target: 'oidc',
     iniSection: (n) => `OidcProviderSetting${n}`, max: 99, enabledBy: 'oidc_enabled', since: '2506',
-    help: 'Additional providers use [OidcProviderSetting1] through [OidcProviderSetting99]. Configuration IDs must be unique across the first provider and these entries. Removing an entry does not change Horizon’s selected ID. Disabled or unavailable providers are retained but not emitted.',
+    help: 'All providers share this enablement. INI starts with [OidcProviderSetting], then [OidcProviderSetting1] through [OidcProviderSetting99], as read by the deployment module. Card numbers are display order, not INI suffixes. Each configuration ID must be unique. Removing a provider does not change Horizon’s selected ID. Disabled or unavailable values are retained but not emitted. Client secrets are requested by the deployment script, not stored here. INI only; not emitted to JSON.',
     fields: GROUPS.find((group) => group.id === 'oidc')!.fields.map((field) => ({ ...field, id: field.key }))
   },
   {
