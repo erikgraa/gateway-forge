@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fieldHelp, type Field } from '../lib/schema';
+  import { fieldHelp, fieldLabel, type Field } from '../lib/schema';
   import type { Platform } from '../lib/versions';
 
   let {
@@ -13,6 +13,7 @@
   } = $props();
 
   const help = $derived(fieldHelp(field, platform));
+  const label = $derived(fieldLabel(field, platform));
   const tooltipId = $derived(`field-details-${uid.replace(/[^a-zA-Z0-9_-]/g, '-')}`);
   const jsonKey = $derived(field.json === false ? 'Not exported' : field.json ?? field.key);
   function positionTooltip(event: Event) {
@@ -35,13 +36,13 @@
 </script>
 
 <span class="field-details">
-  <button type="button" class="field-details-trigger" aria-label={`More information about ${field.label}`} aria-describedby={tooltipId} onpointerenter={positionTooltip} onfocus={positionTooltip} onclick={positionTooltip}>ⓘ</button>
+  <button type="button" class="field-details-trigger" aria-label={`More information about ${label}`} aria-describedby={tooltipId} onpointerenter={positionTooltip} onfocus={positionTooltip} onclick={positionTooltip}>ⓘ</button>
   <span
     class="field-details-tooltip"
     id={tooltipId}
     role="tooltip"
   >
-    <strong>{field.label}</strong>
+    <strong>{label}</strong>
     <p>{help ?? 'Review this setting before deployment; unsupported or unverified values are not inferred.'}</p>
     <dl>
       <div><dt>INI key</dt><dd><code>{field.ini === false ? 'Not exported' : field.key}</code></dd></div>

@@ -254,7 +254,7 @@ export function checkRule(rule: Rule, raw: string, platform: Platform = 'vsphere
 function checkField(f: Field, values: Values, platform: Platform): string | null {
   const v = f.certificateInput ? certificateMode(values, f.id, f.certificateInput) : values[f.id];
   const required = typeof f.required === 'function' ? f.required(values) : f.required;
-  const label = displayFieldLabel(f, values);
+  const label = displayFieldLabel(f, values, platform);
   const emptyRequiredPemPath = required && f.rule === 'pemPath' && !String(v ?? '').trim();
   if (isEmpty(v) || emptyRequiredPemPath) return required ? `${label} is required` : null;
   if (f.type === 'number') {

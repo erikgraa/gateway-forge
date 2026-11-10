@@ -27,6 +27,8 @@
 
   const rendered = $derived(render(app.config, app.tab, app.secretMode, app.deploymentMode));
   const html = $derived(highlight(rendered.text, app.tab));
+  const numbered = $derived(app.tab === 'ini' || app.tab === 'json' || app.tab === 'ps');
+  const lineNumbers = $derived(numbered ? rendered.text.split('\n').map((_, index) => index + 1) : []);
   const hasSecrets = $derived(app.secretMode === 'include');
   const latestVersion = VERSIONS.find((v) => v.latest)!;
   const olderVersion = $derived(app.config.version !== latestVersion.id);
@@ -124,7 +126,7 @@
   {/if}
   {#if hasSecrets}<div class="warnbox">Secrets are included in plain text. Do not commit or share this output.</div>{/if}
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-  <pre class="code" tabindex="0">{@html html}</pre>
+  <pre class="code" class:numbered tabindex="0">{#if numbered}<span class="line-numbers" aria-hidden="true" style:--line-digits={String(lineNumbers.length).length}>{#each lineNumbers as line}<span data-line={line}></span>{/each}</span>{/if}<code>{@html html}</code></pre>
   <div class="out-foot">
     <label class="row" for="secret-mode">Secrets:
       <select id="secret-mode" class="t" bind:value={app.secretMode}>

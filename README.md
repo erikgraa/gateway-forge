@@ -15,6 +15,10 @@ See the **[project roadmap](ROADMAP.md)** for planned work and ongoing prioritie
 See **[SOURCES.md](SOURCES.md)** for the authoritative product and tool
 references, the project evidence labels, and the source-review policy.
 
+### Gateway Forge releases
+
+Gateway Forge uses its own version, separate from the UAG schema target. **v0.8.0** is the first tagged pre-1.0 release; it replaces the previous package-only `1.0.0` value, which was not a published release. See the [changelog](CHANGELOG.md) for release notes. A builder release does not certify every generated deployment or service; the support and test status below records actual coverage. Container `nightly`/`latest` tags remain rolling builds, not versioned release images.
+
 ### Planned and investigative work
 
 The [roadmap](ROADMAP.md) includes broader prerequisite-aware visibility for settings, helpers, topology and sections; planned `[WorkspaceOneIntelligenceSettings1]` support after schema verification; extended UAG 2609 certificate validation; and an **investigation** into native vSphere PowerShell deployment without `ovftool`. `Import-VApp` is the intended PowerCLI candidate, but that deployment path still needs feasibility validation and is not supported today. These are roadmap items, not completed features.
@@ -55,19 +59,44 @@ Per-version field availability (`since` in the schema) was derived by diffing th
 
 The completed [UAG 2609 Horizon schema audit](docs/horizon-2609-schema-audit.md) records every documented Horizon row, the schema decision, exact type/default/version gate where known, and explicit exclusions or uncertainty. It was audited on **2026-11-08**.
 
-## 🧪 Deployment test status
+## 🧪 Deployment support and test status
+
+**Hyper-V builder support:** host filesystem storage paths, local `.vhdx` images and optional per-NIC access VLAN output are implemented for one-, two- and three-NIC layouts. VLANs use guarded post-deployment PowerShell; they are not vendor INI/settings JSON settings. This is configuration-generation support, not full live-platform certification. Remaining package/version coverage, live VLAN validation and service verification are tracked in [full Hyper-V support #139](https://github.com/erikgraa/gateway-forge/issues/139).
 
 | Platform / service | UAG / deployment tooling | Evidence and scope |
 | --- | --- | --- |
 | vSphere / Horizon | UAG 2609 / OVF Tool 5.0 | Operator-tested INI deployment and Horizon settings application: default passthrough with `authMethods` omitted, and explicit `certificate-auth` with X.509 configured. Credentialed target syntax was confirmed with OVF Tool 5.0. |
+| Hyper-V / service not specified | Release and tooling details not supplied | Operator reports settings applied and manually assigned Internet, Management and Backend VLANs to three VM adapters sharing one virtual switch with a trunk-capable uplink. The exact settings list and vendor-created adapter identities were not supplied; agent-run Hyper-V deployments and live validation of generated VLAN PowerShell remain absent. |
 
-The operator reported regressions with OVF Tool **5.1 and 9.1**. Their causes and affected configurations have not been independently verified; do not infer compatibility merely from a newer version number. This records deployment/settings evidence, not certification of every Horizon authentication workflow or end-to-end client session. Other platform/service combinations are not established as appliance-tested by this evidence.
+**Still untested:** Admin UI SAML authentication, Workspace ONE Content Gateway, and Workspace ONE Tunnel. Configuration generation and automated tests do not establish live deployment or service coverage for these features; the Horizon and scoped Hyper-V reports above do not cover them.
+
+The operator reported regressions with OVF Tool **5.1 and 9.1**. Their causes and affected configurations have not been independently verified; do not infer compatibility merely from a newer version number. This records deployment/settings evidence, not certification of every Horizon authentication workflow or end-to-end client session. The Hyper-V report above is separate, scoped operator evidence, not platform-wide certification. Other platform/service combinations remain unverified unless separately recorded.
+
+### Hyper-V storage and access VLANs
+
+Fresh drafts and templates leave `ds` empty: Hyper-V shows the **VM storage path** example `C:\ClusterStorage\Volume1\uag-name` rather than a seeded VMware datastore. The example is a placeholder, not an exported value. Existing saved/imported/custom values remain untouched, including `vsanDatastore`; clear an old sample manually if it is not your actual storage path.
+
+Source image examples are platform-specific: `C:\images\euc-unified-access-gateway-26.09.0.0-[..].ova` for vSphere and `C:\images\euc-unified-access-gateway-26.09.0.0-[..].vhdx` for Hyper-V. Replace `[..]` with the actual build text in your downloaded filename. Fresh drafts/templates leave the source empty; existing imported or saved paths are not rewritten when switching platforms.
+
+Optional **access VLAN** fields accept integer IDs **1–4094** for the active NIC layout. They are saved in the browser draft and emitted only as guarded post-deployment PowerShell, never as fabricated vendor INI/settings JSON keys. A newly imported configuration without an existing draft does not recover VLANs from those vendor files. Blank fields leave adapters unchanged; hidden VLAN values are retained but not applied.
+
+The generated commands use named vendor-created management/backend adapters and the unique remaining Internet adapter, never enumeration order or vSwitch names. They require an explicit vendor success message, a new running VM identity, the expected adapter count and unambiguous roles before changing anything. The vendor script deletes/recreates a same-name VM. Changed package conventions fail closed. A shared external switch/uplink must carry the selected VLANs; Hyper-V applies host-side access tagging, while separate access-network switches or a single common network are alternatives.
+
+For manual deployment follow-up, these operator-supplied examples use VM `uag` and adapter names: one NIC uses the first command; two NICs use the first two; three NICs use all three. Confirm the VM and adapter names before running them. Unlike the generated output, these standalone commands do not check deployment success or adapter identities.
+
+```powershell
+Set-VMNetworkAdapterVlan -VMName "uag" -Access -VMNetworkAdapterName "Network Adapter" -VlanId 10
+Set-VMNetworkAdapterVlan -VMName "uag" -Access -VMNetworkAdapterName "Management Network Adapter" -VlanId 20
+Set-VMNetworkAdapterVlan -VMName "uag" -Access -VMNetworkAdapterName "Backend Network Adapter" -VlanId 30
+```
+
+Generated VLAN PowerShell has **not been tested on a live Hyper-V host**. Vendor deployment must finish before VLAN commands run; DHCP may therefore require a reachable initial/native network. A VLAN cmdlet failure stops subsequent changes but does not roll back earlier changes.
 
 ## 🧭 Using it
 
 1. Pick the **UAG version** and **platform** (vSphere, Hyper-V, Azure, Nutanix AHV or OpenShift Virtualization) in the header - or start from a **template**, or **Import** an existing INI/JSON. Nutanix output is available from UAG 2606; OpenShift output is UAG 2609 and Limited Availability.
-2. Fill in the sections. Required fields and lint findings are flagged inline and in the *Validation & lint* panel.
-3. Take the result from the right-hand panel: **INI**, **JSON**, **PowerShell** or **Docs**; *Copy* or *Download* (also in **Export**).
+2. Fill in the sections. Required fields and lint findings are flagged inline and in the *Validation & lint* panel. For **Hyper-V**, **VM storage path** is a filesystem path on the deployment host (for example `C:\ClusterStorage\Volume1\uag-name`), exported under the unchanged `ds` INI key.
+3. Take the result from the right-hand panel: **INI**, **JSON**, **PowerShell** or **Docs**; *Copy* or *Download* (also in **Export**). INI, JSON and PowerShell previews show a muted line-number gutter aligned to logical lines, with horizontal scrolling for long lines. Line numbers are display-only: selection, copying and downloads retain the original artifact text.
 4. Deploy with the command shown for the selected platform. Every variant explicitly passes `-iniFile <config-file>`: vSphere `.\uagdeploy.ps1`, Hyper-V `.\uagdeployhv.ps1`, Azure `.\uagdeployaz.ps1`, Nutanix `.\uagdeployntnx.ps1`, and OpenShift `.\uagdeployopenshift.ps1` after preparing the bootable volume. Credential handling remains platform-specific.
 
    In the PowerShell tab, **Interactive** lets the vendor script prompt for root/Admin UI passwords; **Environment passwords** supplies them from `UAG_ROOT_PASSWORD` / `UAG_ADMIN_PASSWORD` on vSphere, Hyper-V, Azure and OpenShift. Nutanix retains the interactive root/Admin UI flow. **Fully unattended vSphere deployment is possible** with root/Admin UI passwords and CEIP supplied, credentials included in the vCenter target, appliance-default certificates or an unencrypted PEM/key pair instead of password-protected PFX, and no other missing feature credentials, validation retries or OVF Tool confirmations. Selecting Environment passwords alone does not satisfy those prerequisites. No new credential collection or secret handling is introduced.

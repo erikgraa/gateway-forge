@@ -1,9 +1,37 @@
 import { render } from 'svelte/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyPatch, defaultConfig } from '../lib/model';
+import { highlight, render as renderArtifact } from '../lib/render';
 
 describe('OutputPanel', () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it.each(['ini', 'json', 'ps', 'docs', 'manifest'] as const)('numbers only code previews without altering %s output', async (tab) => {
+    vi.stubGlobal('document', { documentElement: { dataset: {} } });
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => undefined, removeItem: () => undefined });
+    const { app } = await import('../lib/store.svelte');
+    const previous = { config: app.config, tab: app.tab };
+    try {
+      app.config = applyPatch(defaultConfig(), { platform: tab === 'manifest' ? 'openshift' : 'vsphere' });
+      app.tab = tab;
+      const artifact = renderArtifact(app.config, tab, app.secretMode, app.deploymentMode);
+      const { default: OutputPanel } = await import('./OutputPanel.svelte');
+      const { body } = render(OutputPanel);
+      const numbered = tab === 'ini' || tab === 'json' || tab === 'ps';
+      const numbers = [...body.matchAll(/data-line="(\d+)"/g)].map((match) => Number(match[1]));
+      expect(numbers).toEqual(numbered ? artifact.text.split('\n').map((_, index) => index + 1) : []);
+      if (numbered) {
+        expect(body).toContain('aria-hidden="true"');
+        expect(body).toMatch(/<span data-line="1"><\/span>/);
+      }
+      const code = body.match(/<pre\b[^>]*>[\s\S]*?<code>([\s\S]*?)<\/code><\/pre>/)?.[1];
+      expect(code?.replace(/<!--[\s\S]*?-->/g, '')).toBe(highlight(artifact.text, tab));
+      expect(renderArtifact(app.config, tab, app.secretMode, app.deploymentMode)).toEqual(artifact);
+    } finally {
+      app.config = previous.config;
+      app.tab = previous.tab;
+    }
+  });
 
   it('explains native deployment password prompts when parameters are omitted', async () => {
     vi.stubGlobal('document', { documentElement: { dataset: {} } });
