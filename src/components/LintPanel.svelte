@@ -12,7 +12,7 @@
   const icon = { error: '✖', warn: '⚠', info: 'ℹ' } as const;
 </script>
 
-<details class="card collapsible-card" open aria-label="Validation and best-practice lint">
+<details class="card collapsible-card" open={issues.some((issue) => issue.level === 'error')} aria-label="Validation and best-practice lint">
   <summary class="card-head">
     <h3>Validation &amp; lint</h3>
     <span class="card-summary-actions">

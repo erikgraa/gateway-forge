@@ -1,6 +1,5 @@
 <script lang="ts">
   import { olderDeploymentWarning, type Platform } from '../lib/versions';
-  import { vmReplacementWarning } from '../lib/deployment-safety';
 
   let {
     platform,
@@ -16,7 +15,6 @@
 
   const usingLatestVersion = $derived(version === latestVersionId);
   const deploymentWarning = $derived(olderDeploymentWarning(version, latestVersionId));
-  const replacementWarning = $derived(vmReplacementWarning(platform));
 </script>
 
 <aside class="form-notice-stack" aria-label="Release and platform advisories">
@@ -48,17 +46,6 @@
       <button class="small" onclick={onUseLatest}>Use UAG {latestVersionId}</button>
     {/if}
   </section>
-
-  {#if replacementWarning}
-    <section class="form-notice platform-advisory" aria-labelledby="vm-replacement-advisory-title">
-      <span class="platform-advisory-icon" aria-hidden="true">!</span>
-      <div class="form-notice-copy">
-        <strong id="vm-replacement-advisory-title">Warning: existing VM will be deleted and recreated</strong>
-        <p>{replacementWarning}</p>
-        <p>Gateway Forge generates files only; it does not check the target for existing VMs.</p>
-      </div>
-    </section>
-  {/if}
 
   {#if platform === 'openshift'}
     <section class="form-notice platform-advisory" aria-labelledby="openshift-advisory-title">

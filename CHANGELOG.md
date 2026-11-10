@@ -4,6 +4,19 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 
 ## Unreleased
 
+## 0.8.7 - 2026-11-10
+
+### Changed
+
+- Simplified workspace hierarchy: compact target summary with expandable release/platform controls and advice, visible older-release/platform caution markers, contextual section descriptions and less repetitive readiness/navigation text.
+- Moved destructive-deployment advice beside artifact Copy and into Export. Expandable details retain all source-backed platform risks, including Azure OS-disk/NIC deletion; generated PowerShell and runbook warnings remain unchanged.
+- Collapsed runtime guidance and nonblocking lint by default; blocking validation findings remain expanded. All controls, configuration values, gates, import/export semantics and saved-draft compatibility are preserved.
+- Refreshed README guidance and screenshots for the quieter workspace. Targeted desktop/tablet/phone checks do not establish full mobile workflow or live appliance coverage.
+
+### Fixed
+
+- Kept the desktop configuration preview in its assigned grid column when the divider is hidden, so Collapse leaves a clickable Output control and reopening no longer requires a refresh.
+
 ## 0.8.6 - 2026-11-10
 
 ### Changed
