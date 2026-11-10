@@ -32,6 +32,7 @@ const common: Values = {
   ceipEnabled: false
 };
 
+// The operator must supply the real server CA path; no trust material is invented for templates.
 const syslogTls = { sysLogType: 'TLS', syslogCategory: 'ALL', syslogFormat: 'TEXT', hostname: 'syslog.corp.local', port: 6514, syslogSettingName: 'siem' };
 
 function fresh(base: Config, values: Values, extra: Partial<Config> = {}): Config {

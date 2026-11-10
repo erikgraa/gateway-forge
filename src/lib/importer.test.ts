@@ -72,6 +72,48 @@ describe('INI parsing', () => {
 });
 
 describe('INI import', () => {
+  it('round-trips omitted Horizon passthrough over an existing non-default selection', () => {
+    const c = applyPatch(TEMPLATES.find((t) => t.id === 'horizon-radius')!.build(defaultConfig()), {
+      values: { authMethods: 'passthrough' }
+    });
+    const ini = generateIni(c);
+    const base = applyPatch(c, { values: { authMethods: 'certificate-auth' } });
+    const original = structuredClone(base);
+    const result = importIni(ini, base);
+    expect(result.config.values.authMethods).toBe('passthrough');
+    expect(result.config.values.horizon_enabled).toBe(true);
+    expect(generateIni(result.config)).toBe(ini);
+    expect(generateJsonObject(result.config).edgeServiceSettingsList).toEqual({ edgeServiceSettingsList: expect.arrayContaining([
+      expect.objectContaining({ identifier: 'VIEW', authMethods: 'passthrough' })
+    ]) });
+    expect(base).toEqual(original);
+  });
+
+  it('defaults omitted authentication in a case-insensitive Horizon section to passthrough', () => {
+    const base = applyPatch(defaultConfig(), { values: { authMethods: 'radius-auth' } });
+    const result = importIni('[hOrIzOn]\nproxyDestinationUrl=https://broker.example.com', base);
+    expect(result.config.values.authMethods).toBe('passthrough');
+    expect(importIni('[Horizon]\nproxyDestinationUrl=https://broker.example.com').config.values.authMethods).toBe('passthrough');
+  });
+
+  it.each(['certificate-auth', 'certificate-auth-and-passthrough', 'radius-auth', 'passthrough', 'PASSTHROUGH', ''])('preserves explicit imported authentication %s', (authMethods) => {
+    const base = applyPatch(defaultConfig(), { values: { authMethods: 'saml-auth' } });
+    const result = importIni(`[Horizon]\nproxyDestinationUrl=https://broker.example.com\nAUTHMETHODS=${authMethods}`, base);
+    expect(result.config.values.authMethods).toBe(authMethods);
+  });
+
+  it('keeps explicit authentication when Horizon is split across repeated sections', () => {
+    const result = importIni('[Horizon]\nauthMethods=certificate-auth\n[Horizon]\nproxyDestinationUrl=https://broker.example.com');
+    expect(result.config.values.authMethods).toBe('certificate-auth');
+  });
+
+  it('does not reset the saved authentication selection when importing INI without Horizon', () => {
+    const base = applyPatch(defaultConfig(), { values: { authMethods: 'certificate-auth' } });
+    const result = importIni('[General]\nname=uag-example', base);
+    expect(result.config.values.horizon_enabled).toBe(false);
+    expect(result.config.values.authMethods).toBe('certificate-auth');
+  });
+
   it('imports vendor session timeout milliseconds as minutes', () => {
     const result = importIni('[General]\nsessionTimeout=2700000');
     expect(result.config.values.sessionTimeout).toBe(45);

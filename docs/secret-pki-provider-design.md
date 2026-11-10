@@ -37,7 +37,7 @@ The static registry is not a discovery or autoload mechanism. A provider is regi
 | Material | Default draft/export behavior | Preferred future provider flow |
 | --- | --- | --- |
 | RADIUS/SNMP/shared secrets | Empty in `localStorage`; redacted or omitted in generated output | Store an opaque reference. Resolve only at the final user-confirmed deployment step. |
-| Root/admin deployment passwords | Never collected or exported as values by Gateway Forge | Interactive deployment lets the official script prompt when parameters are omitted; headless deployment reads the process environment or uses an approved deployment-host credential process. |
+| Root/admin deployment passwords | Never collected or exported as values by Gateway Forge | Interactive mode lets the official script prompt when parameters are omitted; environment-password mode reads the process environment. Other vendor-script prompts, including the vCenter password, may remain; this is not guaranteed unattended execution. |
 | Other credentials | Classified as secret before use; empty in drafts and never inferred from provider metadata | Resolve through the same opaque-reference and short-lived-material policy. |
 | Public certificates and CA chains | Current fields may contain file paths; content is not stored | Store a non-secret reference or a deployment-host path. Public bytes may be included in an artifact only after the user selects that export policy. |
 | Private keys | Current fields contain file paths only; key content is forbidden in drafts | Prefer non-exportable provider keys and deployment-host retrieval. If export is unavoidable, require per-operation confirmation and immediate cleanup. |

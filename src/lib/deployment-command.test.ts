@@ -20,12 +20,29 @@ describe('named deployment INI arguments', () => {
       if (mode === 'interactive' || platform.id === 'nutanix') {
         expect(invocation).not.toMatch(/-rootPwd|-adminPwd|UAG_ROOT_PASSWORD|UAG_ADMIN_PASSWORD/);
       } else if (platform.id === 'azure') {
-        expect(invocation).toBe(`${expected} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD no`);
+        expect(invocation).toBe(`${expected} $env:UAG_ROOT_PASSWORD $env:UAG_ADMIN_PASSWORD -ceipEnabled 'no'`);
       } else {
         expect(invocation).toContain('-rootPwd $env:UAG_ROOT_PASSWORD -adminPwd $env:UAG_ADMIN_PASSWORD');
       }
     });
   }
+
+  it.each(PLATFORMS.map((platform) => platform.id))('includes vSphere-only unattended and tested-tool guidance for %s without changing commands', (platform) => {
+    const c = applyPatch(defaultConfig(), { platform });
+    for (const mode of ['interactive', 'headless'] as const) {
+      const ps = generatePowerShell(c, 'placeholder', mode);
+      expect(ps.includes('# Fully unattended vSphere:')).toBe(platform === 'vsphere');
+      expect(ps.includes('Horizon on vSphere is operator-tested with OVF Tool 5.0.')).toBe(platform === 'vsphere');
+      if (platform === 'vsphere') {
+        expect(ps).toContain('vi://uagdeploy@vsphere.local:PASSWORD@vcenter.example.com/DC1/host/Cluster1');
+        expect(ps).toContain('without password redaction, regardless of secret mode');
+        expect(ps).toContain('Regressions were reported with 5.1 and 9.1');
+        expect(ps).toContain('no validation retries or OVF Tool confirmations requiring input');
+      }
+      expect(ps).not.toMatch(/-noSSLVerify|-disableVerification/);
+      expect(c.values.target).not.toContain(':PASSWORD@');
+    }
+  });
 
   it.each(['url', 'console'] as const)('keeps -iniFile in both OpenShift preparation flows (%s)', (source) => {
     for (const token of ['', 'example-token']) {

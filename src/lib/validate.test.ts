@@ -100,7 +100,7 @@ describe('config validation', () => {
     expect(messages(applyPatch(defaultConfig(), { values: { horizon_enabled: true } })).join('\n')).toMatch(/error:Connection Server URL is required/);
   });
 
-  it('accepts the RADIUS template without errors', () => {
+  it('accepts the RADIUS template after deployment fields and a real syslog CA path are supplied', () => {
     const c = applyPatch(TEMPLATES[0].build(defaultConfig()), {
       values: {
         source: 'C:\\a.ova',
@@ -116,6 +116,7 @@ describe('config validation', () => {
         radius_sharedSecret: 'x'
       }
     });
+    c.syslog[0].syslogServerCACertPemV2 = 'C:\\certs\\synthetic-test-ca.pem';
     expect(validateConfig(c).filter((i) => i.level === 'error')).toEqual([]);
   });
 

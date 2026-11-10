@@ -498,7 +498,7 @@ export const GROUPS: GroupDef[] = [
       num('adminSessionIdleTimeoutMinutes', 'Admin UI idle timeout (min)', 'adminSessionIdleTimeoutMinutes', { default: 10, min: 0, max: 1440 }),
       num('adminMaxConcurrentSessions', 'Admin max concurrent sessions', 'adminMaxConcurrentSessions', { default: 5, min: 1, max: 50, omitDefault: true }),
       num('adminPasswordExpirationDays', 'Admin password expiry (days)', 'adminpasswordExpirationDays', { default: 90, min: 0, max: 999, since: '2506', omitDefault: true }),
-      num('adminPasswordPolicyMinLen', 'Admin password min length', 'adminpasswordPolicyMinLen', { default: 8, min: 8, max: 64, omitDefault: true }),
+      num('adminPasswordPolicyMinLen', 'Admin password min length', 'adminpasswordPolicyMinLen', { default: 8, min: 8, max: 64, help: 'Admin UI passwords also require uppercase, lowercase, a number and an allowed special character. FIPS appliances require at least 14 characters, even if this setting is lower. Root has different password rules.' }),
       num('adminPasswordPolicyFailedLockoutCount', 'Admin lockout after failed logins', 'adminpasswordPolicyFailedLockoutCount', { default: 3, min: 0, max: 10, omitDefault: true }),
       num('adminPasswordPolicyUnlockTime', 'Admin unlock time (min)', 'adminpasswordPolicyUnlockTime', { default: 5, min: 1, max: 9999, omitDefault: true }),
       num('rootPasswordExpirationDays', 'Root password expiry (days)', 'rootPasswordExpirationDays', { default: 365, min: 0, omitDefault: true }),
@@ -823,7 +823,7 @@ export const GROUPS: GroupDef[] = [
         placeholder: '10.0.0.10',
         required: true,
         json: false,
-        help: 'Add each IPv4 address on its own row.'
+        help: 'Add each IPv4 address on its own row. Each DNS server must be unique; a DNS server may also provide NTP.'
       }),
       text('dnsSearch', 'DNS search domains', 'dnsSearch', {
         rows: { itemLabel: 'DNS search domain', rule: 'dnsDomain' },
@@ -835,11 +835,12 @@ export const GROUPS: GroupDef[] = [
         rule: 'hostList',
         rows: { itemLabel: 'NTP server', rule: 'hostOrIp' },
         placeholder: 'pool.ntp.org',
-        help: 'Add each hostname or IP address on its own row.'
+        help: 'Add each hostname or IP address on its own row. Each NTP server must be unique and must not also appear in the fallback list. Changing hostname case or port does not make a server distinct.'
       }),
       text('fallBackNtpServers', 'Fallback NTP servers', 'fallBackNtpServers', {
         rule: 'hostList',
-        rows: { itemLabel: 'Fallback NTP server', rule: 'hostOrIp' }
+        rows: { itemLabel: 'Fallback NTP server', rule: 'hostOrIp' },
+        help: 'Use unique fallback servers that are different from the regular NTP servers.'
       })
     ]
   },
@@ -990,7 +991,7 @@ export const GROUPS: GroupDef[] = [
       }),
       sel('authMethods', 'Auth method', 'authMethods', AUTH_METHODS, {
         default: 'passthrough',
-        help: 'Authentication method presented to Horizon Clients. RADIUS/SAML must be configured under Authentication.'
+        help: 'Passthrough is the default and is omitted from generated Horizon INI. Other methods are emitted explicitly; configure their providers under Authentication.'
       }),
       sel('gatewayLocation', 'Gateway location', 'gatewayLocation', ['external', 'internal'], { default: 'external' }),
       sel('proxyDestinationIPSupport', 'Connection Server IP mode', 'proxyDestinationIPSupport', ['IPV4', 'IPV6', 'IPV4+IPV6'], { default: 'IPV4', omitDefault: true }),
@@ -1339,7 +1340,7 @@ export const GROUPS: GroupDef[] = [
         required: (v) => v.contentGateway_mode === 'standalone',
         showIf: (v) => v.contentGateway_mode === 'standalone',
         placeholder: 'domain\\svc-uag-content',
-        help: 'A populated username selects the standalone [AirwatchContentGateway] section in the vendor module. Its password is supplied only at PowerShell runtime through UAG_CONTENT_GATEWAY_API_PASSWORD and -awCGAPIServerPwd in headless mode, or prompted by the vendor in interactive mode.'
+        help: 'A populated username selects the standalone [AirwatchContentGateway] section in the vendor module. Its password is supplied only at PowerShell runtime through UAG_CONTENT_GATEWAY_API_PASSWORD and -awCGAPIServerPwd in environment-password mode, or prompted by the vendor in interactive mode.'
       }),
       text('contentGateway_organizationGroupCode', 'Organization Group ID', 'organizationGroupCode', {
         showIf: (v) => v.contentGateway_mode === 'standalone',
@@ -1605,7 +1606,7 @@ export const GROUPS: GroupDef[] = [
     iniSection: 'adminSAMLSettings',
     enabledBy: 'adminSaml_enable',
     since: '2609',
-    help: 'Administrator authentication, separate from Horizon SAML. Configure the matching IdP metadata under SAML identity provider.',
+    help: 'Administrator authentication, separate from Horizon SAML. Enabling administrator SAML disables default admin password authentication. Configure the matching IdP metadata under SAML identity provider.',
     fields: [
       bool('adminSaml_enable', 'Enable administrator SAML', 'enable', false),
       text('adminSaml_entityId', 'Administrator IdP entity ID', 'entityId', { required: true, wide: true }),
@@ -1739,7 +1740,9 @@ export const LISTS: ListDef[] = [
       bool('syslogSystemMessagesEnabledV2', 'Include system messages', 'syslogSystemMessagesEnabledV2', false),
       text('syslogSettingName', 'Setting name', 'syslogSettingName', { placeholder: 'siem-primary' }),
       text('syslogServerCACertPemV2', 'Server CA cert (PEM path)', 'syslogServerCACertPemV2', {
-        rule: 'pemPath', wide: true, json: false, placeholder: 'C:\\certs\\syslog-ca.pem', showIf: (v) => v.sysLogType === 'TLS'
+        rule: 'pemPath', wide: true, json: false, placeholder: 'C:\\certs\\syslog-ca.pem',
+        showIf: (v) => v.sysLogType === 'TLS', required: (v) => v.sysLogType === 'TLS',
+        help: 'Required for TLS. Provide the real CA certificate PEM file that trusts this syslog server. The deployment script reads the file; Gateway Forge cannot verify its contents. CA file paths are not included in settings JSON.'
       }),
       text('syslogClientCertPemV2', 'Client cert (PEM path)', 'syslogClientCertPemV2', {
         rule: 'pemPath', wide: true, json: false, placeholder: 'C:\\certs\\syslog-client.crt', showIf: (v) => v.sysLogType === 'TLS'

@@ -2,7 +2,8 @@ import { activeWrpItems, nicUsesStaticIpv4, type Config } from './model';
 import { deploymentNicCount } from './schema';
 import { FORWARD_FLAGS, cascadeRole } from './cascade';
 import { collectBlocks, deploymentCommand } from './generate';
-import { MISSING_PASSWORD_WARNING, runtimeSwitches } from './powershell';
+import { ADMIN_PASSWORD_GUIDANCE, adminSamlEnabled, MISSING_PASSWORD_WARNING, runtimeSwitches, VSPHERE_HEADLESS_GUIDANCE } from './powershell';
+import { VCENTER_CREDENTIAL_TARGET_EXAMPLE, VCENTER_INLINE_PASSWORD_WARNING, OVF_TOOL_VERSION_GUIDANCE } from './vcenterTarget';
 import type { Issue } from './validate';
 import { platformDef } from './versions';
 
@@ -270,19 +271,28 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     }
     L.push('- Verify the deployed VirtualMachine is Running/Ready and check its assigned NICs and IP addresses.');
   }
-  L.push('- Gateway Forge never asks for or stores UAG root or Admin UI passwords in the browser. Interactive deployment lets the official script prompt; headless PowerShell reads both passwords from the process environment.');
+  L.push('- Gateway Forge never asks for or stores UAG root or Admin UI passwords in the browser. Interactive mode lets the official script prompt; environment-password mode reads both passwords from the process environment.');
+  L.push('- **CEIP:** PowerShell passes the configured setting explicitly as `-ceipEnabled \'yes\'` or `-ceipEnabled \'no\'`, removing that prompt only. Check the deployment package for your UAG release; this does not supply the vCenter password or guarantee unattended execution.');
   if (v.contentGateway_enabled === true) {
     const parameter = v.contentGateway_mode === 'shared' ? '-awAPIServerPwd' : '-awCGAPIServerPwd';
     const variable = v.contentGateway_mode === 'shared' ? 'UAG_WORKSPACE_ONE_UEM_API_PASSWORD' : 'UAG_CONTENT_GATEWAY_API_PASSWORD';
     L.push(`- **Content Gateway UEM password:** PowerShell reads \`${variable}\` and passes the vendor \`${parameter}\` parameter. It is never written to INI or JSON.`);
   }
   if (v.airwatch_enabled === true) {
-    L.push('- **Workspace ONE Tunnel UEM password:** both interactive and headless PowerShell require `UAG_WORKSPACE_ONE_UEM_API_PASSWORD` and pass it through `-awAPIServerPwd` for the shared `[Airwatch]` section. It is never written to INI, JSON, browser drafts, or the generated script.');
+    L.push('- **Workspace ONE Tunnel UEM password:** both interactive and environment-password modes require `UAG_WORKSPACE_ONE_UEM_API_PASSWORD` and pass it through `-awAPIServerPwd` for the shared `[Airwatch]` section. It is never written to INI, JSON, browser drafts, or the generated script.');
   }
   if (c.adminUsers.length > 0) {
-    L.push(`- **Additional admin users (${c.adminUsers.length}):** the INI contains monitoring-role user metadata only. Both interactive and headless PowerShell require \`UAG_NEW_ADMIN_USER_PASSWORDS\` as semicolon-separated \`username:password\` pairs and pass \`-NewAdminuserPwd\`. Passwords are never written to INI, JSON, or browser drafts.`);
+    L.push(`- **Additional admin users (${c.adminUsers.length}):** the INI contains monitoring-role user metadata only. Both interactive and environment-password modes require \`UAG_NEW_ADMIN_USER_PASSWORDS\` as semicolon-separated \`username:password\` pairs and pass \`-NewAdminuserPwd\`. Passwords are never written to INI, JSON, or browser drafts.`);
   }
   L.push(`- **Deployment passwords:** ${MISSING_PASSWORD_WARNING}`);
+  if (c.platform === 'vsphere') {
+    L.push(`- **Fully unattended vSphere:** ${VSPHERE_HEADLESS_GUIDANCE}`);
+    L.push(`- **Credentialed target example (synthetic):** \`${VCENTER_CREDENTIAL_TARGET_EXAMPLE}\`. The UPN domain belongs before the colon; check special-character handling against the installed OVF Tool release.`);
+    L.push(`- **Inline vCenter passwords:** ${VCENTER_INLINE_PASSWORD_WARNING}`);
+    L.push(`- **Deployment test evidence:** ${OVF_TOOL_VERSION_GUIDANCE}`);
+  }
+  L.push(`- **Admin UI password policy:** ${ADMIN_PASSWORD_GUIDANCE} Do not skip the admin password prompt if password-based access is required. Check the [password requirements for your deployed UAG release](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/PasswordRequirementsforUAG).`);
+  if (adminSamlEnabled(c)) L.push('- **Administrator SAML:** default admin password authentication is disabled. Use the configured identity provider for Admin UI access.');
   L.push('- **Recovery baseline:** retain the validated INI in an approved secrets-managed system and test clean redeployment. Assess break-glass recovery, monitoring, password rotation, backup and compliance requirements.');
   L.push('- Reference: [Omnissa non-interactive deployment parameters](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/NonInteractiveModeParameters) and [Run PowerShell script to deploy](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy).');
   L.push('', '## Edge services', '');

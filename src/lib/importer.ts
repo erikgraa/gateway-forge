@@ -127,6 +127,11 @@ export function importIni(text: string, base?: Config): ImportResult {
     return result;
   }
 
+  const horizonSections = doc.filter((s) => s.section.toLowerCase() === 'horizon');
+  if (horizonSections.length && !horizonSections.some((s) => s.entries.some((e) => e.key.toLowerCase() === 'authmethods'))) {
+    c.values.authMethods = 'passthrough';
+  }
+
   const general = doc.filter((s) => s.section.toLowerCase() === 'general').flatMap((s) => s.entries);
   const source = general.find((e) => e.key.toLowerCase() === 'source')?.value;
   const nutanixImage = doc.filter((s) => s.section.toLowerCase() === 'nutanix').flatMap((s) => s.entries).find((e) => e.key.toLowerCase() === 'image')?.value;
