@@ -27,7 +27,7 @@ describe('admin password deployment guidance', () => {
       const before = JSON.stringify(c);
       const ini = generateIni(c);
       const ps = generatePowerShell(c, 'placeholder', mode);
-      expect(ps).toContain(`# ${ADMIN_PASSWORD_GUIDANCE}`);
+      expect(ps.replace(/\n# /g, ' ')).toContain(ADMIN_PASSWORD_GUIDANCE);
       expect(ps).toContain('Do not skip the Admin UI password prompt');
       expect(ps).toContain(ini.trimEnd());
       expect(ini).toContain('[Horizon]\nproxyDestinationUrl=https://cs.example.com');
@@ -71,7 +71,7 @@ describe('admin password deployment guidance', () => {
     const c = applyPatch(defaultConfig(), { version, values: { adminSaml_enable: enabled } });
     expect(adminSamlEnabled(c)).toBe(expected);
     expect(generateIni(c).includes('[adminSAMLSettings]')).toBe(expected);
-    expect(generatePowerShell(c).includes('default admin password authentication is disabled')).toBe(expected);
+    expect(generatePowerShell(c).replace(/\n# /g, ' ').includes('default admin password authentication is disabled')).toBe(expected);
     expect(generateDocs(c, []).includes('default admin password authentication is disabled')).toBe(expected);
     expect(c.values.adminSaml_enable).toBe(enabled);
   });

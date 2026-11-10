@@ -211,7 +211,7 @@ kbd { border: 1px solid var(--line); border-bottom-color: var(--line-strong); bo
 .menu .pop button:hover { background: var(--panel-raised); }
 .menu .pop small { color: var(--mut); font-size: 11px; }
 
-main.layout { --nav-width: 226px; --form-min-width: 460px; --output-width: max(410px, 35vw); flex: 1; min-height: 0; display: grid; grid-template-columns: var(--nav-width) minmax(var(--form-min-width), 1fr) var(--output-width); background: var(--canvas); }
+main.layout { --nav-width: 226px; --form-min-width: 460px; --output-width: max(440px, 38vw); flex: 1; min-height: 0; display: grid; grid-template-columns: var(--nav-width) minmax(var(--form-min-width), 1fr) var(--output-width); background: var(--canvas); }
 main.layout.output-collapsed { --output-width: 48px; }
 nav.side {
   min-height: 0; overflow: auto; display: flex; flex-direction: column;

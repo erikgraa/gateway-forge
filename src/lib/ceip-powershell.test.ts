@@ -28,8 +28,9 @@ describe('explicit deployment CEIP', () => {
           expect(command).toContain(` -ceipEnabled '${enabled ? 'yes' : 'no'}'`);
           expect(command.match(/-ceipEnabled/g)).toHaveLength(1);
           expect(command).not.toMatch(/\$env:UAG_ADMIN_PASSWORD (?:yes|no)(?: |$)/);
-          expect(ps).toContain(MISSING_PASSWORD_WARNING);
-          expect(ps.includes(VSPHERE_HEADLESS_GUIDANCE)).toBe(platform.id === 'vsphere');
+          const prose = ps.replace(/\n# /g, ' ');
+          expect(prose).toContain(MISSING_PASSWORD_WARNING);
+          expect(prose.includes(VSPHERE_HEADLESS_GUIDANCE)).toBe(platform.id === 'vsphere');
           expect(ps).not.toMatch(/headless/i);
           if (platform.id === 'nutanix' || mode === 'interactive') {
             expect(command).not.toMatch(/UAG_ROOT_PASSWORD|UAG_ADMIN_PASSWORD/);

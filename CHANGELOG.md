@@ -10,7 +10,8 @@ All notable user-facing changes to Gateway Forge are documented here. This forma
 
 ### Changed
 
-- Gave the desktop output preview slightly more width without changing artifact wrapping, copying or downloads.
+- Gave the desktop output preview more width while retaining its collapse control and horizontal scrolling for long commands and configuration lines.
+- Split PowerShell deployment/password guidance into short comment lines with spacing between topics. Executable commands and embedded configuration remain unchanged; the formatted comments also appear in copied/downloaded scripts.
 
 ## 0.8.0 - 2026-11-10
 

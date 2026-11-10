@@ -16,6 +16,23 @@ export const VSPHERE_HEADLESS_GUIDANCE = 'Supply root/Admin UI passwords and CEI
 
 export const ADMIN_PASSWORD_GUIDANCE = 'Admin UI passwords: 8-64 characters (14-64 on FIPS), subject to any higher configured minimum. Include at least one uppercase letter, one lowercase letter, one number and one special character; only ! @ # $ % ^ & * ( ) are allowed special characters. Root has different password rules; a working root login does not confirm Admin UI access.';
 
+// Format static prose only, never commands or embedded configuration.
+function commentLines(text: string): string[] {
+  const lines: string[] = [];
+  for (const clause of text.split(/(?<=[.;])\s+/)) {
+    let line = '#';
+    for (const word of clause.split(/\s+/)) {
+      if (line !== '#' && line.length + 1 + word.length > 60) {
+        lines.push(line);
+        line = '#';
+      }
+      line += ` ${word}`;
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
 export function adminSamlEnabled(c: Config): boolean {
   const group = GROUPS.find((g) => g.id === 'admin-saml');
   return !!group && groupEnabled(group, c);
@@ -106,25 +123,25 @@ export function generatePowerShell(
     }
   }
   if (secretMode === 'placeholder' && ini.includes('<REDACTED>')) out.push('# Replace every <REDACTED> value in the INI before deploying.', '');
-  out.push('# 2. Deploy the appliance');
-  out.push(`# ${MISSING_PASSWORD_WARNING}`);
+  out.push('# 2. Deploy the appliance', '');
+  out.push(...commentLines(MISSING_PASSWORD_WARNING), '');
   if (c.platform === 'vsphere') {
-    out.push(`# Fully unattended vSphere: ${VSPHERE_HEADLESS_GUIDANCE}`);
-    out.push(`# Credentialed target example (synthetic): ${VCENTER_CREDENTIAL_TARGET_EXAMPLE}`);
-    out.push('# Syntax is vi://username:password@host/path; the UPN domain belongs before the colon. Check special-character handling against the installed OVF Tool release.');
-    out.push(`# ${OVF_TOOL_VERSION_GUIDANCE}`);
-    out.push(`# ${VCENTER_INLINE_PASSWORD_WARNING}`);
+    out.push(...commentLines(`Fully unattended vSphere: ${VSPHERE_HEADLESS_GUIDANCE}`), '');
+    out.push(...commentLines(`Credentialed target example (synthetic): ${VCENTER_CREDENTIAL_TARGET_EXAMPLE}`));
+    out.push(...commentLines('Syntax is vi://username:password@host/path; the UPN domain belongs before the colon. Check special-character handling against the installed OVF Tool release.'), '');
+    out.push(...commentLines(OVF_TOOL_VERSION_GUIDANCE));
+    out.push(...commentLines(VCENTER_INLINE_PASSWORD_WARNING), '');
   }
-  out.push(`# ${ADMIN_PASSWORD_GUIDANCE}`);
-  out.push('# Do not skip the Admin UI password prompt if password-based admin access is required. Verify the password policy for your UAG release and deployment package.');
-  if (adminSamlEnabled(c)) out.push('# Administrator SAML is enabled: default admin password authentication is disabled. Use the configured identity provider for Admin UI access.');
+  out.push(...commentLines(ADMIN_PASSWORD_GUIDANCE), '');
+  out.push(...commentLines('Do not skip the Admin UI password prompt if password-based admin access is required. Verify the password policy for your UAG release and deployment package.'), '');
+  if (adminSamlEnabled(c)) out.push(...commentLines('Administrator SAML is enabled: default admin password authentication is disabled. Use the configured identity provider for Admin UI access.'), '');
   if (c.values.contentGateway_enabled === true && c.values.contentGateway_mode !== 'shared') {
-    out.push(effectiveDeploymentMode === 'interactive'
-      ? '# Interactive mode: the official script prompts for the Content Gateway Workspace ONE UEM API password.'
-      : '# Environment-password Content Gateway mode reads the UEM API password from UAG_CONTENT_GATEWAY_API_PASSWORD.');
+    out.push(...commentLines(effectiveDeploymentMode === 'interactive'
+      ? 'Interactive mode: the official script prompts for the Content Gateway Workspace ONE UEM API password.'
+      : 'Environment-password Content Gateway mode reads the UEM API password from UAG_CONTENT_GATEWAY_API_PASSWORD.'), '');
   }
   if (c.values.airwatch_enabled === true) {
-    out.push('# Shared [Airwatch] UEM passwords cover Tunnel and shared Content Gateway and are supplied at runtime only.');
+    out.push(...commentLines('Shared [Airwatch] UEM passwords cover Tunnel and shared Content Gateway and are supplied at runtime only.'));
     out.push("# Set: $env:UAG_WORKSPACE_ONE_UEM_API_PASSWORD = '<Workspace ONE UEM API password>'");
     addSharedAirwatchPasswordCheck(c, out);
   }
@@ -132,7 +149,7 @@ export function generatePowerShell(
     addStandaloneContentGatewayPasswordCheck(c, out);
   }
   if (c.adminUsers.length > 0) {
-    out.push('# Additional admin-user passwords are read from UAG_NEW_ADMIN_USER_PASSWORDS in username:password format, separated by semicolons.');
+    out.push(...commentLines('Additional admin-user passwords are read from UAG_NEW_ADMIN_USER_PASSWORDS in username:password format, separated by semicolons.'));
     out.push("# Example: $env:UAG_NEW_ADMIN_USER_PASSWORDS = 'monitoringUser1:<password>;monitoringUser2:<password>'");
     addAdminUserPasswordCheck(c, out);
   }
@@ -141,7 +158,7 @@ export function generatePowerShell(
   const standaloneContentGatewaySwitch = standaloneContentGatewayPasswordSwitch(c, effectiveDeploymentMode);
   if (c.platform === 'openshift') return generateOpenShiftPowerShell(c, secretMode, deploymentMode, out);
   if (c.platform === 'nutanix') {
-    out.push('# Interactive mode: the official script prompts for root and Admin UI passwords.');
+    out.push(...commentLines('Interactive mode: the official script prompts for root and Admin UI passwords.'));
     out.push(`${invocation}${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`);
     out.push('# The official script prompts for the Prism Central password.');
     out.push('# WARNING: the official script deletes and recreates a VM with the same name.');
@@ -149,11 +166,11 @@ export function generatePowerShell(
     return out.join('\n');
   }
   if (effectiveDeploymentMode === 'interactive') {
-    out.push('# Interactive mode: the official script prompts for root and Admin UI passwords.');
+    out.push(...commentLines('Interactive mode: the official script prompts for root and Admin UI passwords.'));
     out.push(...hypervVlanDeployment(c, `${invocation}${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`));
     out.push('Clear-History');
   } else {
-    out.push('# Environment-password mode: root/admin passwords are read from the process environment, not embedded in this script or the INI.');
+    out.push(...commentLines('Environment-password mode: root/admin passwords are read from the process environment, not embedded in this script or the INI.'), '');
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running deployment.' }`);
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running deployment.' }`);
     if (def.nonInteractive === 'positional') {
@@ -198,11 +215,11 @@ function generateOpenShiftPowerShell(c: Config, mode: SecretMode, deploymentMode
   }
   out.push('# 4. Deploy the VM. The script requires both uagdeployopenshift.ps1 and uagdeploy.psm1.');
   if (deploymentMode === 'interactive') {
-    out.push('# The official script prompts for root, Admin UI and any required OpenShift password.');
+    out.push(...commentLines('The official script prompts for root, Admin UI and any required OpenShift password.'));
     out.push(`${deploymentCommand(c)}${sharedAirwatchSwitch}${standaloneContentGatewaySwitch}${adminSwitch}${sw}`);
     out.push('');
   } else {
-    out.push('# Environment-password mode: root/admin passwords are read from the process environment, not embedded in this script or the INI.');
+    out.push(...commentLines('Environment-password mode: root/admin passwords are read from the process environment, not embedded in this script or the INI.'), '');
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ROOT_PASSWORD)) { throw 'Set UAG_ROOT_PASSWORD before running deployment.' }`);
     out.push(`if ([string]::IsNullOrWhiteSpace($env:UAG_ADMIN_PASSWORD)) { throw 'Set UAG_ADMIN_PASSWORD before running deployment.' }`);
     if (mode === 'omit' || !String(c.values.ocp_bearerToken || '')) {
