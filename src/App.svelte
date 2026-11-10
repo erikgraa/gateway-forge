@@ -19,6 +19,8 @@
   import CommandPalette from './components/CommandPalette.svelte';
   import Templates from './components/Templates.svelte';
   import NoticeStack from './components/NoticeStack.svelte';
+  import DeploymentRisk from './components/DeploymentRisk.svelte';
+  import { platformDef } from './lib/versions';
   import EdgeServicePicker from './components/EdgeServicePicker.svelte';
 
   const descriptions: Record<SectionId, { eyebrow: string; description: string }> = {
@@ -128,12 +130,15 @@
           Export <span aria-hidden="true">⌄</span>
         </button>
         {#if exportOpen}
-          <div class="pop" role="menu" aria-label="Export format">
+          <div class="pop">
+            <DeploymentRisk platform={app.config.platform} version={app.config.version} latestVersionId={latestVersion.id} compact />
+            <div role="menu" aria-label="Export format">
             <button role="menuitem" onclick={() => exportAs('ini')}><strong>Deployment INI</strong><small>uagdeploy.ps1 input</small></button>
             <button role="menuitem" onclick={() => exportAs('json')}><strong>Settings JSON</strong><small>Admin UI / REST import</small></button>
             <button role="menuitem" onclick={() => exportAs('ps')}><strong>PowerShell script</strong><small>Deploy-ready workflow</small></button>
             {#if app.config.platform === 'openshift'}<button role="menuitem" onclick={() => exportAs('manifest')}><strong>{app.config.values.ocp_volumeSourceMode === 'console' ? 'Bootable-volume runbook' : 'Bootable-volume YAML'}</strong><small>OpenShift CDI DataVolume / DataSource preparation</small></button>{/if}
             <button role="menuitem" onclick={() => exportAs('docs')}><strong>Markdown runbook</strong><small>Handoff documentation</small></button>
+            </div>
           </div>
         {/if}
       </div>
@@ -164,19 +169,17 @@
     </nav>
 
     <div class="center">
-      <header class="workspace-head">
-        <div>
-          <p class="eyebrow">{currentMeta.eyebrow}</p>
-          <h1>{current.title}</h1>
-          <p class="section-description">{currentMeta.description}</p>
-        </div>
-        <div class:ready class:blocked={!ready} class="readiness" role="status" aria-live="polite">
-          <span class="status-dot"></span>
-          <div><strong>{ready ? 'Ready to review' : 'Needs attention'}</strong><small>{ready ? `${totalWarnings} advisory finding${totalWarnings === 1 ? '' : 's'}` : `${totalErrors} blocking error${totalErrors === 1 ? '' : 's'}`}</small></div>
-        </div>
-      </header>
-
-      <section class="environment-bar" aria-label="Target environment">
+      <details class="target-profile" aria-label="Target environment">
+        <summary>
+          <span class="profile-label">Target</span>
+          <strong>UAG {app.config.version}</strong>
+          <span class="profile-platform" data-platform={app.config.platform}>{platformDef(app.config.platform).label}</span>
+          {#if app.config.version !== latestVersion.id}<span class="profile-caution">Older release</span>{/if}
+          {#if app.config.platform === 'openshift'}<span class="profile-caution">Limited Availability</span>{/if}
+          {#if app.config.platform === 'nutanix'}<span class="profile-caution">QCOW2 preparation</span>{/if}
+          <span class="profile-edit">Change / details</span>
+        </summary>
+        <section class="environment-bar" aria-label="Target controls">
         <div class="environment-item environment-release">
           <span class="environment-label">Release</span>
           <div class="environment-picker release-picker" role="group" aria-label="Target UAG release" title={`Release lifecycle snapshot from the Omnissa Lifecycle Matrix (${LIFECYCLE_SNAPSHOT})`}>
@@ -219,17 +222,25 @@
             {/each}
           </div>
         </div>
-        <div class="environment-summary">
-          <span>Artifact</span><strong>{app.config.values.uagName || 'Unnamed appliance'}</strong>
-        </div>
-      </section>
+        </section>
+        <NoticeStack
+          platform={app.config.platform}
+          version={app.config.version}
+          latestVersionId={latestVersion.id}
+          onUseLatest={useLatestVersion}
+        />
+      </details>
 
-      <NoticeStack
-        platform={app.config.platform}
-        version={app.config.version}
-        latestVersionId={latestVersion.id}
-        onUseLatest={useLatestVersion}
-      />
+      <header class="workspace-head quiet-heading">
+        <div>
+          <h1>{current.title}</h1>
+          <details class="section-help"><summary>About this section</summary><p>{currentMeta.description}</p></details>
+        </div>
+        <div class:ready class:blocked={!ready} class="readiness" role="status" aria-live="polite">
+          <span class="status-dot"></span>
+          <strong>{ready ? `Ready · ${totalWarnings} advisories` : `${totalErrors} blocking error${totalErrors === 1 ? '' : 's'}`}</strong>
+        </div>
+      </header>
 
       {#if (app.section === 'horizon' && app.config.values.horizon_enabled === true) ||
         (app.section === 'tunnel' && app.config.values.airwatch_enabled === true) ||
@@ -244,10 +255,9 @@
       {:else if app.section === 'services'}
         <EdgeServicePicker />
       {:else}
-        <div class="section-context">
-          <span>Current section</span>
-          <strong>{currentIssues.length ? `${currentIssues.length} finding${currentIssues.length === 1 ? '' : 's'} to review` : 'No findings in this section'}</strong>
-        </div>
+        {#if currentIssues.length}
+          <div class="section-context"><strong>{currentIssues.length} section finding{currentIssues.length === 1 ? '' : 's'} to review</strong></div>
+        {/if}
         {#if app.section === 'ha' && app.config.platform === 'azure'}
           <div class="notice">Native high availability is not supported on Azure. Existing HA values are retained but not emitted.</div>
         {/if}

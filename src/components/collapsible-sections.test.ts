@@ -30,8 +30,15 @@ describe('collapsible section cards', () => {
     const group = GROUPS.find((candidate) => candidate.id === 'deploy')!;
     expect(render(GroupCard, { props: { group, issues: [] } }).body).toMatch(/<details class="card collapsible-card" open(?:=""|)>/);
     expect(render(Topology).body).toMatch(/<details class="card topo collapsible-card" open(?:=""|)/);
-    expect(render(LintPanel, { props: { issues: [] } }).body).toMatch(/<details class="card collapsible-card" open(?:=""|)/);
     expect(render(Templates).body).toMatch(/<details class="card collapsible-card" open(?:=""|)>/);
+  });
+
+  it.each(['error', 'warn', 'info'] as const)('opens lint for blocking errors while retaining %s findings', (level) => {
+    const body = render(LintPanel, { props: { issues: [{ id: 'test', level, section: 'general', message: 'Test finding', fieldId: 'uagName' }] } }).body;
+    expect(/<details class="card collapsible-card" open(?:=""|)/.test(body)).toBe(level === 'error');
+    expect(body).toContain('Test finding');
+    expect(body).toContain(`class="item ${level}"`);
+    expect(render(LintPanel, { props: { issues: [] } }).body).not.toMatch(/<details class="card collapsible-card" open/);
   });
 
   it('gives every template a distinct accent and readable design label without changing the draft', () => {

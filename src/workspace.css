@@ -1,0 +1,42 @@
+.target-profile { margin: 0 0 24px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.target-profile > summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 12px 14px; cursor: pointer; list-style: none; font-size: 12px; }
+.target-profile > summary::-webkit-details-marker { display: none; }
+.target-profile > summary:focus-visible, .section-help > summary:focus-visible { outline: 2px solid var(--acc-strong); outline-offset: 3px; }
+.profile-label { color: var(--mut); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.profile-platform { --profile-accent: var(--acc-strong); border-left: 2px solid var(--profile-accent); padding-left: 8px; }
+.profile-platform[data-platform='hyperv'] { --profile-accent: #756cf5; }
+.profile-platform[data-platform='azure'] { --profile-accent: #168ddb; }
+.profile-platform[data-platform='nutanix'] { --profile-accent: #17a48d; }
+.profile-platform[data-platform='openshift'] { --profile-accent: #dc655e; }
+.profile-caution { padding: 2px 6px; border-radius: 4px; background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--warn); font-size: 10px; }
+.profile-edit { margin-left: auto; color: var(--mut); font-size: 10px; }
+.profile-edit::after { content: ' ▾'; }
+.target-profile[open] .profile-edit::after { content: ' ▴'; }
+.target-profile[open] > summary { border-bottom: 1px solid var(--line); }
+.target-profile .environment-bar { margin: 0; border: 0; border-radius: 0; grid-template-columns: minmax(0, 1fr); padding: 16px; }
+.target-profile .form-notice-stack { padding: 0 16px 16px; margin: 0; gap: 8px; }
+.quiet-heading { align-items: center; margin-bottom: 20px; gap: 12px; }
+.quiet-heading .readiness { padding: 0; min-width: 0; background: none; border: 0; }
+.quiet-heading .readiness strong { color: var(--mut); font-size: 11px; font-weight: 500; }
+.section-help { margin-top: 6px; max-width: 570px; color: var(--mut); font-size: 12px; }
+.section-help summary { cursor: pointer; font-size: 11px; }
+.section-help p { margin: 8px 0 0; line-height: 1.6; }
+.nav-label small { display: none; }
+.nav-list button { min-height: 42px; }
+.output-content { overflow-y: auto; }
+.artifact-preview { flex-shrink: 0; min-height: 180px; }
+.output-content .runtime-options { flex-shrink: 0; }
+.menu .pop { max-width: min(370px, calc(100vw - 24px)); max-height: 80vh; overflow-y: auto; }
+.menu .pop .deployment-risk { margin-bottom: 6px; }
+@media (max-width: 640px) {
+  .target-profile > summary { gap: 7px; padding: 11px; }
+  .target-profile .environment-bar { padding: 12px; }
+  .target-profile .form-notice-stack { padding: 0 12px 12px; }
+  .quiet-heading { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .quiet-heading .readiness { width: auto; }
+  .profile-edit { width: 100%; margin-left: 0; }
+}
+@media (min-width: 981px) {
+  /* Hiding the splitter must not auto-place output in its zero-width column. */
+  aside.out { grid-column: 4; grid-row: 1; }
+}

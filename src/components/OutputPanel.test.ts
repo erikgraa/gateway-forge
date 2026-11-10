@@ -104,7 +104,8 @@ describe('OutputPanel', () => {
 
     expect(body).toContain('When root and Admin UI password parameters are omitted, uagdeploy and its platform variants prompt for them interactively.');
     expect(body).not.toContain('not accessible through the console');
-    expect(body).toContain('<details class="runtime-options" open="">');
+    expect(body).toContain('<details class="runtime-options">');
+    expect(body).not.toContain('<details class="runtime-options" open="">');
     expect(body).toMatch(/<summary id="[^"]+-runtime-title">Run-time options \(uagdeploy.ps1\)<\/summary>/);
     expect(body).toMatch(/<fieldset class="runtime-controls" aria-labelledby="[^"]+-runtime-title">/);
     expect(body).toContain('Admin UI password policy:');

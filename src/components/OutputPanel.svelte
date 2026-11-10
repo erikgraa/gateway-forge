@@ -2,6 +2,7 @@
   import { app, type OutputTab } from '../lib/store.svelte';
   import { render, copy, highlight } from '../lib/render';
   import { VERSIONS } from '../lib/versions';
+  import DeploymentRisk from './DeploymentRisk.svelte';
   import { ADMIN_PASSWORD_GUIDANCE, adminSamlEnabled, MISSING_PASSWORD_WARNING, VSPHERE_HEADLESS_GUIDANCE } from '../lib/powershell';
   import { VCENTER_CREDENTIAL_TARGET_EXAMPLE, VCENTER_INLINE_PASSWORD_WARNING, OVF_TOOL_VERSION_GUIDANCE } from '../lib/vcenterTarget';
 
@@ -50,7 +51,6 @@
   const lineNumbers = $derived(numbered ? rendered.text.split('\n').map((_, index) => index + 1) : []);
   const hasSecrets = $derived(app.secretMode === 'include');
   const latestVersion = VERSIONS.find((v) => v.latest)!;
-  const olderVersion = $derived(app.config.version !== latestVersion.id);
 
   async function doCopy() {
     app.say((await copy(rendered.text)) ? 'Copied to clipboard' : 'Copy failed - select the text manually');
@@ -74,6 +74,7 @@
     </div>
   </div>
   <div class="output-content" id={contentId} hidden={collapsed}>
+  <DeploymentRisk platform={app.config.platform} version={app.config.version} latestVersionId={latestVersion.id} />
   <div class="output-toolbar">
     <div class="tabs" role="tablist" aria-label="Artifact format">
       {#each tabs as t, index (t.id)}
@@ -95,7 +96,7 @@
     <span><strong>{rendered.filename}</strong><small>{hints[app.tab]}</small></span>
   </div>
   {#if app.tab === 'ps'}
-    <details class="runtime-options" open>
+    <details class="runtime-options">
       <summary id={`${contentId}-runtime-title`}>Run-time options (uagdeploy.ps1)</summary>
       <fieldset class="runtime-controls" aria-labelledby={`${contentId}-runtime-title`}>
       <div class="deployment-mode">
@@ -156,12 +157,6 @@
   {/if}
   {#if app.tab === 'json'}
     <p class="notice">Certificate and metadata file paths are deployment INI inputs, not settings JSON certificate content. IdP URL trust and PEM signing/encryption paths are omitted here; deploy the INI so uagdeploy can read the files and metadata XML.</p>
-  {/if}
-  {#if olderVersion}
-    <div class="artifact-version-warning">
-      <strong>Older release selected: UAG {app.config.version}</strong>
-      <span>This artifact may not include fixes available in the recommended UAG {latestVersion.id} baseline.</span>
-    </div>
   {/if}
   {#if hasSecrets}<div class="warnbox">Secrets are included in plain text. Do not commit or share this output.</div>{/if}
   <div class="artifact-preview" role="tabpanel" id={`${contentId}-preview`} aria-labelledby={`${contentId}-${app.tab}`}>
