@@ -33,6 +33,7 @@ Changes since 0.8.0, including the merged output/configuration work and the revi
 - Gave the desktop output preview more width while retaining its collapse control and horizontal scrolling for long commands and configuration lines.
 - Split PowerShell deployment/password guidance into short comment lines with spacing between topics. Executable commands and embedded configuration remain unchanged; the formatted comments also appear in copied/downloaded scripts.
 - Refreshed all six README screenshots for 0.8.5 and updated their capture helper to use current section labels rather than obsolete step numbers.
+- Closed the implemented Hyper-V support and native HA/VIP tracking items ([#139](https://github.com/erikgraa/gateway-forge/issues/139), [#145](https://github.com/erikgraa/gateway-forge/issues/145)) and removed their pending roadmap entries. Specific live-test and certification limitations remain documented.
 
 ## 0.8.0 - 2026-11-10
 

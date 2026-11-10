@@ -64,7 +64,7 @@ The completed [UAG 2609 Horizon schema audit](docs/horizon-2609-schema-audit.md)
 
 ## 🧪 Deployment support and test status
 
-**Hyper-V builder support:** host filesystem storage paths, local `.vhdx` images and optional per-NIC access VLAN output are implemented for one-, two- and three-NIC layouts. VLANs use guarded post-deployment PowerShell; they are not vendor INI/settings JSON settings. This is configuration-generation support, not full live-platform certification. Remaining package/version coverage, live VLAN validation and service verification are tracked in [full Hyper-V support #139](https://github.com/erikgraa/gateway-forge/issues/139).
+**Hyper-V builder support:** host filesystem storage paths, local `.vhdx` images and optional per-NIC access VLAN output are implemented for one-, two- and three-NIC layouts. VLANs use guarded post-deployment PowerShell; they are not vendor INI/settings JSON settings. Implemented support is recorded in [#139](https://github.com/erikgraa/gateway-forge/issues/139), closed as completed. This does not certify every package/version, live generated-VLAN execution or untested service; the scoped operator deployment evidence below remains the support boundary.
 
 | Platform / service | UAG / deployment tooling | Evidence and scope |
 | --- | --- | --- |
@@ -79,7 +79,7 @@ The operator reported regressions with OVF Tool **5.1 and 9.1**. Their causes an
 
 The optional **High availability** section before Edge services configures this UAG's `[HighAvailability]` `groupId` (integer **1–255**) and `virtualIPAddress` (IPv4 only). Both start empty; disabling HA retains values but excludes the section from output. UAGs in the same HA group must use the same Group ID and VIP. The VIP must be unique, available, and in the same subnet as **eth0**; use a Group ID unique to that group in the subnet. Forge does not infer DHCP subnets or verify address availability.
 
-Settings JSON maps to `loadBalancerSettings` with `groupID`, `virtualIPAddress` and `loadBalancerMode: "ONEARM"`, as the vendor deployment sample and API schema specify. `DISABLED` imports remain disabled; missing/unsupported modes are reported rather than silently converted. HA is not supported on Azure. This is two-field configuration generation, not automatic multi-node deployment or verified topology, VIP ownership or failover; remaining discovery and lab work stay in [#145](https://github.com/erikgraa/gateway-forge/issues/145).
+Settings JSON maps to `loadBalancerSettings` with `groupID`, `virtualIPAddress` and `loadBalancerMode: "ONEARM"`, as the vendor deployment sample and API schema specify. `DISABLED` imports remain disabled; missing/unsupported modes are reported rather than silently converted. HA is not supported on Azure. The native HA/VIP configuration tracked in [#145](https://github.com/erikgraa/gateway-forge/issues/145) is implemented and the issue is closed as completed. This is two-field configuration generation, not automatic multi-node deployment or verified topology, VIP ownership or failover.
 
 ### Hyper-V storage and access VLANs
 
