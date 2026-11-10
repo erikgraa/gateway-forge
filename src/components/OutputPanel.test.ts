@@ -62,6 +62,34 @@ describe('OutputPanel', () => {
     }
   });
 
+  it.each(['ini', 'json', 'ps', 'docs', 'manifest'] as const)('provides labeled, decorative icons and one keyboard entry point for %s', async (tab) => {
+    vi.stubGlobal('document', { documentElement: { dataset: {} } });
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => undefined, removeItem: () => undefined });
+    const { app } = await import('../lib/store.svelte');
+    const previous = { config: app.config, tab: app.tab };
+    try {
+      app.config = applyPatch(defaultConfig(), { platform: tab === 'manifest' ? 'openshift' : 'vsphere' });
+      app.tab = tab;
+      const { default: OutputPanel } = await import('./OutputPanel.svelte');
+      const { body } = render(OutputPanel);
+      const buttons = [...body.matchAll(/<button\b[^>]*role="tab"[^>]*>[\s\S]*?<\/button>/g)].map((match) => match[0]);
+      expect(buttons).toHaveLength(tab === 'manifest' ? 5 : 4);
+      for (const label of ['INI', 'JSON', 'PowerShell', 'Docs']) expect(buttons.some((button) => button.includes(`<span>${label}</span>`))).toBe(true);
+      expect(buttons.filter((button) => button.includes('tabindex="0"'))).toHaveLength(1);
+      expect(buttons.filter((button) => button.includes('aria-selected="true"'))).toHaveLength(1);
+      for (const button of buttons) {
+        expect(button).toContain('class="artifact-icon" aria-hidden="true" focusable="false"');
+        expect(button).toContain('<path d="');
+        const target = button.match(/aria-controls="([^"]+)"/)?.[1];
+        expect(body).toContain(`id="${target}"`);
+        expect(button).toContain('title="');
+      }
+      const activeId = buttons.find((button) => button.includes('aria-selected="true"'))?.match(/id="([^"]+)"/)?.[1];
+      expect(body).toContain(`aria-labelledby="${activeId}"`);
+      expect(body).toContain('role="tabpanel"');
+    } finally { app.config = previous.config; app.tab = previous.tab; }
+  });
+
   it('explains native deployment password prompts when parameters are omitted', async () => {
     vi.stubGlobal('document', { documentElement: { dataset: {} } });
     vi.stubGlobal('localStorage', {

@@ -15,6 +15,22 @@
     ...(app.config.platform === 'openshift' ? [{ id: 'manifest' as const, label: app.config.values.ocp_volumeSourceMode === 'console' ? 'Prep' : 'YAML' }] : []),
     { id: 'docs', label: 'Docs' }
   ]);
+  const icons: Record<OutputTab, string> = {
+    ini: 'M4 5h16M4 12h16M4 19h16M8 3v4M16 10v4M10 17v4',
+    json: 'M8 3H6a2 2 0 0 0-2 2v4c0 2-2 3-2 3s2 1 2 3v4a2 2 0 0 0 2 2h2M16 3h2a2 2 0 0 1 2 2v4c0 2 2 3 2 3s-2 1-2 3v4a2 2 0 0 1-2 2h-2',
+    ps: 'M3 5h18v14H3zM7 9l3 3-3 3M13 15h4',
+    docs: 'M12 5v16M12 5C9 3 6 3 3 4v15c3-1 6-1 9 2 3-3 6-3 9-2V4c-3-1-6-1-9 1Z',
+    manifest: 'M5 3v12a4 4 0 0 0 4 4h6M5 7h10M15 4v6M15 16v6M2 3h6'
+  };
+  function navigateTab(event: KeyboardEvent, index: number) {
+    const key = event.key;
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) return;
+    event.preventDefault();
+    const next = key === 'Home' ? 0 : key === 'End' ? tabs.length - 1 : (index + (key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    app.tab = tabs[next].id;
+    const button = event.currentTarget as HTMLButtonElement;
+    button.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+  }
   const hints: Record<OutputTab, string> = {
     ini: 'Platform-specific uagdeploy input',
     json: 'Admin UI import / PUT /rest/v1/config/settings',
@@ -41,7 +57,7 @@
   }
 </script>
 
-<aside class="out" class:collapsed aria-label="Generated output">
+<aside id="generated-output" class="out" class:collapsed aria-label="Generated output">
   <div class="output-head">
     <div hidden={collapsed}><span class="live-indicator"><i></i> Live artifact</span><h2>Configuration preview</h2></div>
     <div class="output-pane-controls">
@@ -60,8 +76,14 @@
   <div class="output-content" id={contentId} hidden={collapsed}>
   <div class="output-toolbar">
     <div class="tabs" role="tablist" aria-label="Artifact format">
-      {#each tabs as t (t.id)}
-        <button role="tab" aria-selected={app.tab === t.id} class:on={app.tab === t.id} onclick={() => (app.tab = t.id)}>{t.label}</button>
+      {#each tabs as t, index (t.id)}
+        <button
+          type="button" role="tab" id={`${contentId}-${t.id}`}
+          aria-selected={app.tab === t.id} aria-controls={`${contentId}-preview`}
+          tabindex={app.tab === t.id ? 0 : -1} title={hints[t.id]}
+          data-format={t.id} class:on={app.tab === t.id}
+          onclick={() => (app.tab = t.id)} onkeydown={(event) => navigateTab(event, index)}
+        ><svg class="artifact-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d={icons[t.id]} /></svg><span>{t.label}</span></button>
       {/each}
     </div>
     <div class="output-actions">
@@ -140,9 +162,11 @@
     </div>
   {/if}
   {#if hasSecrets}<div class="warnbox">Secrets are included in plain text. Do not commit or share this output.</div>{/if}
+  <div class="artifact-preview" role="tabpanel" id={`${contentId}-preview`} aria-labelledby={`${contentId}-${app.tab}`}>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <pre class="code" class:numbered tabindex="0">{#if numbered}<span class="line-numbers" aria-hidden="true" style:--line-digits={String(lineNumbers.length).length}>{#each lineNumbers as line}<span data-line={line}></span>{/each}</span>{/if}<code>{@html html}</code></pre>
-  <div class="out-foot">
+    </div>
+    <div class="out-foot">
     <label class="row" for="secret-mode">Secrets:
       <select id="secret-mode" class="t" bind:value={app.secretMode}>
         <option value="placeholder">Placeholders (&lt;REDACTED&gt;)</option>
