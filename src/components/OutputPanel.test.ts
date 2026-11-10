@@ -33,6 +33,35 @@ describe('OutputPanel', () => {
     }
   });
 
+  it.each(['ini', 'json', 'ps', 'docs', 'manifest'] as const)('keeps %s artifacts and configuration intact while collapsed', async (tab) => {
+    vi.stubGlobal('document', { documentElement: { dataset: {} } });
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => undefined, removeItem: () => undefined });
+    const { app } = await import('../lib/store.svelte');
+    const previous = { config: app.config, tab: app.tab };
+    try {
+      app.config = applyPatch(defaultConfig(), { platform: tab === 'manifest' ? 'openshift' : 'vsphere' });
+      app.tab = tab;
+      const config = JSON.stringify(app.config);
+      const artifact = renderArtifact(app.config, tab, app.secretMode, app.deploymentMode);
+      const { default: OutputPanel } = await import('./OutputPanel.svelte');
+      const expanded = render(OutputPanel).body;
+      const collapsed = render(OutputPanel, { props: { collapsed: true } }).body;
+      expect(expanded).toContain('aria-label="Collapse output pane" aria-expanded="true"');
+      expect(collapsed).toContain('aria-label="Expand output pane" aria-expanded="false"');
+      const contentId = collapsed.match(/aria-controls="([^"]+)"/)?.[1];
+      expect(contentId).toBeTruthy();
+      expect(collapsed).toContain(`id="${contentId}" hidden`);
+      const code = collapsed.match(/<pre\b[^>]*>[\s\S]*?<code>([\s\S]*?)<\/code><\/pre>/)?.[1];
+      expect(code?.replace(/<!--[\s\S]*?-->/g, '')).toBe(highlight(artifact.text, tab));
+      expect(app.tab).toBe(tab);
+      expect(JSON.stringify(app.config)).toBe(config);
+      expect(renderArtifact(app.config, tab, app.secretMode, app.deploymentMode)).toEqual(artifact);
+    } finally {
+      app.config = previous.config;
+      app.tab = previous.tab;
+    }
+  });
+
   it('explains native deployment password prompts when parameters are omitted', async () => {
     vi.stubGlobal('document', { documentElement: { dataset: {} } });
     vi.stubGlobal('localStorage', {

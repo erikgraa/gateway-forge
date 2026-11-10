@@ -5,6 +5,9 @@
   import { ADMIN_PASSWORD_GUIDANCE, adminSamlEnabled, MISSING_PASSWORD_WARNING, VSPHERE_HEADLESS_GUIDANCE } from '../lib/powershell';
   import { VCENTER_CREDENTIAL_TARGET_EXAMPLE, VCENTER_INLINE_PASSWORD_WARNING, OVF_TOOL_VERSION_GUIDANCE } from '../lib/vcenterTarget';
 
+  let { collapsed = $bindable(false) }: { collapsed?: boolean } = $props();
+  const contentId = $props.id();
+
   const tabs = $derived.by((): { id: OutputTab; label: string }[] => [
     { id: 'ini', label: 'INI' },
     { id: 'json', label: 'JSON' },
@@ -38,11 +41,23 @@
   }
 </script>
 
-<aside class="out" aria-label="Generated output">
+<aside class="out" class:collapsed aria-label="Generated output">
   <div class="output-head">
-    <div><span class="live-indicator"><i></i> Live artifact</span><h2>Configuration preview</h2></div>
-    <span class="artifact-status">Auto-generated</span>
+    <div hidden={collapsed}><span class="live-indicator"><i></i> Live artifact</span><h2>Configuration preview</h2></div>
+    <div class="output-pane-controls">
+      <span class="artifact-status" hidden={collapsed}>Auto-generated</span>
+      <button
+        type="button"
+        class="output-collapse"
+        aria-label={collapsed ? 'Expand output pane' : 'Collapse output pane'}
+        aria-expanded={!collapsed}
+        aria-controls={contentId}
+        title={collapsed ? 'Expand output pane' : 'Collapse output pane'}
+        onclick={() => (collapsed = !collapsed)}
+      ><span aria-hidden="true">{collapsed ? '‹' : '›'}</span><span class="output-toggle-label">{collapsed ? 'Output' : 'Collapse'}</span></button>
+    </div>
   </div>
+  <div class="output-content" id={contentId} hidden={collapsed}>
   <div class="output-toolbar">
     <div class="tabs" role="tablist" aria-label="Artifact format">
       {#each tabs as t (t.id)}
@@ -135,5 +150,6 @@
         <option value="include">Include (plain text)</option>
       </select>
     </label>
+  </div>
   </div>
 </aside>
