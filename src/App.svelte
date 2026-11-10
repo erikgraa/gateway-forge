@@ -55,7 +55,13 @@
   let exportOpen = $state(false);
   let outputCollapsed = $state(false);
   let layout = $state<HTMLElement>();
+  let headerHeight = $state(64);
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  let lintPanel: { reveal: () => void };
+
+  function reviewValidation() {
+    lintPanel.reveal();
+  }
 
   $effect(() => {
     JSON.stringify(app.config);
@@ -103,8 +109,8 @@
 
 <svelte:window onkeydown={onKey} onclick={() => (exportOpen = false)} />
 
-<div class="app">
-  <header class="top">
+<div class="app" style:--workspace-header-height={`${headerHeight}px`}>
+  <header class="top" bind:offsetHeight={headerHeight}>
     <a class="brand" href="." aria-label="Gateway Forge home">
       <img src="./logo.png" alt="" width="32" height="32" />
       <span class="brand-name">Gateway Forge<small>UAG configuration workspace</small></span>
@@ -152,14 +158,19 @@
         {#each SECTIONS.filter((s) => s.id !== 'templates') as s, index (s.id)}
           {@const n = counts[s.id]}
           {@const optionalSection = optionalSections.includes(s.id) && !sectionSelected(app.config, s.id)}
-          <button class:on={app.section === s.id} class:optional-service={optionalSection} aria-current={app.section === s.id ? 'page' : undefined} onclick={() => app.goTo(s.id)}>
-            <span class="nav-glyph" aria-hidden="true">{s.icon}</span>
-            <span class="nav-label"><strong>{s.title}</strong><small>{optionalSection ? 'Optional · not configured' : `Step ${index + 1}`}</small></span>
-            {#if optionalSection}<span class="nav-optional" aria-label="Optional, not configured">⊖</span>
-            {:else if n.error}<i class="badge error" aria-label={`${n.error} errors`}>{n.error}</i>
-            {:else if n.warn}<i class="badge warn" aria-label={`${n.warn} warnings`}>{n.warn}</i>
-            {:else}<span class="nav-check" aria-label="No findings">✓</span>{/if}
-          </button>
+          <div class="nav-entry" class:has-findings={!optionalSection && !!(n.error || n.warn)}>
+            <button class:on={app.section === s.id} class:optional-service={optionalSection} aria-current={app.section === s.id ? 'page' : undefined} onclick={() => app.goTo(s.id)}>
+              <span class="nav-glyph" aria-hidden="true">{s.icon}</span>
+              <span class="nav-label"><strong>{s.title}</strong><small>{optionalSection ? 'Optional · not configured' : `Step ${index + 1}`}</small></span>
+              {#if optionalSection}<span class="nav-optional" aria-label="Optional, not configured">⊖</span>
+              {:else if !n.error && !n.warn}<span class="nav-check" aria-label="No findings">✓</span>{/if}
+            </button>
+            {#if !optionalSection && (n.error || n.warn)}
+              <button type="button" class="validation-count nav-count" class:blocked={!!n.error} class:warn={!n.error}
+                aria-controls="validation-lint" aria-label={`${n.error || n.warn} ${n.error ? 'error' : 'warning'}${(n.error || n.warn) === 1 ? '' : 's'} in ${s.title}; review validation and lint`}
+                onclick={reviewValidation}>{n.error || n.warn}</button>
+            {/if}
+          </div>
         {/each}
       </div>
       <div class="nav-assurance">
@@ -236,9 +247,18 @@
           <h1>{current.title}</h1>
           <details class="section-help"><summary>About this section</summary><p>{currentMeta.description}</p></details>
         </div>
-        <div class:ready class:blocked={!ready} class="readiness" role="status" aria-live="polite">
-          <span class="status-dot"></span>
-          <strong>{ready ? `Ready · ${totalWarnings} advisories` : `${totalErrors} blocking error${totalErrors === 1 ? '' : 's'}`}</strong>
+        <div class="validation-summary" role="status" aria-live="polite">
+          <button type="button" class="validation-count readiness" class:ready class:blocked={!ready} class:warn={ready && totalWarnings > 0}
+            aria-controls="validation-lint" title="Review validation and lint" onclick={reviewValidation}>
+            <span class="status-dot" aria-hidden="true"></span>
+            <strong>{ready ? `Ready · ${totalWarnings} advisories` : `${totalErrors} blocking error${totalErrors === 1 ? '' : 's'}`}</strong>
+            <span aria-hidden="true">↓</span>
+          </button>
+          {#if !ready && totalWarnings > 0}
+            <button type="button" class="validation-count warn" aria-controls="validation-lint" title="Review validation and lint" onclick={reviewValidation}>
+              {totalWarnings} warning{totalWarnings === 1 ? '' : 's'}
+            </button>
+          {/if}
         </div>
       </header>
 
@@ -256,7 +276,9 @@
         <EdgeServicePicker />
       {:else}
         {#if currentIssues.length}
-          <div class="section-context"><strong>{currentIssues.length} section finding{currentIssues.length === 1 ? '' : 's'} to review</strong></div>
+          <div class="section-context"><button type="button" class="validation-count" class:blocked={currentIssues.some((issue) => issue.level === 'error')}
+            class:warn={!currentIssues.some((issue) => issue.level === 'error') && currentIssues.some((issue) => issue.level === 'warn')}
+            aria-controls="validation-lint" onclick={reviewValidation}><strong>{currentIssues.length} section finding{currentIssues.length === 1 ? '' : 's'} to review</strong><span aria-hidden="true">↓</span></button></div>
         {/if}
         {#if app.section === 'ha' && app.config.platform === 'azure'}
           <div class="notice">Native high availability is not supported on Azure. Existing HA values are retained but not emitted.</div>
@@ -271,7 +293,7 @@
         {#each lists.filter((list) => list.id !== 'jwt' && list.id !== 'jwtIssuers' && list.id !== 'oidc') as l (l.id)}<ListEditor list={l} {issues} />{/each}
         {#if app.section === 'auth'}<JwtSettings {issues} />{/if}
       {/if}
-      <LintPanel {issues} />
+      <LintPanel bind:this={lintPanel} {issues} />
     </div>
 
     <OutputSplitter {layout} collapsed={outputCollapsed} />

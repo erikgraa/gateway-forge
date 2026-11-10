@@ -34,6 +34,18 @@ describe('Quieter workspace', () => {
     expect(body).not.toContain('vm-replacement-advisory-title');
     expect(body).toContain(platform === 'nutanix' ? 'Upload the UAG QCOW2 image to Prism Central first' : 'requires Omnissa-granted access');
   });
+  it('keeps phone navigation below the actual wrapped header height', () => {
+    const css = readFileSync(new URL('./workspace.css', import.meta.url), 'utf8');
+    const app = readFileSync(new URL('./App.svelte', import.meta.url), 'utf8');
+    expect(css).toMatch(/header\.top\s*\{[^}]*flex:\s*0\s+0\s+auto/);
+    expect(css).toMatch(/nav\.side\s*\{\s*top:\s*var\(--workspace-header-height,\s*64px\)/);
+    expect(app).toContain('bind:offsetHeight={headerHeight}');
+    expect(app).toContain('style:--workspace-header-height');
+  });
+  it('anchors screen-reader descriptions without extending the document past the footer', () => {
+    const css = readFileSync(new URL('./app.css', import.meta.url), 'utf8');
+    expect(css).toMatch(/\.sr-only\s*\{[^}]*position:\s*absolute;\s*top:\s*0;\s*left:\s*0;/);
+  });
   it('pins the desktop output to its own grid column when the hidden splitter leaves auto-placement', () => {
     const css = readFileSync(new URL('./workspace.css', import.meta.url), 'utf8');
     expect(css).toMatch(/@media\s*\(min-width:\s*981px\)\s*\{\s*(?:\/\*[\s\S]*?\*\/\s*)?aside\.out\s*\{\s*grid-column:\s*4;\s*grid-row:\s*1;/);

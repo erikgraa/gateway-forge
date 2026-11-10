@@ -56,7 +56,7 @@ function sampleConfig(): Config {
       target: 'vi://administrator@vsphere.local@vcsa.corp.local/DC1/host/Cluster1',
       folder: 'DMZ Gateways',
       netInternet: 'DMZ-Internet',
-      netManagementNetwork: 'DMZ-Management',
+      netManagementNetwork: 'Management',
       deploymentOption: 'twonic-large',
       ip0: '192.0.2.21',
       netmask0: '255.255.255.0',

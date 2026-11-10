@@ -70,6 +70,19 @@ describe('guided vCenter target', () => {
     expect(body).toContain('Edit full locator');
   });
 
+  it('groups all three guided fields compactly without changing imported values or help associations', () => {
+    const target = 'vi://user@corp.local@vc.corp.local/DC%20One/host/Compute%20Folder/Cluster';
+    const values = { target };
+    const { body } = render(VCenterTargetEditor, { props: { field, values } });
+    expect(body).toContain('target-fields wide');
+    expect(body).toContain('inventory-field');
+    expect(body).toContain('aria-describedby="f-target-username-help f-target-username-feedback"');
+    expect(body).toContain('aria-describedby="f-target-inventory-help f-target-inventory-feedback"');
+    expect(body).toContain('id="f-target-username-help"');
+    expect(body).toContain('id="f-target-inventory-help"');
+    expect(values.target).toBe(target);
+  });
+
   it('flags missing parts and incomplete UPNs without rejecting other supported account formats', () => {
     expect(Object.keys(vCenterTargetFeedback({ username: '', server: '', inventoryPath: '' }))).toEqual(['username', 'server', 'inventoryPath']);
     const valid = { username: 'user@corp.local', server: 'vc.corp.local', inventoryPath: 'DC/host/Cluster' };
