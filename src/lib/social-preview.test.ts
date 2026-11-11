@@ -43,7 +43,7 @@ describe('static sharing metadata', () => {
 
   it('references a real, correctly sized PNG with image metadata and accessible descriptions', () => {
     const imageUrl = meta('property', 'og:image');
-    expect(imageUrl).toBe(`${publicUrl}social-preview.png?v=${packageInfo.version}`);
+    expect(imageUrl).toBe(`${publicUrl}social-preview.png?v=${packageInfo.version}-social-2`);
     expect(meta('name', 'twitter:image')).toBe(imageUrl);
     expect(meta('property', 'og:image:type')).toBe('image/png');
     const image = readFileSync(new URL('../../public/social-preview.png', import.meta.url));

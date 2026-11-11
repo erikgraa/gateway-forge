@@ -3,17 +3,21 @@
 import hashlib
 import importlib.util
 from pathlib import Path
-import subprocess
 import sys
+from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location("brand_artwork", ROOT / "scripts" / "generate-brand-artwork.py")
 artwork = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(artwork)
+social_spec = importlib.util.spec_from_file_location("social_preview", ROOT / "scripts" / "generate-social-preview.py")
+social = importlib.util.module_from_spec(social_spec)
+social_spec.loader.exec_module(social)
 
 
 class BrandingArtifactsTest(unittest.TestCase):
@@ -96,18 +100,52 @@ class BrandingArtifactsTest(unittest.TestCase):
                 with Image.open(ROOT / "public" / f"favicon-{size}.png") as png:
                     self.assertEqual(ico.ico.getimage((size, size)).tobytes(), png.tobytes())
 
+    def test_social_icon_transparency_and_preserved_layout(self):
+        icon = artwork.render_icon(256, background=None, color=artwork.DARK_PURPLE)
+        self.assertEqual(icon.getpixel((16, 128))[3], 0)
+        self.assertEqual(icon.getpixel((80, 160)), (201, 180, 255, 255))
+        fonts = Path(r"C:\Windows\Fonts")
+        regular = fonts / "segoeui.ttf" if (fonts / "segoeui.ttf").exists() else "DejaVuSans.ttf"
+        bold = fonts / "segoeuib.ttf" if (fonts / "segoeuib.ttf").exists() else "DejaVuSans-Bold.ttf"
+        preview = social.render_preview(regular, bold)
+        with patch.object(social.artwork, "render_icon", return_value=artwork.render_icon(256)):
+            released_layout = social.render_preview(regular, bold)
+        bounds = ImageChops.difference(preview, released_layout).getbbox()
+        self.assertIsNotNone(bounds)
+        self.assertGreaterEqual(bounds[0], 84)
+        self.assertGreaterEqual(bounds[1], 160)
+        self.assertLessEqual(bounds[2], 332)
+        self.assertLessEqual(bounds[3], 408)
+        icon.thumbnail((248, 248), Image.Resampling.LANCZOS)
+        expected = Image.new("RGB", (248, 248), "#172338")
+        expected.paste(icon, (0, 0), icon)
+        actual = preview.crop((84, 160, 332, 408))
+        self.assertEqual(actual.tobytes(), expected.tobytes())
+        self.assertNotIn((255, 255, 255), actual.getdata())
+        self.assertEqual(preview.getpixel((0, 20)), (16, 24, 39))
+        self.assertEqual(preview.getpixel((0, 0)), (167, 139, 250))
+
     def test_social_preview_and_repeatable_generation(self):
         with Image.open(ROOT / "public" / "social-preview.png") as image:
             self.assertEqual(image.size, (1200, 630))
             self.assertEqual(image.mode, "RGB")
         paths = [ROOT / "public" / "logo.svg", ROOT / "public" / "favicon.svg", ROOT / "public" / "favicon.ico"]
         paths += list((ROOT / "public").glob("*.png")) + list((ROOT / "assets").glob("*.png"))
-        before = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
-        for script in ("generate-brand-artwork.py", "generate-social-preview.py"):
-            subprocess.run([sys.executable, str(ROOT / "scripts" / script)], check=True, cwd=ROOT)
-        self.assertEqual(before, {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in paths})
+        def digest(path):
+            data = path.read_text(encoding="utf-8").encode("utf-8") if path.suffix == ".svg" else path.read_bytes()
+            return hashlib.sha256(data).hexdigest()
+
+        before = {path.relative_to(ROOT): digest(path) for path in paths}
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "public").mkdir()
+            (root / "assets").mkdir()
+            artwork.generate(root)
+            with patch.object(social, "ROOT", root), patch.object(sys, "argv", ["generate-social-preview.py"]):
+                social.main()
+            self.assertEqual(before, {relative: digest(root / relative) for relative in before})
         source = (ROOT / "scripts" / "generate-social-preview.py").read_text(encoding="utf-8")
-        for text in ("UAG Studio", "Unified Access Gateway", "configuration builder", "INI  /  JSON  /  PowerShell  /  OpenShift YAML", "entirely in your browser", "Not affiliated with or endorsed by Omnissa"):
+        for text in ("UAG Studio", "Visual configuration builder", "Omnissa Unified Access Gateway", "INI  /  JSON  /  PowerShell  /  OpenShift YAML", "Runs entirely in your browser", "Community project. Not affiliated with or endorsed by Omnissa."):
             self.assertIn(text, source)
         self.assertNotIn('"Gateway Forge"', source)
 
