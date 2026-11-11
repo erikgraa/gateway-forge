@@ -6,9 +6,9 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const targetUrl = process.argv[2] ?? 'https://gateway-forge.graa.dev/';
+const targetUrl = process.argv[2] ?? 'http://127.0.0.1:4173/';
 const port = 9300 + Math.floor(Math.random() * 500);
-const profile = await mkdtemp(join(tmpdir(), 'gateway-forge-screenshots-'));
+const profile = await mkdtemp(join(tmpdir(), 'uag-foundry-screenshots-'));
 const outputDir = join(root, 'docs', 'screenshots');
 
 function chromePath() {
@@ -90,7 +90,7 @@ async function waitForApp() {
     if (await evaluate(`document.readyState === 'complete' && !!document.querySelector('#app')?.innerText.trim()`)) return;
     await sleep(100);
   }
-  throw new Error('Gateway Forge did not render.');
+  throw new Error('UAG Foundry did not render.');
 }
 
 async function viewport(width = 1480, height = 900) {
@@ -105,11 +105,26 @@ async function capture(name, height = 900) {
   console.log(`Captured ${name}`);
 }
 
-async function reset(theme = 'dark') {
-  await evaluate(`localStorage.clear(); localStorage.setItem('gateway-forge.theme', '${theme}'); true;`);
-  await command('Page.navigate', { url: targetUrl });
-  await sleep(700);
-  await waitForApp();
+async function reset(theme = 'dark', scenario = 'single') {
+  // This script owns a disposable profile; never attach it to an operator's browser.
+  const { identifier } = await command('Page.addScriptToEvaluateOnNewDocument', {
+    source: `localStorage.clear(); localStorage.setItem('gateway-forge.appearance.v1', JSON.stringify({palette: 'original', theme: '${theme}'}));`
+  });
+  try {
+    await command('Page.navigate', { url: targetUrl });
+    await sleep(700);
+    await waitForApp();
+  } finally {
+    await command('Page.removeScriptToEvaluateOnNewDocument', { identifier });
+  }
+  if (!await evaluate(`document.title.startsWith('UAG Foundry') && !!document.getElementById('scenario-single')`)) {
+    throw new Error('Capture requires the unreleased UAG Foundry scenario build, not the published legacy app.');
+  }
+  if (scenario) {
+    await evaluate(`document.getElementById('scenario-${scenario}').click(); true;`);
+    await sleep(300);
+    if (!await evaluate(`!!document.getElementById('workspace-name')`)) throw new Error('Scenario editor did not open.');
+  }
   await evaluate(`document.querySelector('.center')?.scrollTo(0, 0)`);
 }
 
@@ -124,6 +139,10 @@ try {
   await command('Page.enable');
   await command('Runtime.enable');
   await viewport();
+  await reset('dark', null);
+  await capture('chooser-dark.png');
+  await reset('light', null);
+  await capture('chooser-light.png');
   await reset('dark');
   await clickByText('Network & deploy');
   await capture('builder-dark.png');

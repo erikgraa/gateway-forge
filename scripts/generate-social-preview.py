@@ -1,4 +1,11 @@
-"""Regenerate the static sharing image from the existing logo (requires Pillow)."""
+"""Regenerate the UAG Foundry sharing image locally (requires Pillow).
+
+Run python scripts/generate-brand-artwork.py first, then:
+    python scripts/generate-social-preview.py
+Pass --font and --bold-font to pin TrueType fonts for byte-identical builds
+across systems. Defaults use Segoe UI on Windows or DejaVu Sans elsewhere.
+No external services or image models are used.
+"""
 
 import argparse
 from pathlib import Path
@@ -9,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--font", type=Path, help="Regular TrueType font path")
     parser.add_argument("--bold-font", type=Path, help="Bold TrueType font path")
     args = parser.parse_args()
@@ -36,11 +43,12 @@ def main():
             raise ValueError(f"Text exceeds the sharing image's safe area: {content}")
         draw.text(position, content, font=font, fill=color)
 
-    text((370, 128), "Gateway Forge", 70, "#f3f6fc", strong=True)
+    text((370, 128), "UAG Foundry", 70, "#f3f6fc", strong=True)
     text((374, 227), "Visual configuration builder", 36, "#c4b5fd")
     text((374, 286), "Omnissa Unified Access Gateway", 30, "#cbd5e1")
-    text((90, 456), "INI  /  JSON  /  PowerShell  /  OpenShift YAML", 29, "#f3f6fc", strong=True)
-    text((90, 517), "Runs entirely in your browser", 26, "#a8b8d0")
+    text((90, 430), "INI  /  JSON  /  PowerShell  /  OpenShift YAML", 29, "#f3f6fc", strong=True)
+    text((90, 480), "Runs entirely in your browser", 26, "#a8b8d0")
+    text((90, 532), "Community project. Not affiliated with or endorsed by Omnissa.", 21, "#a8b8d0")
     image.save(ROOT / "public" / "social-preview.png", optimize=True)
 
 

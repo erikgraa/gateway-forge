@@ -197,11 +197,11 @@ describe('config validation', () => {
     })).join('\n')).toMatch(/RSA SecurID is not configured/);
   });
 
-  it('detects duplicate NIC IPs and gateway outside subnet', () => {
-    const c = applyPatch(defaultConfig(), { values: { ip0: '10.0.0.5', ip1: '10.0.0.5', netmask0: '255.255.255.0', defaultGateway: '10.0.1.1' } });
+  it('blocks duplicate applicable static NIC IPs and gateway outside NIC0 subnet', () => {
+    const c = applyPatch(defaultConfig(), { values: { ipmode0: 'STATICV4', ipmode1: 'STATICV4', ip0: '10.0.0.5', ip1: '10.0.0.5', netmask0: '255.255.255.0', netmask1: '255.255.255.0', defaultGateway: '10.0.1.1' } });
     const m = messages(c).join('\n');
-    expect(m).toMatch(/share the same IP/);
-    expect(m).toMatch(/gateway is not in the NIC0 subnet/);
+    expect(m).toMatch(/error:.*distinct IPv4 addresses/);
+    expect(m).toMatch(/error:.*gateway must be in the actual Internet NIC0 subnet/);
   });
 
   it('rejects routes, custom NIC config and SSH interfaces for NICs that do not exist', () => {
@@ -289,6 +289,31 @@ describe('config validation', () => {
     expect(validateConfig(c).filter((issue) => issue.fieldId === 'blastAllowedHostHeaderValues')).toEqual([
       expect.objectContaining({ rowIndex: 1, message: expect.stringContaining('Allowed host header 2') })
     ]);
+  });
+
+  it.each(['.ova', 'C:\\images\\.ova', '\\\\server\\share\\.ova', '/images/.ova', '..ova', ' .ova', 'https://images.example.com/.ova', 'https://images.example.com/images/.ova?download=1#file', 'https://images.example.com/%20.ova'])('rejects VMware source %s without a filename', source => {
+    expect(checkRule('sourceImage', source, 'vsphere')).toMatch(/filename before the \.ova extension/);
+    const c = applyPatch(defaultConfig(), { values: { source } });
+    const before = JSON.stringify(c);
+    expect(validateConfig(c)).toContainEqual(expect.objectContaining({ level: 'error', fieldId: 'source', message: expect.stringContaining('filename before the .ova extension') }));
+    expect(JSON.stringify(c)).toBe(before);
+  });
+
+  it.each(['.vhdx', 'C:\\images\\.vhdx', '\\\\server\\share\\.vhdx', '/images/.vhdx', '..vhdx', ' .vhdx'])('rejects Hyper-V source %s without a filename', source => {
+    expect(checkRule('sourceImage', source, 'hyperv')).toMatch(/filename before the \.vhdx extension/);
+  });
+
+  it.each([
+    ['vsphere', 'a.ova'], ['vsphere', 'C:\\images\\uag.OVA'], ['vsphere', '\\\\server\\share\\uag.ova'],
+    ['vsphere', 'https://images.example.com/uag%20image.ova?download=1'], ['vsphere', 'https://images.example.com/uag%unknown.ova'], ['vsphere', '.uag.ova'],
+    ['hyperv', 'a.vhdx'], ['hyperv', 'C:\\images\\uag.VHDX'], ['hyperv', '\\\\server\\share\\uag image.vhdx']
+  ] as const)('keeps a named %s source valid: %s', (platform, source) => {
+    expect(checkRule('sourceImage', source, platform)).toBeNull();
+  });
+
+  it('continues to reject unsupported VHD sources rather than expanding Hyper-V format support', () => {
+    expect(checkRule('sourceImage', '.vhd', 'hyperv')).not.toBeNull();
+    expect(checkRule('sourceImage', 'uag.vhd', 'hyperv')).not.toBeNull();
   });
 
   it('validates source images against the selected platform inline', () => {

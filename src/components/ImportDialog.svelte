@@ -2,11 +2,14 @@
   import { app } from '../lib/store.svelte';
   import { importText, type ImportResult } from '../lib/importer';
 
+  let topologyImport = $state(false);
   let text = $state('');
   let result = $state<ImportResult | null>(null);
   let fileName = $state('');
 
   function parse() {
+    topologyImport = false;
+    try { const parsed = JSON.parse(text); if (parsed?.workspace && (Array.isArray(parsed.workspace.nodes) || Array.isArray(parsed.workspace.members))) { app.retainImport?.(parsed); topologyImport = true; result = null; return; } } catch { /* Ordinary INI parsing follows. */ }
     const r = importText(text);
     if (!r.versionDetected) r.config.version = app.config.version;
     if (r.config.platform === 'vsphere' && !r.versionDetected) r.config.platform = app.config.platform;
@@ -51,6 +54,7 @@
       <button class="primary" onclick={parse} disabled={!text.trim()}>Parse</button>
       <button onclick={close}>Cancel</button>
     </div>
+    {#if topologyImport}<p role="alert">This topology belongs in Horizon UAG topology. The parsed content is retained with this draft; no current settings were replaced or scenario converted.</p>{/if}
     {#if result}
       <div class="card" style="margin:0">
         <div class="card-head">

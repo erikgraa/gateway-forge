@@ -2,6 +2,7 @@
   import type { Field, ListDef, Values } from '../lib/schema';
   import type { Issue } from '../lib/validate';
   import { HOST_ENTRY_MAX, hostEntryValues, removeHostEntry } from '../lib/host-entries';
+  import { normalizeField } from '../lib/ordinary-whitespace';
   import FieldDetails from './FieldDetails.svelte';
 
   interface Props {
@@ -40,7 +41,7 @@
       <div class="row-list-item">
         <label class="row-list-input" for={id}>
           <span class="lbl">Host entry {index + 1}<FieldDetails {field} {platform} uid={`${uid ?? 'hosts'}-${field.id}`} /></span>
-          <input {id} type="text" bind:value={values[field.id]}
+          <input {id} type="text" onblur={() => { values[field.id] = normalizeField(field, values[field.id]) as Values[string]; }} bind:value={values[field.id]}
             placeholder={field.placeholder} spellcheck="false" autocomplete="off"
             class:bad={!!error} aria-invalid={error ? 'true' : undefined}
             aria-describedby={error ? `${id}-error` : undefined} />
