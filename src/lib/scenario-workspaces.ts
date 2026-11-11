@@ -16,6 +16,11 @@ export function scenarioDefaults(scenario: Scenario): Config {
   if (scenario === 'web') setServiceSelected(config, 'wrp', true);
   return config;
 }
+export function workspaceDisplayName(workspace: Workspace): string {
+  const hostname = typeof workspace.config.values.uagName === 'string' ? workspace.config.values.uagName.trim() : '';
+  return workspace.scenario !== 'horizon' && hostname ? `${workspace.name} · ${hostname}` : workspace.name;
+}
+
 export function createWorkspace(scenario: Scenario, id: string): Workspace {
   return { id, name: scenario === 'horizon' ? 'Horizon fleet' : scenario === 'web' ? 'Web proxy' : 'Single UAG', scenario, config: scenarioDefaults(scenario), fleet: scenario === 'horizon' ? freshFleet() : null, retainedImports: [] };
 }

@@ -5,8 +5,6 @@
 
 # UAG Foundry
 
-> **Previously Gateway Forge.** UAG Foundry 0.9.0 introduces the new name and scenario workspace. Browser drafts and preferences do not transfer between domains: export configurations from the old site before switching. See the [migration notes](docs/technical-guide.md#moving-from-gateway-forge).
-
 Build, check and export configurations for **Omnissa Unified Access Gateway (UAG)**—right in your browser.
 
 [![Latest release](https://img.shields.io/github/v/release/erikgraa/uag-foundry?label=release&color=7c3aed)](https://github.com/erikgraa/uag-foundry/releases/latest)
@@ -21,7 +19,7 @@ Your configuration is processed in your browser, not uploaded to a server.
 
 ![UAG Foundry scenario chooser in dark theme](docs/screenshots/chooser-dark.png)
 
-*UAG Foundry 0.9.0. Screenshots use a disposable browser profile and blank or synthetic configurations, not operator drafts.*
+*UAG Foundry 0.9.0. The saved Single UAG example passes checked-export validation and shows **Ready to export**; this is not live deployment or security certification. Screenshots use a disposable browser profile and blank or synthetic configurations, not operator drafts.*
 
 ![UAG Foundry configuration workspace in dark theme](docs/screenshots/builder-dark.png)
 
@@ -41,7 +39,20 @@ Browser-local drafts let you return to your work. Deployment image and certifica
 
 ### ✨ Configuration workspaces
 
-Choose **Single UAG**, **Horizon UAG topology** or **Web proxy**. Named browser-local drafts keep configurations separate; Horizon fleets have a group overview and grouped downloads. Choose among three palettes and System, Light or Dark themes. **Save & return** resumes the chooser. Remove one draft or use confirmed **Clear all drafts** without resetting appearance or the previous legacy configuration. Read the [workspace details](docs/technical-guide.md#scenario-workspaces) or see the [roadmap](ROADMAP.md) for future work.
+Choose **Single UAG**, **Horizon UAG topology** or **Web proxy**. Named browser-local drafts keep configurations separate and show **Ready to export** or **Needs fixes**, with advisory warnings separate from blockers. Single UAG and Web proxy draft names include the configured appliance hostname. Horizon readiness includes topology planning and fleet-level checks; fleets have a group overview and grouped downloads. Choose among three palettes and System, Light or Dark themes. **Save & return** resumes the chooser. Remove one draft or use confirmed **Clear all drafts** without resetting appearance or the previous legacy configuration. Read the [workspace details](docs/technical-guide.md#scenario-workspaces) or see the [roadmap](ROADMAP.md) for future work.
+
+### 🗺️ Horizon fleet workflow
+
+A Horizon workspace manages multiple UAG configurations together. **UAG groups** share a configuration template and Connection Server destination, while each appliance retains its own name and IP addresses. A group is a Foundry configuration grouping—not an automatically discovered Horizon pod or site.
+
+1. **Prepare the first UAG.** Fill in or import the Horizon baseline and resolve blocking validation findings. Select **Continue to fleet topology** to start the plan; this does not deploy anything.
+2. **Build your groups.** Add UAGs to a group or create another group for a different shared configuration. New appliance addresses stay blank for you to assign, and new groups do not inherit another group's network settings.
+3. **Review shared and individual settings.** Edit the group's template and Connection Server URL for shared changes. Use an explicit individual destination override where needed, or open the **Full UAG configuration editor** for all appliance settings.
+4. **Check the overview.** See clients, groups, configured destinations and supported UAG High Availability VIPs. Dotted hypothetical load-balancer/pool options are visual planning aids only: they do not configure routing, discover servers or change exports. Native UAG HA covers XML API traffic, not all display-protocol traffic.
+5. **Resolve blockers and export.** Findings link to the affected UAG and field. **Download fleet configuration** creates a checked ZIP with group folders, appliance INIs, topology metadata and a deployment checklist. Saved-draft readiness includes topology planning and fleet-level checks; warnings alone do not block export. Baseline INI export remains available independently before the topology is planned.
+6. **Deploy and verify separately.** Review secret handling, supply credentials securely and run the deployment tools yourself. Foundry does not verify live reachability, certificates, Horizon sessions or failover. Removing a UAG from the plan does not remove a deployed VM.
+
+See the [detailed fleet behavior and limitations](docs/scenario-workspaces.md#shared-versus-individual) and [Horizon Architecture](https://techzone.omnissa.com/resource/horizon-8-architecture).
 
 ## ⚠️ Before you deploy
 

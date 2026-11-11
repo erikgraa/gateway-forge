@@ -2,17 +2,6 @@
 
 All notable user-facing changes to UAG Foundry are documented here. Earlier releases were named Gateway Forge; historical entries retain their original names and links. This format follows the [Keep a Changelog](https://keepachangelog.com/) structure.
 
-## Unreleased
-
-### Changed
-
-- Moved the full Validation & lint panel below section fields, retaining compact counts above, inline errors and keyboard-accessible navigation to the panel and affected fields.
-
-### Fixed
-
-- Incomplete Horizon baselines keep the prominent prerequisite warning; clicking Continue focuses it instead of adding a duplicate message. The topology unlock guard remains enforced.
-- Service topology external-client cards show the complete application subtitle and wrap enabled protocol details without clipping or overlapping following client cards.
-
 ## 0.9.0 - 2026-11-11
 
 ### Added
@@ -41,12 +30,21 @@ All notable user-facing changes to UAG Foundry are documented here. Earlier rele
 
 ### Fixed
 
+- Removed the passthrough-triggered “no MFA in the DMZ” advisory. Authentication settings and generated output are unchanged; passthrough itself does not implement MFA.
+- Incomplete Horizon baselines keep the prominent prerequisite warning; clicking Continue focuses it instead of adding a duplicate message. The topology unlock guard remains enforced.
+- Service topology external-client cards show the complete application subtitle and wrap enabled protocol details without clipping or overlapping following client cards.
 - Rejected extension-only source images, including local/UNC paths or OVA URLs without a filename before the extension. Existing platform format restrictions and imported source spelling are retained.
 - Made the incomplete Horizon-baseline prerequisite an amber warning beside the topology actions, replacing it with next-step guidance once the baseline is valid.
 - Blocked static IPv4 default gateways equal to the NIC0 appliance address, with linked errors on both fields and the same policy in full-editor, topology and checked-fleet validation. Imported values are retained; hidden DHCP/IPv6-only and managed Azure fields are not treated as active static settings.
 
 ### Changed
 
+- Saved draft cards show checked export readiness with separate blocker/warning counts. Horizon status uses fleet ZIP prerequisites and actual fleet validation; a valid but unplanned topology remains blocked, without changing baseline INI export. Cards omit format labels and zero-blocker noise while retaining **Topology not planned**. Readiness does not certify live deployment, networking or security.
+- Single UAG and Web proxy saved-draft names display the configured UAG hostname as a suffix, without renaming drafts or changing Horizon names.
+- Structured vCenter locators require a username, vCenter server address and compute inventory path for checked standalone and Horizon exports and initial fleet planning. The guided field has a visible required marker and actionable feedback; valid encoding and opaque advanced imports remain unchanged.
+- DNS and NTP lists warn non-blockingly when only one distinct valid server is configured. NTP counts primary and fallback lists together; existing duplicate and syntax errors remain enforced. Multiple addresses alone do not guarantee independent redundancy.
+- Moved the full Validation & lint panel below section fields, retaining compact counts above, inline errors and keyboard-accessible navigation to the panel and affected fields.
+- Refreshed README landing screenshots with a synthetic export-ready Single UAG, added a Horizon fleet walkthrough and removed the introductory old-name banner. Migration and compatibility notes remain available in the technical guide.
 - Renamed Gateway Forge to UAG Foundry with the original Cast gateway U + arrow mark across the app, browser metadata, icons, sharing artwork, generated guidance and refreshed screenshots. README artwork has a white-backed light treatment and transparent dark treatment.
 - Updated repository links to `erikgraa/uag-foundry` and the public address to `uagfoundry.graa.dev`. Existing GHCR packages keep their separate namespace; browser drafts and preferences do not move across domains. See the technical guide migration notes before switching.
 - Replaced duplicate New/save controls with one icon-labelled teal Save & return action; drafts have matching scenario accents and explicit labels/icons.

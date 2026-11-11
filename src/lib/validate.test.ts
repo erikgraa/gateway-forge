@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { X509Certificate } from 'node:crypto';
 import { defaultConfig, applyPatch } from './model';
 import { TEMPLATES } from './templates';
+import { generateIni } from './generate';
 import { checkRule, countBySection, parseThumbprint, validThumbprints, validateConfig } from './validate';
 import { certToDer, powershellThumbprintCommand, thumbprints, uagThumbprint } from './thumbprint';
 import { TEST_CERT_PEM } from './testcert';
@@ -129,7 +130,7 @@ describe('config validation', () => {
     expect(m).toMatch(/No syslog server/);
     expect(m).toMatch(/TLS 1.0\/1.1/);
     expect(m).toMatch(/SSH is enabled/);
-    expect(m).toMatch(/passthrough authentication/);
+    expect(m).not.toMatch(/passthrough authentication/);
     expect(m).toMatch(/Blast is enabled without an external URL/);
   });
 
@@ -346,6 +347,18 @@ describe('config validation', () => {
     expect(networkMessages).not.toContain('Management / Backend network (NIC1) is required');
   });
 
+  it.each(['external', 'internal'])('does not warn about DMZ MFA for passthrough on an %s gateway or change generated authentication', (gatewayLocation) => {
+    const c = applyPatch(defaultConfig(), { values: { horizon_enabled: true, authMethods: 'passthrough', gatewayLocation } });
+    const before = JSON.stringify(c), ini = generateIni(c);
+    const issues = validateConfig(c);
+    expect(issues.some((issue) => /no MFA in the DMZ/i.test(issue.message))).toBe(false);
+    expect(issues).toContainEqual(expect.objectContaining({ level: 'warn', message: expect.stringContaining('No server certificate configured') }));
+    expect(c.values.authMethods).toBe('passthrough');
+    expect(generateIni(c)).toBe(ini);
+    expect(ini).not.toContain('authMethods=');
+    expect(JSON.stringify(c)).toBe(before);
+  });
+
   it('warns when no server certificate is configured', () => {
     expect(validateConfig(defaultConfig())).toContainEqual(expect.objectContaining({
       section: 'tls',
@@ -357,6 +370,51 @@ describe('config validation', () => {
   it('rejects undocumented addressing mode values from imports', () => {
     const c = applyPatch(defaultConfig(), { values: { ipmode0: 'STATICV4+AUTOMAGICV6' } });
     expect(messages(c).join('\n')).toMatch(/NIC0 addressing mode: "STATICV4\+AUTOMAGICV6" is not an allowed value/);
+  });
+
+  it.each(['vi://operator@vc.example.com', 'vi://operator@vc.example.com/', 'vi://operator@vc.example.com/ \t/// \n/'])('requires a compute inventory path without changing %s', (target) => {
+    const c = applyPatch(defaultConfig(), { values: { target, folder: 'VMs/UAG' } });
+    const before = JSON.stringify(c);
+    expect(validateConfig(c).filter((issue) => issue.fieldId === 'target')).toEqual([
+      expect.objectContaining({ level: 'error', section: 'network', message: expect.stringContaining('Enter the compute inventory path (required)') })
+    ]);
+    expect(JSON.stringify(c)).toBe(before);
+  });
+
+  it.each([
+    'vi://operator@vc.example.com/DC%20One/host/Compute%20Folder/Cluster/Resources/UAG',
+    'vi://CORP\\operator@vc.example.com/DC One/host/Cluster',
+    'vi://operator@vsphere.local@[2001:db8::1]/DC/host/Cluster',
+    'legacy-target',
+    'vi://vc.example.com/DC/host/Cluster',
+    'vi://' + 'operator:SYNTHETIC@vc.example.com'
+  ])('preserves valid inventory paths and opaque advanced compatibility: %s', (target) => {
+    const c = applyPatch(defaultConfig(), { values: { target } });
+    const before = JSON.stringify(c);
+    expect(validateConfig(c).filter((issue) => issue.fieldId === 'target')).toEqual([]);
+    expect(JSON.stringify(c)).toBe(before);
+  });
+
+  it.each([
+    ['vi://@vc.example.com/DC/host/Compute', 'vCenter username (required)'],
+    ['vi:// \t@vc.example.com/DC/host/Compute', 'vCenter username (required)'],
+    ['vi://operator@/DC/host/Compute', 'vCenter FQDN/server address (required)'],
+    ['vi://operator@ \t/DC/host/Compute', 'vCenter FQDN/server address (required)'],
+    ['vi://@/DC/host/Compute', 'vCenter username (required)'],
+    ['vi://@/DC/host/Compute', 'vCenter FQDN/server address (required)']
+  ])('blocks missing guided credentials/server parts in %s without rewriting imported spelling', (target, message) => {
+    const c = applyPatch(defaultConfig(), { values: { target } });
+    const before = JSON.stringify(c);
+    expect(validateConfig(c).filter(issue => issue.fieldId === 'target')).toEqual([
+      expect.objectContaining({ level: 'error', section: 'network', message: expect.stringContaining(message) })
+    ]);
+    expect(JSON.stringify(c)).toBe(before);
+  });
+
+  it('keeps the existing blank target error without a duplicate inventory finding', () => {
+    expect(validateConfig(defaultConfig()).filter((issue) => issue.fieldId === 'target')).toEqual([
+      expect.objectContaining({ level: 'error', message: 'vCenter target is required' })
+    ]);
   });
 
   it('does not require fields hidden for the platform', () => {

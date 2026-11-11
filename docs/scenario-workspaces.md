@@ -13,6 +13,14 @@ Legacy browser-storage keys and fleet-format identifiers deliberately retain `ga
 - `ordinary-whitespace.ts` selects normalizable fields from the genuine schema. Saved/exported snapshots normalize without replacing an actively typed model. Passwords, free-form/raw content, opaque extras and untouched advanced target locators are exceptions.
 - `Appearance.svelte`, `review-appearance.ts`, `appearance.css` and the HTML bootstrap resolve Original/System before initial mount. Dedicated `gateway-forge.appearance.v1` preferences are independent of configuration IDs and excluded from configuration exports.
 
+## Saved-draft export readiness
+
+Saved draft cards show **Ready to export** or **Needs fixes**, with blocking findings and advisory warnings counted separately. Single UAG and Web proxy use normalized checked INI/settings JSON validation. Horizon uses checked **fleet ZIP** readiness: the topology must be planned, an active UAG must remain, and all active-member and fleet-level errors must be resolved. A valid but unplanned Horizon baseline therefore says **Needs fixes** with **Topology not planned**; its existing baseline INI export remains available independently. Format labels are omitted from cards, and ready cards omit zero-blocker counts and omit the counts line entirely when there are no warnings.
+
+Single UAG and Web proxy card names append the configured appliance hostname (`uagName`) when nonblank, not the deployment VM name or vCenter server. This is a display-only suffix: persisted draft names are not renamed, missing hostnames are not invented, and Horizon card names stay unchanged. Long names wrap rather than truncate.
+
+Warnings alone do not block export. Counts are read-only calculations from the actual saved configuration and fleet, not cached certifications or invented deployment values. Secret omission, unsupported-storage write protection and raw locator spelling remain unchanged. New-scenario cards still create blank/default workspaces and do not show saved-draft status. Export readiness does not verify live deployment, networking, security, certificates or failover.
+
 ## Shared versus individual
 
 A **UAG group** is a Foundry configuration grouping, not an inferred Horizon pod or Cloud Pod Architecture site. Groups can be named by site (for example, “London”), but one site may contain multiple pods or UAG groups. Existing draft labels and topology-format identifiers remain unchanged. For deployment architecture, consult [Horizon Architecture](https://techzone.omnissa.com/resource/horizon-8-architecture) on Omnissa Tech Zone.
@@ -22,6 +30,8 @@ Fresh Horizon starts with one genuinely blank/default appliance and the Horizon 
 Source images require an actual filename before the platform's supported extension, not just `.ova` or `.vhdx` at the end of a directory or URL. vSphere continues to accept named local/UNC OVA paths and HTTP(S) OVA URLs; Hyper-V continues to require local VHDX paths. Invalid imported source strings stay available for correction.
 
 An incomplete first Horizon baseline shows an amber prerequisite warning directly below the workspace/topology actions, before you try to continue. It is linked to the Continue action for assistive technology and becomes normal next-step guidance when configuration validation passes and Horizon remains enabled. The existing blocking topology guard still applies. Clicking Continue while the baseline is incomplete focuses that prominent warning without adding a duplicate click-time message.
+
+Parseable vSphere locators require a username, vCenter FQDN/server address and compute inventory path in the full editor, initial Horizon baseline and checked fleet exports; blank usernames/server addresses and blank or slash/whitespace-only paths are blocking and a separate VM folder does not satisfy them. Encoded paths and imported spelling remain unchanged, and opaque advanced locators are not reinterpreted. DNS and NTP validation is shared with standalone workspaces: one distinct valid server produces a field-linked advisory, not an export blocker. NTP counts primary and fallback servers together using existing equivalence rules; multiple addresses alone do not prove independent redundancy. Missing, invalid and duplicate-server findings remain separate.
 
 Applicable static IPv4 defaults require the gateway to be in NIC0's subnet and different from the NIC0 appliance address. The collision is a blocking, field-linked builder error in the full editor and fleet validation/checked export, not an automatic value rewrite. DHCP/IPv6-only and managed Azure fields are not checked as active static IPv4 settings.
 

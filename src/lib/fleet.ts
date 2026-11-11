@@ -116,6 +116,13 @@ export function nicRows(config: Config): { nic: number; role: string; value: str
 }
 const ipv4 = (value: string) => !!value && !checkRule('ipv4', value);
 const ipNumber = (value: string) => value.split('.').reduce((n, part) => n * 256 + Number(part), 0) >>> 0;
+export function fleetExportIssues(fleet: Fleet): Issue[] {
+  const issues: Issue[] = fleetIssues(fleet);
+  if (!fleet.unlocked) issues.push({ id: 'fleet-export:planning', level: 'error', section: 'horizon', message: 'Plan the Horizon topology before checked fleet ZIP export.' });
+  if (!activeMembers(fleet).length) issues.push({ id: 'fleet-export:empty', level: 'error', section: 'horizon', message: 'Add an active UAG before checked fleet ZIP export.' });
+  return issues;
+}
+
 export function fleetIssues(fleet: Fleet): (Issue & { memberId?: number })[] {
   const members = activeMembers(fleet), result: (Issue & { memberId?: number })[] = [];
   const memberLabel = (member: Member) => { const name = String(member.config.values.name || ''); return name.trim() ? `UAG “${name}” (#${member.id})` : `UAG ${member.id}`; };
