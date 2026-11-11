@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import type { Field, Values } from '../lib/schema';
   import { buildVCenterTarget, parseVCenterTarget, vCenterTargetFeedback, VCENTER_CREDENTIAL_TARGET_EXAMPLE, VCENTER_INLINE_PASSWORD_WARNING, type VCenterTarget } from '../lib/vcenterTarget';
+  import { markGuidedTarget, trailingWhitespace } from '../lib/ordinary-whitespace';
   import FieldDetails from './FieldDetails.svelte';
 
   interface Props { field: Field; values: Values; error?: string }
@@ -24,12 +25,14 @@
   });
 
   function update(key: keyof VCenterTarget, value: string) {
+    markGuidedTarget(values, true);
     parts[key] = value;
     emitted = buildVCenterTarget(parts);
     values[field.id] = emitted;
   }
 
   function updateRaw(value: string) {
+    markGuidedTarget(values, false);
     emitted = value;
     values[field.id] = value;
     const parsed = parseVCenterTarget(value);
@@ -56,7 +59,7 @@
       <div class="target-fields wide">
       <label class="field" for="f-target-username">
         <span class="lbl">vCenter username</span>
-        <input id="f-target-username" type="text" autocomplete="off" spellcheck="false" required
+        <input id="f-target-username" type="text" onblur={() => update('username', trailingWhitespace(parts.username))} autocomplete="off" spellcheck="false" required
           aria-describedby="f-target-username-help f-target-username-feedback" aria-invalid={feedback.username?.warning || undefined}
           class:bad={feedback.username?.warning}
           value={parts.username} placeholder="administrator@vsphere.local" oninput={(e) => update('username', e.currentTarget.value)} />
@@ -64,14 +67,14 @@
       </label>
       <label class="field" for="f-target-server">
         <span class="lbl">vCenter FQDN</span>
-        <input id="f-target-server" type="text" autocomplete="off" spellcheck="false" required
+        <input id="f-target-server" type="text" onblur={() => update('server', trailingWhitespace(parts.server))} autocomplete="off" spellcheck="false" required
           aria-describedby="f-target-server-feedback" aria-invalid={feedback.server?.warning || undefined} class:bad={feedback.server?.warning}
           value={parts.server} placeholder="vcenter.corp.local" oninput={(e) => update('server', e.currentTarget.value)} />
         <span class="hint" class:err={feedback.server?.warning} id="f-target-server-feedback" aria-live="polite">{feedback.server?.message ?? ''}</span>
       </label>
       <label class="field inventory-field" for="f-target-inventory">
         <span class="lbl">Compute inventory path</span>
-        <input id="f-target-inventory" type="text" autocomplete="off" spellcheck="false" required
+        <input id="f-target-inventory" type="text" onblur={() => update('inventoryPath', trailingWhitespace(parts.inventoryPath))} autocomplete="off" spellcheck="false" required
           aria-describedby="f-target-inventory-help f-target-inventory-feedback" aria-invalid={feedback.inventoryPath?.warning || undefined}
           class:bad={feedback.inventoryPath?.warning}
           value={parts.inventoryPath} placeholder="DC1/host/Cluster1" oninput={(e) => update('inventoryPath', e.currentTarget.value)} />

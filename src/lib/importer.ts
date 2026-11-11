@@ -25,7 +25,9 @@ export interface ImportResult {
 
 export type IniDoc = { section: string; entries: { key: string; value: string }[] }[];
 
-export function parseIni(text: string): IniDoc {
+const opaqueIniKeys = new Set(['target', ...[...GROUPS.flatMap(g => g.fields), ...LISTS.flatMap(l => l.fields)].filter(f => f.secret || f.type === 'secret' || f.type === 'textarea' && !f.rows || f.certificateInput).flatMap(f => [f.key, ...(f.aliases ?? [])]).map(key => key.toLowerCase())]);
+
+export function parseIni(text: string, preserveUnknown = false): IniDoc {
   const doc: IniDoc = [];
   let cur: IniDoc[number] | null = null;
   for (const rawLine of text.replace(/^\uFEFF/, '').split(/\r?\n/)) {
@@ -39,7 +41,10 @@ export function parseIni(text: string): IniDoc {
     }
     const eq = line.indexOf('=');
     if (eq < 1 || !cur) continue;
-    cur.entries.push({ key: line.slice(0, eq).trim(), value: line.slice(eq + 1).trim() });
+    const key = line.slice(0, eq).trim();
+    const rawValue = rawLine.slice(rawLine.indexOf('=') + 1);
+    const recognized = [...GROUPS.flatMap(g => g.fields), ...LISTS.flatMap(l => l.fields), ...RUNTIME_FIELDS].some(f => [f.key, ...(f.aliases ?? [])].some(k => k.toLowerCase() === key.toLowerCase()));
+    cur.entries.push({ key, value: preserveUnknown && !recognized || opaqueIniKeys.has(key.toLowerCase()) ? rawValue : line.slice(eq + 1).trim() });
   }
   return doc;
 }
@@ -134,7 +139,7 @@ export function importIni(text: string, base?: Config): ImportResult {
   c.syslog = [];
   c.adminUsers = [];
   const result: ImportResult = { config: c, format: 'ini', warnings: [], unmapped: [], mapped: 0 };
-  const doc = parseIni(text);
+  const doc = parseIni(text, true);
   let safetySection = '';
   text.replace(/^\uFEFF/, '').split(/\r?\n/).forEach((rawLine, index) => {
     const line = rawLine.trim();
@@ -348,6 +353,7 @@ export function importIni(text: string, base?: Config): ImportResult {
       .join('\n');
     result.warnings.push('SSH public-key file paths were imported. Pasted key material is not available in a deployment INI; replace paths with key contents when exporting settings JSON.');
   }
+  c.iniExtras = result.unmapped.filter(e => e.value !== undefined && !/^pfxPassword$/i.test(e.key) && /^\[[^\]]+\]$/.test(e.where)).map(e => ({ section: e.where.slice(1, -1), key: e.key, value: e.value! }));
   detectCascade(c);
   compactConfigTrustedCerts(c);
   for (const group of GROUPS) normalizeHostEntries(c.values, group.fields);

@@ -13,7 +13,9 @@ import { DEFAULT_VERSION, inVersion, type Platform } from './versions';
 import { compactConfigTrustedCerts } from './trusted-certs';
 import { normalizeHostEntries } from './host-entries';
 
+export interface IniExtra { section: string; key: string; value: string }
 export interface Config {
+  iniExtras?: IniExtra[];
   version: string;
   platform: Platform;
   values: Values;
@@ -142,7 +144,9 @@ export function unsafeSegJwtValue(key: string, value: unknown): boolean {
 
 /** Replace every secret value with an empty string (used before persisting a draft). */
 export function stripSecrets(c: Config): Config {
-  const out = cloneConfig(c);
+  const out = promoteIniExtras(c);
+  const secretKeys = new Set([...GROUPS.flatMap(g => g.fields), ...LISTS.flatMap(l => l.fields)].filter(f => f.secret).flatMap(f => [f.key, ...(f.aliases ?? [])]).map(key => key.toLowerCase()));
+  out.iniExtras = (out.iniExtras ?? []).filter(e => !secretKeys.has(e.key.toLowerCase()) && !/^(rootPwd|adminPwd|rootPassword|adminPassword|UAG_ROOT_PASSWORD|UAG_ADMIN_PASSWORD)$/i.test(e.key));
   for (const g of GROUPS) for (const f of g.fields) if (f.secret) out.values[f.id] = '';
   for (const key of ['rootPwd', 'adminPwd', 'rootPassword', 'adminPassword', 'UAG_ROOT_PASSWORD', 'UAG_ADMIN_PASSWORD']) {
     delete out.values[key];
@@ -166,9 +170,29 @@ export function stripSecrets(c: Config): Config {
   return out;
 }
 
-/** Merge a partial config onto a base, ignoring unknown keys. */
+/** Promote newly recognized INI extras before filling defaults; explicit typed values win. */
+export function promoteIniExtras(config: Config): Config {
+  const out = JSON.parse(JSON.stringify(config)) as Config;
+  out.values ??= {};
+  const promotedIds = new Set(['honorCipherOrder', 'az_publicIPAddressName0', 'az_vNetResourceGroupName']);
+  const recognized = GROUPS.flatMap(g => g.fields.filter(f => promotedIds.has(f.id)).map(f => ({ section: g.iniSection, field: f })));
+  out.iniExtras = (out.iniExtras ?? []).filter(extra => {
+    const hit = recognized.find(({ section, field }) => section?.toLowerCase() === extra.section.toLowerCase() && field.key.toLowerCase() === extra.key.toLowerCase());
+    if (!hit) return true;
+    if (!Object.prototype.hasOwnProperty.call(out.values, hit.field.id)) {
+      const value = extra.value;
+      out.values[hit.field.id] = hit.field.type === 'bool' && /^(true|false|1|0|yes|no)$/i.test(value.trim()) ? /^(true|1|yes)$/i.test(value.trim()) : value;
+    }
+    return false;
+  });
+  return out;
+}
+
+/** Merge a partial config onto a base, retaining opaque INI compatibility entries. */
 export function applyPatch(base: Config, patch: Partial<Omit<Config, 'values'>> & { values?: Values }): Config {
+  patch = promoteIniExtras({ ...patch, values: patch.values ?? {} } as Config);
   const out = cloneConfig(base);
+  if (patch.iniExtras) out.iniExtras = patch.iniExtras.map(extra => ({ ...extra }));
   if (patch.version) out.version = patch.version;
   if (patch.platform) out.platform = patch.platform;
   if (patch.values) Object.assign(out.values, patch.values);

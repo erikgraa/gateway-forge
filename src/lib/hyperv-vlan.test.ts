@@ -88,7 +88,7 @@ describe('Hyper-V access VLANs', () => {
 
 type Scenario = { count?: number; names?: string[]; vendor?: string; before?: boolean; reused?: boolean; missing?: boolean; stopped?: boolean; failName?: string; missingId?: boolean; onlyManagement?: boolean };
 function runMock(scenario: Scenario = {}) {
-  const directory = mkdtempSync(join(tmpdir(), 'gateway-forge-vlan-'));
+  const directory = mkdtempSync(join(tmpdir(), 'uag-foundry-vlan-'));
   const count = scenario.count ?? 3;
   const names = scenario.names ?? ['Backend Network Adapter', 'Network Adapter', 'Management Network Adapter'].filter((name) => count === 3 || (count === 2 ? name !== 'Backend Network Adapter' : name === 'Network Adapter'));
   const quote = (value: string) => `'${value.replace(/'/g, "''")}'`;

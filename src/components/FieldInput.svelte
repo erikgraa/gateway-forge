@@ -2,6 +2,7 @@
   import { displayFieldLabel, fieldHelp, type Field, type Values } from '../lib/schema';
   import type { Platform } from '../lib/versions';
   import { certificateMode, selectCertificateMode } from '../lib/certificate-input';
+  import { normalizeField } from '../lib/ordinary-whitespace';
   import FieldDetails from './FieldDetails.svelte';
 
   interface Props {
@@ -120,7 +121,7 @@
     {:else if field.type === 'textarea'}
       <textarea {id} rows="3" maxlength={field.maxLength} class:bad={!!error} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : help ? `${id}-help` : undefined} {required} bind:value={values[field.id]} {placeholder}></textarea>
     {:else}
-      <input {id} type="text" maxlength={field.maxLength} autocomplete="off" spellcheck="false" class:bad={!!error} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : help ? `${id}-help` : undefined} {required} bind:value={values[field.id]} {placeholder} />
+      <input {id} type="text" onblur={() => { values[field.id] = normalizeField(field, values[field.id]) as Values[string]; }} maxlength={field.maxLength} autocomplete="off" spellcheck="false" class:bad={!!error} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : help ? `${id}-help` : undefined} {required} bind:value={values[field.id]} {placeholder} />
     {/if}
     {#if error}<span class="err" id={`${id}-error`}>{error}</span>{:else if help}<span class="hint" id={`${id}-help`}>{help}</span>{/if}
     {#if isHorizonAuth}

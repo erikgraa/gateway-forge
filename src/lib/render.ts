@@ -2,6 +2,7 @@ import { generateBootableVolumeManifest, generateIni, generateJson, iniFileName,
 import { generatePowerShell, type DeploymentMode } from './powershell';
 import { generateDocs } from './topology';
 import { validateConfig } from './validate';
+import { normalizeConfig } from './ordinary-whitespace';
 import type { Config } from './model';
 import type { OutputTab } from './store.svelte';
 
@@ -17,6 +18,7 @@ export function render(
   mode: SecretMode,
   deploymentMode: DeploymentMode = 'interactive'
 ): Rendered {
+  c = normalizeConfig(c);
   switch (tab) {
     case 'ini':
       return { text: generateIni(c, { secrets: mode }), filename: iniFileName(c), mime: 'text/plain' };

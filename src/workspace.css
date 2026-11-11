@@ -1,9 +1,13 @@
-.target-profile { margin: 0 0 24px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
-.target-profile > summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 12px 14px; cursor: pointer; list-style: none; font-size: 12px; }
+.target-profile { margin: 0 0 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+.target-profile:not([open]) { border-color: color-mix(in srgb, var(--acc-strong) 40%, var(--line)); background: linear-gradient(110deg, var(--acc-soft), var(--panel) 75%); }
+.target-profile > summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-height: 60px; padding: 14px 16px; cursor: pointer; list-style: none; font-size: 13px; }
+.target-profile:not([open]) > summary { border-left: 3px solid var(--acc-strong); border-radius: 11px; }
 .target-profile > summary::-webkit-details-marker { display: none; }
 .target-profile > summary:focus-visible, .section-help > summary:focus-visible { outline: 2px solid var(--acc-strong); outline-offset: 3px; }
-.profile-label { color: var(--mut); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
-.profile-platform { --profile-accent: var(--acc-strong); border-left: 2px solid var(--profile-accent); padding-left: 8px; }
+.profile-label { display: inline-flex; align-items: center; gap: 6px; color: var(--acc-strong); font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .08em; }
+.profile-label svg { width: 16px; height: 16px; flex-shrink: 0; }
+.profile-version { padding: 6px 9px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--panel); color: var(--tx); font-size: 14px; font-weight: 750; }
+.profile-platform { --profile-accent: var(--acc-strong); padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--profile-accent) 40%, var(--line)); border-left: 3px solid var(--profile-accent); border-radius: 8px; background: color-mix(in srgb, var(--profile-accent) 10%, var(--panel)); color: var(--tx); font-size: 12px; font-weight: 700; }
 .profile-platform[data-platform='hyperv'] { --profile-accent: #756cf5; }
 .profile-platform[data-platform='azure'] { --profile-accent: #168ddb; }
 .profile-platform[data-platform='nutanix'] { --profile-accent: #17a48d; }

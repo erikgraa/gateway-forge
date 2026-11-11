@@ -1,8 +1,51 @@
 # Changelog
 
-All notable user-facing changes to Gateway Forge are documented here. This format follows the [Keep a Changelog](https://keepachangelog.com/) structure.
+All notable user-facing changes to UAG Foundry are documented here. Earlier releases were named Gateway Forge; historical entries retain their original names and links. This format follows the [Keep a Changelog](https://keepachangelog.com/) structure.
 
 ## Unreleased
+
+## 0.9.0 - 2026-11-11
+
+### Added
+
+- Scenario-first native workspaces for Single UAG, Horizon UAG topology and Web proxy, with named browser-local drafts and blank/default configurations.
+- Horizon UAG groups, shared templates, individual appliance identity/address/destination controls, removal with Undo and checked grouped fleet downloads with compatible topology imports. Static validation does not certify live connectivity or failover.
+- Visible “UAG group” terminology instead of “Backend group,” without migrating existing labels or topology identifiers; the overview links to Omnissa’s Horizon Architecture reference.
+- Space-free INI paths in fleet ZIPs: whitespace becomes hyphens, stable IDs prevent filename collisions, and manifest/README references stay aligned without changing configuration values or contents.
+- Original purple, Harbor and Warm slate palettes independent of System, Light and Dark appearance modes.
+- Confirmed Clear all drafts alongside individual deletion, with count, keyboard/focus safeguards and storage-failure protection. Previous legacy configuration, appearance and unsupported physical registries remain intact.
+- Landing-page builder version and source/Omnissa links, retaining the independent-community disclaimer.
+- Theme-aware topology and action icons, stable backend-group accents, and read-only green checked-box/red warning validation statuses. Blocking links identify the affected appliance by its INI VM name.
+- Confirmation before removing a UAG or UAG group, with safe Cancel focus, a group member count and retained Undo behavior.
+- Collapsible UAG groups with shared UAG High Availability (XML API VIP) and Connection Server branches, simpler gap-routed desktop arrows and separate individual or imported destinations.
+- Friendly Configuration ready statuses; the bottom error panel hides when clear. Selected-appliance conflicts also appear beside address inputs, and unused NIC0 IPv6 controls stay hidden until an active member has a configured address.
+- Full UAG configuration editor and Download fleet configuration actions with readable labels and icons.
+- Compact read-only fleet overview above collapsible UAG groups, with Horizon clients, supported HA VIPs, appliance names and configured Connection Server destinations; no configuration details or inferred pods/server pools.
+- Narrower fleet workspace and compact overview/backend diagrams, with tighter node spacing and separate HA DNS guidance instead of a tall VIP card.
+- Validation & lint above full-editor fields, retaining field navigation and severity counts with a bounded findings list; topology blocking findings open the affected UAG at the exact field.
+- Slightly wider fleet and backend-group diagrams preserve the compact layout and narrow-screen scrolling; Clear all drafts gains a decorative trash icon and theme-aware destructive-action tint without changing confirmation safeguards.
+- Backend LB / pool selections reveal a contextual Cloud Pod Architecture note without inferring or configuring federation, pod membership, global entitlements or inter-pod connectivity.
+- Fleet collision messages identify conflicting appliances by INI name and member ID, including address, duplicate-name and VIP/appliance collisions in the full configuration editor.
+- Independently collapsible fleet overview with an optional dotted hypothetical client-facing LB and independent per-destination LB / Connection Server pool switches. Pools represent 1–N unknown members without combining distinct endpoints; visual toggles do not change or save configuration.
+- New UAG groups start without inherited network addresses, subnet masks, gateways, DNS, routes or custom overrides.
+- Unique numeric Group IDs across active supported native HA groups and cross-group VIP collision guardrails, without rewriting retained configurations.
+
+### Fixed
+
+- Rejected extension-only source images, including local/UNC paths or OVA URLs without a filename before the extension. Existing platform format restrictions and imported source spelling are retained.
+- Made the incomplete Horizon-baseline prerequisite an amber warning beside the topology actions, replacing it with next-step guidance once the baseline is valid.
+- Blocked static IPv4 default gateways equal to the NIC0 appliance address, with linked errors on both fields and the same policy in full-editor, topology and checked-fleet validation. Imported values are retained; hidden DHCP/IPv6-only and managed Azure fields are not treated as active static settings.
+
+### Changed
+
+- Renamed Gateway Forge to UAG Foundry with the original Cast gateway U + arrow mark across the app, browser metadata, icons, sharing artwork, generated guidance and refreshed screenshots. README artwork has a white-backed light treatment and transparent dark treatment.
+- Updated repository links to `erikgraa/uag-foundry` and the public address to `uagfoundry.graa.dev`. Existing GHCR packages keep their separate namespace; browser drafts and preferences do not move across domains. See the technical guide migration notes before switching.
+- Replaced duplicate New/save controls with one icon-labelled teal Save & return action; drafts have matching scenario accents and explicit labels/icons.
+- Trimmed trailing whitespace in ordinary single-line fields on blur/save/export while preserving passwords, raw/multiline content, opaque imports and untouched advanced locators.
+- Added source-backed INI `honorCipherOrder` with a true default and explicit-false preservation; clarified Azure NIC subnets, optional NSGs, existing NIC0 public-IP resource names and optional resource-group fallbacks. Applicable subnet requirements are builder safety policy, not a new vendor claim.
+- Simplified README and moved detailed support evidence, storage/output limitations and hosting guidance to the technical guide. Preserved legacy browser-storage keys and fleet-format identifiers.
+
+Targeted desktop/tablet/phone checks and automated tests do not establish complete mobile workflows or certify appliance deployment/services.
 
 ## 0.8.7 - 2026-11-10
 

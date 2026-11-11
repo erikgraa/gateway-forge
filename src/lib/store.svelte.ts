@@ -23,7 +23,7 @@ function migrateLegacyKeys(): void {
     /* storage unavailable */
   }
 }
-migrateLegacyKeys();
+// Legacy entries are preserved; scenario entry offers an explicit resume action.
 
 export type OutputTab = 'ini' | 'json' | 'ps' | 'docs' | 'manifest';
 
@@ -32,7 +32,7 @@ function loadDraft(): Config {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Config;
-      const merged = applyPatch(defaultConfig(), { version: parsed.version, platform: parsed.platform, values: parsed.values, oidc: parsed.oidc, jwt: parsed.jwt, jwtIssuers: parsed.jwtIssuers });
+      const merged = applyPatch(defaultConfig(), { ...parsed, values: parsed.values });
       if (typeof merged.values.sessionTimeout === 'number' && merged.values.sessionTimeout >= 60000) {
         merged.values.sessionTimeout /= 60000;
       }
@@ -45,7 +45,7 @@ function loadDraft(): Config {
   } catch {
     /* corrupt draft - start fresh */
   }
-  return sampleConfig();
+  return defaultConfig();
 }
 
 function sampleConfig(): Config {
@@ -162,7 +162,12 @@ class AppState {
     }
   }
 
+  draftSaver: (() => void) | null = null;
+  retainImport: ((value: unknown) => void) | null = null;
+  exportGuard: (() => boolean) | null = null;
+
   saveDraft() {
+    if (this.draftSaver) { this.draftSaver(); return; }
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(stripSecrets(this.config)));
     } catch {
@@ -171,12 +176,9 @@ class AppState {
   }
 
   clearDraft() {
-    try {
-      localStorage.removeItem(DRAFT_KEY);
-    } catch {
-      /* ignore */
-    }
+    // A reset never deletes the pre-scenario configuration.
     this.config = defaultConfig();
+    this.saveDraft();
   }
 }
 

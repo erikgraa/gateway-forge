@@ -4,6 +4,7 @@
   import type { Platform } from '../lib/versions';
   import type { Issue } from '../lib/validate';
   import { formatOriginHeaderDetails, parseOriginHeaderDetails, type OriginHeaderDetail } from '../lib/generate';
+  import { trailingWhitespace } from '../lib/ordinary-whitespace';
   import FieldDetails from './FieldDetails.svelte';
 
   interface Props {
@@ -66,6 +67,7 @@
           <input id={`${id}-origin`} type="text" value={row.origin} placeholder="https://uag.example.com"
             spellcheck="false" autocomplete="off" class:bad={!!error}
             aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : undefined}
+            onblur={() => { row.origin = trailingWhitespace(row.origin); commit(); }}
             oninput={(event) => { row.origin = event.currentTarget.value; commit(); }} />
           {#if error}<span class="err" id={`${id}-error`}>{error}</span>{/if}
         </label>
