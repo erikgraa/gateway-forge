@@ -17,7 +17,7 @@ Build, check and export configurations for **Omnissa Unified Access Gateway (UAG
 **[Open UAG Studio](https://uagstudio.graa.dev)** — no installation needed.
 Your configuration is processed in your browser, not uploaded to a server.
 
-**Moving from UAG Foundry?** Version 0.9.1 uses a new domain. Browser-local drafts and preferences do not automatically transfer; see the [migration notes](docs/technical-guide.md#moving-from-gateway-forge) before switching.
+**Moving from the previous site?** Version 0.9.1 uses a new domain. Browser-local drafts and preferences do not automatically transfer; see the [migration notes](docs/technical-guide.md#moving-from-a-previous-domain) before switching.
 
 ![UAG Studio scenario chooser in dark theme](docs/screenshots/chooser-dark.png)
 

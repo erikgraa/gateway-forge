@@ -6,7 +6,7 @@ privacy, development and hosting. For a quick introduction, see the [README](../
 ## Contents
 
 - [Scenario workspaces](#scenario-workspaces)
-- [Moving from Gateway Forge](#moving-from-gateway-forge)
+- [Moving from a previous domain](#moving-from-a-previous-domain)
 - [Configuration coverage](#configuration-coverage)
 - [Supported UAG versions](#supported-uag-versions)
 - [Deployment support and test status](#deployment-support-and-test-status)
@@ -23,7 +23,7 @@ privacy, development and hosting. For a quick introduction, see the [README](../
 
 The source workspace now starts with **Single UAG**, **Horizon UAG topology**, or **Web proxy**. Each named configuration keeps its scenario. **Save & return** preserves it and opens the chooser; only the scenario cards create new workspaces. Selecting the brand uses the same save-and-return action. Editors are native Svelte components, not embedded review bundles. Original palette + System theme is the default; Harbor/Warm slate and explicit Light/Dark are independent preferences.
 
-Browser-local workspaces use `gateway-forge.workspaces.v1` and appearance uses `gateway-forge.appearance.v1`. The previous `gateway-forge.draft` remains unchanged and explicitly resumable as a Single configuration. Unsupported registries are never overwritten. Recognized passwords are omitted, not encrypted; credential-bearing advanced target locators remain exact and can contain secrets. Unsupported/raw imports stay in memory only, with metadata saved rather than unredactable content.
+Browser-local workspaces and appearance retain their existing storage namespaces. The previous legacy draft remains unchanged and explicitly resumable as a Single configuration. Unsupported registries are never overwritten. Recognized passwords are omitted, not encrypted; credential-bearing advanced target locators remain exact and can contain secrets. Unsupported/raw imports stay in memory only, with metadata saved rather than unredactable content.
 
 Horizon starts with one genuinely blank/default appliance and the Horizon service selected—not seeded deployment values. Fill or import a configuration that passes validation before unlocking topology and using it as the shared baseline. UAG groups retain shared template snapshots, independent member counts and individual names/addresses/destination overrides. Removal excludes appliances from exports; Undo restores their configuration. Checked fleet ZIPs contain one safe deterministic folder per group, member INIs linked by `topology.json`, and a short `README.txt` deployment checklist. Compatible earlier topology review manifests remain importable. Static NIC/subnet/collision and native HA checks do **not** certify infrastructure, certificates, L2 connectivity or live failover; deployment stays manual. See the [scenario implementation notes](scenario-workspaces.md) for architecture and detailed preservation boundaries.
 
@@ -33,9 +33,11 @@ Ordinary schema-identified single-line text trims **trailing** whitespace on blu
 
 The chooser supports confirmed removal of one draft or **Clear all drafts**, including fleet plans and memory-only imports. The bulk confirmation shows the count; Cancel, Escape or a failed storage write preserves all drafts. Appearance, the legacy configuration and unrelated storage remain unchanged. Unsupported physical registries are protected even when session-only drafts are cleared.
 
-## Moving from Gateway Forge
+<a id="moving-from-gateway-forge"></a>
 
-Version 0.9.0 introduced UAG Foundry at `https://uagfoundry.graa.dev/`. Version 0.9.1 adopts UAG Studio at `https://uagstudio.graa.dev/`. The repository is now `erikgraa/uag-studio` and the npm package identifier is `uag-studio`; this repository/package alignment does not change the app version. GitHub redirects the previous `gateway-forge` and `uag-foundry` repository URLs; this does not rename existing GHCR packages or migrate browser storage.
+## Moving from a previous domain
+
+Version 0.9.1 uses UAG Studio at `https://uagstudio.graa.dev/`, replacing the previous release's public domain. The repository is now `erikgraa/uag-studio` and the npm package identifier is `uag-studio`; this repository/package alignment does not change the app version. GitHub redirects previous repository URLs; this does not rename existing GHCR packages or migrate browser storage.
 
 **Before switching domains**, export each configuration you need from the old origin and keep the files private. Checked exports require resolving blockers first. If a draft cannot be exported, preserve its old-origin browser storage privately before making changes and retain the original browser profile. Import its INI or settings JSON in a new workspace on the new site. Export a Horizon fleet bundle to transfer compatible topology. These files are configuration transfers, not complete browser-profile backups: workspace IDs/names, Undo history, appearance, omitted passwords and unsupported memory-only imports do not move automatically. Review the export secret policy and save original unsupported import files separately. Re-select appearance and supply credentials securely at the new origin. Browser data on the old origin is not deleted by this release, but cannot be read from the new domain. Same-origin upgrades retain existing storage keys and supported topology formats.
 
@@ -212,7 +214,7 @@ Omnissa documents the JSON as an *export/import format* of the admin UI but does
 
 A self-contained image (static files + nginx, non-root, no outbound calls, strict CSP) is built nightly at 02:30 UTC and when application or build inputs change on `main` by [container.yml](../.github/workflows/container.yml), after type-check, tests and a Lifecycle Matrix comparison pass, and published as multi-arch (amd64/arm64) to GitHub Container Registry. Documentation-only changes do not trigger a build; relevant pull requests run verification without publishing or deleting images:
 
-**Current image namespace:** `ghcr.io/erikgraa/uag-studio`. The workflow derives this from `github.repository` and is configured to publish Linux amd64 and arm64 images after verification. Before pulling the commands below, check a successful **Build and push image** job for this namespace and the desired tag; a repository rename alone does not publish an image. The older `ghcr.io/erikgraa/uag-foundry` and `ghcr.io/erikgraa/gateway-forge` packages remain separate historical packages: repository redirects do not rename them or automatically update existing container deployments.
+**Current image namespace:** `ghcr.io/erikgraa/uag-studio`. The workflow derives this from `github.repository` and is configured to publish Linux amd64 and arm64 images after verification. Before pulling the commands below, check a successful **Build and push image** job for this namespace and the desired tag; a repository rename alone does not publish an image. Previously published container packages remain separate historical packages: repository redirects do not rename them or automatically update existing container deployments.
 
 ```bash
 # Docker

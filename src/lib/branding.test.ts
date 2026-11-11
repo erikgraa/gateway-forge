@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { render } from 'svelte/server';
 import { describe, expect, it } from 'vitest';
 import BrandMark from '../components/BrandMark.svelte';
@@ -46,13 +46,31 @@ describe('UAG Studio rebrand', () => {
   });
 
   it.each([
-    'src/App.svelte', 'src/components/CommunityFooter.svelte', 'README.md', 'ROADMAP.md',
+    'src/App.svelte', 'src/components/CommunityFooter.svelte', 'README.md', 'ROADMAP.md', 'CHANGELOG.md',
     'docs/technical-guide.md', 'docs/secret-pki-provider-design.md', 'Dockerfile',
   ])('uses canonical Studio GitHub links in %s', path => {
     const source = readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8');
     const links = source.match(/https:\/\/github\.com\/erikgraa\/[\w-]+/g) || [];
     expect(links.length).toBeGreaterThan(0);
     expect([...new Set(links)]).toEqual(['https://github.com/erikgraa/uag-studio']);
+  });
+
+  it('omits previous names from visible documentation while preserving the legacy migration anchor', () => {
+    const root = new URL('../../', import.meta.url);
+    const paths = [
+      ...readdirSync(root).filter(name => name.endsWith('.md')),
+      ...readdirSync(new URL('docs/', root), { recursive: true })
+        .filter(name => name.endsWith('.md')).map(name => `docs/${name.replaceAll('\\', '/')}`),
+    ];
+    for (const path of paths) {
+      const source = readFileSync(new URL(path, root), 'utf8');
+      const visible = source.replace('<a id="moving-from-gateway-forge"></a>', '');
+      expect(visible, path).not.toMatch(/uag[- ]?foundry|gateway[- ]?forge/i);
+    }
+    const guide = readFileSync(new URL('docs/technical-guide.md', root), 'utf8');
+    expect(guide).toContain('<a id="moving-from-gateway-forge"></a>');
+    expect(guide).toContain('## Moving from a previous domain');
+    expect(guide).toContain('Previously published container packages remain separate historical packages');
   });
 
   it('aligns OCI branding and derives the publication namespace from the renamed repository', () => {

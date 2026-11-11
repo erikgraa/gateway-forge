@@ -1,7 +1,7 @@
 # Horizon 2609 INI schema audit
 
 **Audit date:** 2026-11-08  
-**Target at audit time:** UAG Foundry UAG 2609 Horizon schema (now UAG Studio). Current app references below use Studio; the audit date, source evidence and schema decisions are unchanged.
+**Target:** UAG Studio UAG 2609 Horizon schema. App references use the current name; the audit date, source evidence and schema decisions are unchanged.
 
 ## Authoritative sources
 

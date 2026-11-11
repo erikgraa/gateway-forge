@@ -5,7 +5,7 @@ Audited on 2026-11-08 against Omnissa's [PowerShell deployment parameters](https
 - routes, IP addressing modes, and per-NIC custom configuration first appear in the 2306 page and are absent from 2303;
 - NIC0 IPv6 and `adminpasswordExpirationDays` first appear in the 2506 page and are absent from 2503.
 
-The app was named UAG Foundry at audit time and is now UAG Studio. Current app references below use Studio; the audit date, vendor evidence and support conclusions are unchanged.
+App references use the current UAG Studio name; the audit date, vendor evidence and support conclusions are unchanged.
 
 `Supported` means the setting is represented in the schema/UI and maps through INI import and generation. Settings JSON is included only when the value is an appliance setting; deploy-time infrastructure and file values remain INI-only.
 
