@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import packageInfo from '../../package.json';
 
 const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
 const domain = readFileSync(new URL('../../public/CNAME', import.meta.url), 'utf8').trim();
@@ -14,6 +15,16 @@ function meta(attribute: 'name' | 'property', key: string) {
 }
 
 describe('static sharing metadata', () => {
+  it('aligns the production domain across deployment checks and documentation', () => {
+    expect(domain).toBe('uagstudio.graa.dev');
+    const pages = readFileSync(new URL('../../.github/workflows/pages.yml', import.meta.url), 'utf8');
+    expect(pages).toContain(`test "$(cat dist/CNAME)" = "${domain}"`);
+    const readme = readFileSync(new URL('../../README.md', import.meta.url), 'utf8');
+    expect(readme).toContain(`**[Open UAG Studio](https://${domain})**`);
+    const container = readFileSync(new URL('../../.github/workflows/container.yml', import.meta.url), 'utf8');
+    expect(container).toContain('grep -q "UAG Studio"');
+  });
+
   it('provides consistent crawler-readable titles, descriptions and canonical URLs', () => {
     const title = html.match(/<title>([^<]+)<\/title>/)?.[1];
     expect(title).toBeTruthy();
@@ -24,7 +35,7 @@ describe('static sharing metadata', () => {
     expect(meta('property', 'og:description')).toBe(description);
     expect(meta('name', 'twitter:description')).toBe(description);
     expect(meta('property', 'og:type')).toBe('website');
-    expect(meta('property', 'og:site_name')).toBe('UAG Foundry');
+    expect(meta('property', 'og:site_name')).toBe('UAG Studio');
     expect(meta('property', 'og:url')).toBe(publicUrl);
     expect(html).toContain(`<link rel="canonical" href="${publicUrl}" />`);
     expect(meta('name', 'twitter:card')).toBe('summary_large_image');
@@ -32,7 +43,7 @@ describe('static sharing metadata', () => {
 
   it('references a real, correctly sized PNG with image metadata and accessible descriptions', () => {
     const imageUrl = meta('property', 'og:image');
-    expect(imageUrl).toBe(`${publicUrl}social-preview.png`);
+    expect(imageUrl).toBe(`${publicUrl}social-preview.png?v=${packageInfo.version}`);
     expect(meta('name', 'twitter:image')).toBe(imageUrl);
     expect(meta('property', 'og:image:type')).toBe('image/png');
     const image = readFileSync(new URL('../../public/social-preview.png', import.meta.url));
@@ -44,7 +55,7 @@ describe('static sharing metadata', () => {
     expect(image.readUInt32BE(20)).toBe(630);
     expect(image.length).toBeLessThan(1_000_000);
     const alt = meta('property', 'og:image:alt');
-    expect(alt).toContain('UAG Foundry');
+    expect(alt).toContain('UAG Studio');
     expect(meta('name', 'twitter:image:alt')).toBe(alt);
   });
 });

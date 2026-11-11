@@ -18,7 +18,7 @@
   </summary>
   <div class="risk-details">
     <p>{vmReplacementWarning(platform)}</p>
-    <p>Check the target and deployment VM name, back up configuration and plan downtime. UAG Foundry generates files only; it does not inspect inventory.</p>
+    <p>Check the target and deployment VM name, back up configuration and plan downtime. UAG Studio generates files only; it does not inspect inventory.</p>
     {#if older}<p>{older}</p>{/if}
   </div>
 </details>

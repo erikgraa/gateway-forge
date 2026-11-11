@@ -52,7 +52,7 @@
       <span class="platform-advisory-icon" aria-hidden="true">!</span>
       <div class="form-notice-copy">
         <strong id="openshift-advisory-title">Limited Availability</strong>
-        <p>OpenShift deployment requires Omnissa-granted access and the prerequisites documented in the Network &amp; deploy section. UAG Foundry generates preparation YAML and the official script workflow; it does not bypass that access requirement.</p>
+        <p>OpenShift deployment requires Omnissa-granted access and the prerequisites documented in the Network &amp; deploy section. UAG Studio generates preparation YAML and the official script workflow; it does not bypass that access requirement.</p>
       </div>
     </section>
   {:else if platform === 'nutanix'}

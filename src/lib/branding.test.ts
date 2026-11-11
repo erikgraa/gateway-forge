@@ -7,22 +7,31 @@ import { OUTPUT_WIDTH_KEY } from './output-layout';
 import packageInfo from '../../package.json';
 import packageLock from '../../package-lock.json';
 
-const castGateway = 'M4 6h6v12a6 6 0 0 0 12 0V6h6v12a12 12 0 0 1-24 0Z';
+const workspacePaths = [
+  'M9 3H29V23H26V6H9Z',
+  'M3 8H24V11H3Z',
+  'M3 11H6V26H3Z',
+  'M21 11H24V26H21Z',
+  'M3 26H24V29H3Z',
+  'M9 14H18V24H15V17H12V24H9Z',
+];
 
-describe('UAG Foundry rebrand', () => {
-  it('uses the same original Cast gateway geometry for the header and public icon', () => {
+describe('UAG Studio rebrand', () => {
+  it('uses the same layered workspace and gateway geometry for the header and public icon', () => {
     const { body } = render(BrandMark);
     const icon = readFileSync(new URL('../../public/logo.svg', import.meta.url), 'utf8');
     for (const svg of [body, icon]) {
       expect(svg).toContain('viewBox="0 0 32 32"');
-      expect(svg).toContain(`d="${castGateway}"`);
-      expect(svg).toContain('d="M7 14h16m-4-4 4 4-4 4"');
+      expect([...svg.matchAll(/<path d="([^"]+)"/g)].map(match => match[1])).toEqual(workspacePaths);
+      expect(svg).toContain('fill="#6b4fb3"');
+      expect(svg).toContain('rx="6" fill="white"');
     }
     expect(body).toContain('aria-hidden="true"');
   });
 
   it('spells out Unified Access Gateway in the header subtitle', () => {
     const source = readFileSync(new URL('../ScenarioApp.svelte', import.meta.url), 'utf8');
+    expect(source).toContain("const brandName = 'UAG Studio';");
     expect(source).toContain('Community Unified Access Gateway configuration builder');
   });
 
@@ -30,7 +39,7 @@ describe('UAG Foundry rebrand', () => {
     expect(packageInfo.name).toBe('uag-foundry');
     expect(packageLock.name).toBe(packageInfo.name);
     expect(packageLock.packages[''].name).toBe(packageInfo.name);
-    expect(packageInfo.version).toBe('0.9.0');
+    expect(packageInfo.version).toBe('0.9.1');
     expect(packageLock.version).toBe(packageInfo.version);
     expect(packageLock.packages[''].version).toBe(packageInfo.version);
   });

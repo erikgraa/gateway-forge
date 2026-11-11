@@ -6,7 +6,7 @@ function fixture(platform: Config['platform']='vsphere') {
   const c=defaultConfig();c.platform=platform;
   Object.assign(c.values,{deploymentOption:'threenic',ipmode0:'STATICV4',ipmode1:'STATICV4',ipmode2:'STATICV4',ipMode0:'STATICV4',ipMode1:'STATICV4',ipMode2:'STATICV4',ip0:'10.0.0.10',ip1:'10.1.0.10',ip2:'10.2.0.10',netmask0:'255.255.255.0',netmask1:'255.255.255.0',netmask2:'255.255.255.0',defaultGateway:'10.0.0.1',netInternet:'Internet',netManagementNetwork:'Management',netBackendNetwork:'Backend'});return c;
 }
-const policy=(c:Config)=>validateConfig(c).filter(i=>i.message.includes('Foundry policy'));
+const policy=(c:Config)=>validateConfig(c).filter(i=>i.message.includes('Studio policy'));
 describe('Isolated V8 per-appliance network policy',()=>{
   it.each([[0,1],[0,2],[1,2]])('targets both duplicate NIC%s/NIC%s fields and resolves', (a,b)=>{const c=fixture();c.values['ip'+b]=c.values['ip'+a];expect(policy(c).filter(i=>i.message.includes('distinct')).map(i=>i.fieldId)).toEqual(['ip'+a,'ip'+b]);c.values['ip'+b]='10.'+b+'.0.11';expect(policy(c)).toEqual([]);});
   it.each([[0,1],[0,2],[1,2]])('allows NIC%s/NIC%s distinct addresses in the same subnet/mask/mapping',(a,b)=>{const c=fixture();c.values['ip'+b]='10.'+a+'.0.20';const keys=['netInternet','netManagementNetwork','netBackendNetwork'];c.values[keys[b]]=c.values[keys[a]];expect(policy(c)).toEqual([]);});

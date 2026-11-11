@@ -18,7 +18,7 @@
   import TopologyPrerequisite from './components/TopologyPrerequisite.svelte';
   import DraftExportReadiness from './components/DraftExportReadiness.svelte';
   import { workspaceExportReadiness } from './lib/workspace-readiness';
-  const brandName = 'UAG Foundry';
+  const brandName = 'UAG Studio';
   let registry = $state<Registry>(emptyRegistry()), ready = $state(false), storageWritable = $state(true), legacy = $state<string | null>(null), message = $state(''), storageNotice = $state('');
   let view = $state<'editor' | 'topology'>('editor'), selected = $state(1), pendingDeletion = $state<string | null>(null), deletionError = $state('');
   let pendingClear = $state(false);
@@ -118,7 +118,7 @@
 
 <style>
   .scenario-brand { display: inline-flex; align-items: center; gap: 10px; }
-  .scenario-brand-mark { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; border-radius: 10px; background: var(--acc-strong); color: var(--panel); }
+  .scenario-brand-mark { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; }
   .scenario-brand-name { display: flex; flex-direction: column; gap: 2px; line-height: 1.2; }
   .scenario-brand-name small { font-size: 10px; font-weight: 450; color: var(--mut); letter-spacing: 0; }
   .scenario-header .save-return { --save-tone: #11695f; display: inline-flex; align-items: center; gap: 7px; color: var(--save-tone); border-color: color-mix(in srgb, var(--save-tone) 45%, var(--line)); background: color-mix(in srgb, var(--save-tone) 10%, var(--panel)); font-weight: 650; }

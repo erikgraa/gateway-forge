@@ -1,4 +1,4 @@
-"""Regenerate the UAG Foundry sharing image locally (requires Pillow).
+"""Regenerate the UAG Studio sharing image locally (requires Pillow).
 
 Run python scripts/generate-brand-artwork.py first, then:
     python scripts/generate-social-preview.py
@@ -43,7 +43,7 @@ def main():
             raise ValueError(f"Text exceeds the sharing image's safe area: {content}")
         draw.text(position, content, font=font, fill=color)
 
-    text((370, 128), "UAG Foundry", 70, "#f3f6fc", strong=True)
+    text((370, 128), "UAG Studio", 70, "#f3f6fc", strong=True)
     text((374, 227), "Visual configuration builder", 36, "#c4b5fd")
     text((374, 286), "Omnissa Unified Access Gateway", 30, "#cbd5e1")
     text((90, 430), "INI  /  JSON  /  PowerShell  /  OpenShift YAML", 29, "#f3f6fc", strong=True)

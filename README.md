@@ -1,9 +1,9 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/uag-foundry-readme-icon-dark.png">
-  <img src="assets/uag-foundry-readme-icon.png" alt="UAG Foundry Cast gateway icon" width="140" height="140">
+  <img src="assets/uag-foundry-readme-icon.png" alt="UAG Studio workspace icon" width="140" height="140">
 </picture>
 
-# UAG Foundry
+# UAG Studio
 
 Build, check and export configurations for **Omnissa Unified Access Gateway (UAG)**—right in your browser.
 
@@ -14,20 +14,22 @@ Build, check and export configurations for **Omnissa Unified Access Gateway (UAG
 
 ## 🚀 Try it
 
-**[Open UAG Foundry](https://uagfoundry.graa.dev)** — no installation needed.
+**[Open UAG Studio](https://uagstudio.graa.dev)** — no installation needed.
 Your configuration is processed in your browser, not uploaded to a server.
 
-![UAG Foundry scenario chooser in dark theme](docs/screenshots/chooser-dark.png)
+**Moving from UAG Foundry?** Version 0.9.1 uses a new domain. Browser-local drafts and preferences do not automatically transfer; see the [migration notes](docs/technical-guide.md#moving-from-gateway-forge) before switching.
 
-*UAG Foundry 0.9.0. The saved Single UAG example passes checked-export validation and shows **Ready to export**; this is not live deployment or security certification. Screenshots use a disposable browser profile and blank or synthetic configurations, not operator drafts.*
+![UAG Studio scenario chooser in dark theme](docs/screenshots/chooser-dark.png)
 
-![UAG Foundry configuration workspace in dark theme](docs/screenshots/builder-dark.png)
+*UAG Studio 0.9.1 with the layered workspace and gateway mark. The saved Single UAG example passes checked-export validation and shows **Ready to export**; this is not live deployment or security certification. Screenshots use a disposable browser profile and blank or synthetic configurations, not operator drafts.*
+
+![UAG Studio configuration workspace in dark theme](docs/screenshots/builder-dark.png)
 
 *Configuration fields come first. Compact readiness and advisory counts stay above them; select a count to open the full **Validation & lint** panel below the section.*
 
 ## 🏠 Self-hosting
 
-Prefer your own instance? Run UAG Foundry with Docker or Podman, or host it on your own web server. See the [container instructions](docs/technical-guide.md#containers) and [hosting notes](docs/technical-guide.md#hosting).
+Prefer your own instance? Run UAG Studio with Docker or Podman, or host it on your own web server. See the [container instructions](docs/technical-guide.md#containers) and [hosting notes](docs/technical-guide.md#hosting).
 
 ## 🧭 How it works
 
@@ -43,14 +45,14 @@ Choose **Single UAG**, **Horizon UAG topology** or **Web proxy**. Named browser-
 
 ### 🗺️ Horizon fleet workflow
 
-A Horizon workspace manages multiple UAG configurations together. **UAG groups** share a configuration template and Connection Server destination, while each appliance retains its own name and IP addresses. A group is a Foundry configuration grouping—not an automatically discovered Horizon pod or site.
+A Horizon workspace manages multiple UAG configurations together. **UAG groups** share a configuration template and Connection Server destination, while each appliance retains its own name and IP addresses. A group is a Studio configuration grouping—not an automatically discovered Horizon pod or site.
 
 1. **Prepare the first UAG.** Fill in or import the Horizon baseline and resolve blocking validation findings. Select **Continue to fleet topology** to start the plan; this does not deploy anything.
 2. **Build your groups.** Add UAGs to a group or create another group for a different shared configuration. New appliance addresses stay blank for you to assign, and new groups do not inherit another group's network settings.
 3. **Review shared and individual settings.** Edit the group's template and Connection Server URL for shared changes. Use an explicit individual destination override where needed, or open the **Full UAG configuration editor** for all appliance settings.
 4. **Check the overview.** See clients, groups, configured destinations and supported UAG High Availability VIPs. Dotted hypothetical load-balancer/pool options are visual planning aids only: they do not configure routing, discover servers or change exports. Native UAG HA covers XML API traffic, not all display-protocol traffic.
 5. **Resolve blockers and export.** Findings link to the affected UAG and field. **Download fleet configuration** creates a checked ZIP with group folders, appliance INIs, topology metadata and a deployment checklist. Saved-draft readiness includes topology planning and fleet-level checks; warnings alone do not block export. Baseline INI export remains available independently before the topology is planned.
-6. **Deploy and verify separately.** Review secret handling, supply credentials securely and run the deployment tools yourself. Foundry does not verify live reachability, certificates, Horizon sessions or failover. Removing a UAG from the plan does not remove a deployed VM.
+6. **Deploy and verify separately.** Review secret handling, supply credentials securely and run the deployment tools yourself. Studio does not verify live reachability, certificates, Horizon sessions or failover. Removing a UAG from the plan does not remove a deployed VM.
 
 See the [detailed fleet behavior and limitations](docs/scenario-workspaces.md#shared-versus-individual) and [Horizon Architecture](https://techzone.omnissa.com/resource/horizon-8-architecture).
 
@@ -72,4 +74,4 @@ Feature suggestions are welcome! [Open an issue](https://github.com/erikgraa/uag
 
 ## 📄 License and disclaimer
 
-[MIT](LICENSE). UAG Foundry is an independent community tool, not affiliated with or endorsed by Omnissa. Always review generated configuration before deploying to production.
+[MIT](LICENSE). UAG Studio is an independent community tool, not affiliated with or endorsed by Omnissa. Always review generated configuration before deploying to production.

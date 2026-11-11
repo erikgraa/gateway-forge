@@ -103,7 +103,7 @@ jobs:
         run: |
           docker run -d --name gf -p 8080:8080 "${IMAGE}:sha-${GITHUB_SHA::7}"
           for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8080/healthz && break || sleep 1; done
-          curl -fsS http://127.0.0.1:8080/ | grep -q "UAG Foundry"
+          curl -fsS http://127.0.0.1:8080/ | grep -q "UAG Studio"
           curl -fsSI http://127.0.0.1:8080/ | grep -i "content-security-policy"
           docker rm -f gf
 

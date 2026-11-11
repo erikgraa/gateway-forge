@@ -1,11 +1,20 @@
 <script lang="ts">
 </script>
 
-<svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-  <path d="M4 6h6v12a6 6 0 0 0 12 0V6h6v12a12 12 0 0 1-24 0Z" fill="currentColor" />
-  <path d="M7 14h16m-4-4 4 4-4 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+<svg viewBox="0 0 32 32" aria-hidden="true">
+  <rect width="32" height="32" rx="6" fill="white" />
+  <g fill="#6b4fb3">
+    <path d="M9 3H29V23H26V6H9Z" />
+    <path d="M3 8H24V11H3Z" />
+    <path d="M3 11H6V26H3Z" />
+    <path d="M21 11H24V26H21Z" />
+    <path d="M3 26H24V29H3Z" />
+    <path d="M9 14H18V24H15V17H12V24H9Z" />
+  </g>
 </svg>
 
 <style>
-  svg { width: 21px; height: 21px; }
+  svg { width: 32px; height: 32px; }
+  :global(html[data-theme='dark']) rect { fill: transparent; }
+  :global(html[data-theme='dark']) g { fill: #c9b4ff; }
 </style>

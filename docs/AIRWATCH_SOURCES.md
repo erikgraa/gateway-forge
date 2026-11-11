@@ -1,6 +1,6 @@
 # Workspace ONE UEM edge-service source mapping
 
-UAG Foundry models the complete `[Airwatch]` sample in the UAG 2609 PowerShell deployment reference:
+UAG Studio models the complete `[Airwatch]` sample in the UAG 2609 PowerShell deployment reference:
 
 - [Run PowerShell script to deploy — UAG 2609](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/RunPowerShellscripttodeploy)
 - [Configure Workspace ONE Tunnel Settings for Workspace ONE UEM](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/ConfigureTunnelSettingsforWorkspaceONEUEM)
@@ -8,7 +8,7 @@ UAG Foundry models the complete `[Airwatch]` sample in the UAG 2609 PowerShell d
 - [PowerShell deployment to Nutanix AHV](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/PowerShelldeploymenttoNutanix)
 - [Limited Availability: PowerShell deployment to OpenShift](https://docs.omnissa.com/UnifiedAccessGatewayDeployandConfigure-V2609/OpenShiftDeployment)
 
-The Tunnel edge-service settings are platform-independent after the UAG appliance is deployed, and UAG Foundry exposes the `[Airwatch]` group for vSphere, Hyper-V, Azure, Nutanix AHV, and Red Hat OpenShift Virtualization. The platform-specific scripts are `uagdeploy.ps1`, `uagdeployhv.ps1`, `uagdeployaz.ps1`, `uagdeployntnx.ps1`, and `uagdeployopenshift.ps1`, respectively. Historical PowerShell samples are present in all supported UAG releases checked (2212 through 2609); `tunnelConfigurationId` first appears in 2306, and `disableAutoConfigUpdate` first appears in 2303.
+The Tunnel edge-service settings are platform-independent after the UAG appliance is deployed, and UAG Studio exposes the `[Airwatch]` group for vSphere, Hyper-V, Azure, Nutanix AHV, and Red Hat OpenShift Virtualization. The platform-specific scripts are `uagdeploy.ps1`, `uagdeployhv.ps1`, `uagdeployaz.ps1`, `uagdeployntnx.ps1`, and `uagdeployopenshift.ps1`, respectively. Historical PowerShell samples are present in all supported UAG releases checked (2212 through 2609); `tunnelConfigurationId` first appears in 2306, and `disableAutoConfigUpdate` first appears in 2303.
 
 ## Official semantics
 
@@ -27,14 +27,14 @@ The Tunnel edge-service settings are platform-independent after the UAG applianc
 | `outboundProxyUsername` | Optional outbound proxy login user. |
 | `outboundProxyPassword` | Optional outbound proxy login password. Stored as a secret. |
 | `ntlmAuthentication` | Uses NTLM authentication for outbound proxy requests. |
-| `hostEntry1` | `/etc/hosts` entry in `IP hostname [alias]` form. UAG Foundry accepts comma-separated entries. |
+| `hostEntry1` | `/etc/hosts` entry in `IP hostname [alias]` form. UAG Studio accepts comma-separated entries. |
 | `trustedCert1` | PEM certificate path added to the appliance trust store. |
 
 ## Sample-only keys and uncertainty
 
 The 2609 PowerShell page includes the following keys in its sample but does not explain their semantics:
 
-| Key | UAG Foundry behavior |
+| Key | UAG Studio behavior |
 | --- | --- |
 | `pacFilePath` | Exposed as a file path, emitted only when non-empty. |
 | `pacFileURL` | Exposed as a URL, emitted only when non-empty; validation warns if both PAC forms are set. |
@@ -43,9 +43,9 @@ The 2609 PowerShell page includes the following keys in its sample but does not 
 | `healthCheckUrl` | Exposed as an optional path; the sample default is `/favicon.ico`. |
 | `reinitializeGatewayProcess` | Exposed as an opt-in boolean; defaults to false and is omitted unless enabled. |
 
-These names are copied exactly from the official sample and marked **verify** in the UI. UAG Foundry does not infer how the PAC, credential, destination URL, or reinitialization inputs are consumed.
+These names are copied exactly from the official sample and marked **verify** in the UI. UAG Studio does not infer how the PAC, credential, destination URL, or reinitialization inputs are consumed.
 
-The 2212 sample additionally contains `airwatchOutboundProxy` and `tunnelProxyEnabled`. UAG Foundry preserves them only for 2212 import/export and marks them as legacy. Their replacement behavior is not stated in the source material.
+The 2212 sample additionally contains `airwatchOutboundProxy` and `tunnelProxyEnabled`. UAG Studio preserves them only for 2212 import/export and marks them as legacy. Their replacement behavior is not stated in the source material.
 
 ## JSON export
 
@@ -56,8 +56,8 @@ Omnissa's downloaded `uagdeploy.psm1` module was used as the strongest available
 - `cgConfigId` as JSON property `cgConfigurationId`;
 - contiguous `trustedCertN` and `hostEntryN` inputs as trust and host-entry arrays.
 
-UAG Foundry supports both vendor selection modes: `[Airwatch]` with `contentGatewayEnabled=true`, or standalone `[AirwatchContentGateway]` selected by a populated `apiServerUsername`. Standalone environment-password mode uses the exact `-awCGAPIServerPwd` parameter; shared mode uses `-awAPIServerPwd` with the same password as shared Tunnel configuration. Interactive standalone mode leaves the parameter absent so the vendor module prompts. `-awTunnelGatewayAPIServerPwd` applies only to a separate `[AirwatchTunnelGateway]` mode, which UAG Foundry does not currently emit. UEM API and outbound-proxy passwords are never written to Content Gateway INI or settings JSON.
+UAG Studio supports both vendor selection modes: `[Airwatch]` with `contentGatewayEnabled=true`, or standalone `[AirwatchContentGateway]` selected by a populated `apiServerUsername`. Standalone environment-password mode uses the exact `-awCGAPIServerPwd` parameter; shared mode uses `-awAPIServerPwd` with the same password as shared Tunnel configuration. Interactive standalone mode leaves the parameter absent so the vendor module prompts. `-awTunnelGatewayAPIServerPwd` applies only to a separate `[AirwatchTunnelGateway]` mode, which UAG Studio does not currently emit. UEM API and outbound-proxy passwords are never written to Content Gateway INI or settings JSON.
 
-Tunnel's existing `[Airwatch]` behavior remains INI-only because the audited references do not establish a complete Tunnel settings-JSON contract for UAG Foundry. Content Gateway JSON is generated from the explicit vendor mapping above; certificate paths remain INI-only because settings JSON requires certificate contents rather than local paths.
+Tunnel's existing `[Airwatch]` behavior remains INI-only because the audited references do not establish a complete Tunnel settings-JSON contract for UAG Studio. Content Gateway JSON is generated from the explicit vendor mapping above; certificate paths remain INI-only because settings JSON requires certificate contents rather than local paths.
 
-The same downloaded module reads contiguous `hostEntryN` values for Web Reverse Proxy. UAG Foundry exposes the established six-row shared editor per WRP instance and preserves each instance's values independently.
+The same downloaded module reads contiguous `hostEntryN` values for Web Reverse Proxy. UAG Studio exposes the established six-row shared editor per WRP instance and preserves each instance's values independently.

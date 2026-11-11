@@ -5,7 +5,7 @@
 <footer class="community-notice">
   <p><strong>Community-built.</strong> Not affiliated with or endorsed by Omnissa.</p>
   <nav aria-label="Project and vendor links">
-    <span>UAG Foundry v{packageInfo.version}</span>
+    <span>UAG Studio v{packageInfo.version}</span>
     <a href="https://github.com/erikgraa/uag-foundry" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
     <a href="https://www.omnissa.com/" target="_blank" rel="noopener noreferrer">Omnissa</a>
   </nav>

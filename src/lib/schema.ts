@@ -430,7 +430,7 @@ export const GROUPS: GroupDef[] = [
           `Up to 24 characters: A-Z, 0-9, minus and period; no spaces.${platform === 'azure' ? ' Must match the VM name on Azure.' : ''}`
       }),
       bool('ceipEnabled', 'Join CEIP (Customer Experience Improvement Program)', 'ceipEnabled', false, {
-        help: 'Sends telemetry to Omnissa from the appliance. Off by default in UAG Foundry.'
+        help: 'Sends telemetry to Omnissa from the appliance. Off by default in UAG Studio.'
       }),
       bool('sshEnabled', 'Enable SSH', 'sshEnabled', false, { help: 'Not recommended; console access is normally sufficient.' }),
       num('sshPort', 'SSH port', 'sshPort', { default: 22, rule: 'port', showIf: (v) => v.sshEnabled === true }),
@@ -514,7 +514,7 @@ export const GROUPS: GroupDef[] = [
         min: 1,
         omitDefault: true,
         exportScale: 60000,
-        help: 'Displayed in minutes. UAG Foundry converts this to milliseconds in deployment INI and settings JSON.'
+        help: 'Displayed in minutes. UAG Studio converts this to milliseconds in deployment INI and settings JSON.'
       }),
       num('adminSessionIdleTimeoutMinutes', 'Admin UI idle timeout (min)', 'adminSessionIdleTimeoutMinutes', { default: 10, min: 0, max: 1440 }),
       num('adminMaxConcurrentSessions', 'Admin max concurrent sessions', 'adminMaxConcurrentSessions', { default: 5, min: 1, max: 50, omitDefault: true }),
@@ -927,7 +927,7 @@ export const GROUPS: GroupDef[] = [
     iniSection: 'OpenShift',
     platforms: ['openshift'],
     since: '2609',
-    help: 'Limited Availability: request access from Omnissa. The target namespace, storage class, NADs and RBAC permissions must already exist. UAG Foundry generates the bootable-volume manifest and deployment INI; local QCOW2 uploads must be prepared through the OpenShift console.',
+    help: 'Limited Availability: request access from Omnissa. The target namespace, storage class, NADs and RBAC permissions must already exist. UAG Studio generates the bootable-volume manifest and deployment INI; local QCOW2 uploads must be prepared through the OpenShift console.',
     fields: [
       text('ocp_openShiftUserName', 'OpenShift user / service account', 'openShiftUserName', { required: (v) => !v.ocp_bearerToken, placeholder: 'admin', json: false }),
       text('ocp_openShiftEndpoint', 'OpenShift API endpoint', 'openShiftEndpoint', { required: true, rule: 'httpsOrigin', wide: true, placeholder: 'https://api.cluster.example.com:6443', json: false }),
@@ -945,7 +945,7 @@ export const GROUPS: GroupDef[] = [
         json: false,
         ini: false,
         wide: true,
-        help: 'The official console upload path is intentionally runbook-only because UAG Foundry cannot upload a local file to your cluster.'
+        help: 'The official console upload path is intentionally runbook-only because UAG Studio cannot upload a local file to your cluster.'
       }),
       text('ocp_qcow2Url', 'Cluster-reachable QCOW2 URL', 'qcow2Url', {
         required: (v) => v.ocp_volumeSourceMode === 'url',
@@ -1005,12 +1005,12 @@ export const GROUPS: GroupDef[] = [
       text('az_virtualNetworkName', 'Virtual network', 'virtualNetworkName', { required: true, json: false }),
       text('az_vNetResourceGroupName', 'Virtual network resource group', 'vNetResourceGroupName', { json: false, help: 'Optional resource group containing the virtual network. When blank, the inspected Azure deployment script uses the VM deployment resourceGroupName. No live Azure lookup is performed.' }),
       text('az_zone', 'Zone', 'zone', { json: false }),
-      text('az_subnetName0', 'NIC0 Internet subnet name', 'subnetName0', { json: false, required: true, help: 'Foundry safety policy: explicitly select the NIC0 subnet. The inspected Azure deployment script otherwise defaults to the first VNet subnet; no live Azure lookup is performed.' }),
+      text('az_subnetName0', 'NIC0 Internet subnet name', 'subnetName0', { json: false, required: true, help: 'Studio safety policy: explicitly select the NIC0 subnet. The inspected Azure deployment script otherwise defaults to the first VNet subnet; no live Azure lookup is performed.' }),
       text('az_subnetName1', 'NIC1 Management / Backend subnet name', 'subnetName1', { json: false, required: true, showIf: v => deploymentNicCount(v) >= 2 }),
       text('az_subnetName2', 'NIC2 Backend subnet name', 'subnetName2', { json: false, required: true, showIf: v => deploymentNicCount(v) === 3 }),
       text('az_networkSecurityGroupName0', 'NIC0 Network Security Group (NSG) name', 'networkSecurityGroupName0', { json: false }),
       text('az_networkSecurityGroupName1', 'NIC1 Management / Backend Network Security Group (NSG) name', 'networkSecurityGroupName1', { json: false, showIf: v => deploymentNicCount(v) >= 2 }),
-      text('az_publicIPAddressName0', 'NIC0 Public IP address resource name', 'publicIPAddressName0', { json: false, help: 'Optional existing Azure Public IP resource NAME, not a literal IP address. Foundry does not look up or create this resource.' }),
+      text('az_publicIPAddressName0', 'NIC0 Public IP address resource name', 'publicIPAddressName0', { json: false, help: 'Optional existing Azure Public IP resource NAME, not a literal IP address. Studio does not look up or create this resource.' }),
       text('az_publicIpAddrResourceGroupName', 'Resource group for NIC0 Public IP address', 'publicIpAddrResourceGroupName', { json: false, showIf: v => String(v.az_publicIPAddressName0 || '').trim() !== '', help: 'Optional resource group containing the named NIC0 Public IP. When blank, the inspected deployment script uses the VM deployment resource group.' })
     ]
   },
@@ -1022,7 +1022,7 @@ export const GROUPS: GroupDef[] = [
     iniSection: 'HighAvailability',
     enabledBy: 'ha_enabled',
     platforms: ['vsphere', 'hyperv', 'nutanix', 'openshift'],
-    help: 'Optional native HA configuration for this UAG. Use the same Group ID and VIP on each node in the HA group. Reserve a unique, available IPv4 VIP and a Group ID unique to that group within the subnet. Configure and verify each node separately; topology and failover are not verified by UAG Foundry. Native HA is not supported on Azure.',
+    help: 'Optional native HA configuration for this UAG. Use the same Group ID and VIP on each node in the HA group. Reserve a unique, available IPv4 VIP and a Group ID unique to that group within the subnet. Configure and verify each node separately; topology and failover are not verified by UAG Studio. Native HA is not supported on Azure.',
     fields: [
       num('ha_groupId', 'Group ID', 'groupId', {
         json: 'groupID', required: true, rule: 'int', min: 1, max: 255,
@@ -1450,7 +1450,7 @@ export const GROUPS: GroupDef[] = [
       }),
       text('contentGateway_outboundProxyUsername', 'Outbound proxy user', 'outboundProxyUsername', {
         showIf: (v) => v.contentGateway_mode === 'standalone',
-        help: 'When set, the vendor script prompts for the proxy password; it is not stored or exported by UAG Foundry.'
+        help: 'When set, the vendor script prompts for the proxy password; it is not stored or exported by UAG Studio.'
       }),
       bool('contentGateway_reinitializeGatewayProcess', 'Reinitialize gateway process', 'reinitializeGatewayProcess', false, {
         showIf: (v) => v.contentGateway_mode === 'standalone',
@@ -1496,7 +1496,7 @@ export const GROUPS: GroupDef[] = [
       }),
       text('seg_apiServerUsername', 'Workspace ONE UEM API user', 'apiServerUsername', {
         required: true,
-        help: 'Use an account with at least the Secure Email Gateway role permissions. A populated username selects standalone SEG in the vendor module. The pinned module accepts awSEGAPIServerPwd, but that does not establish wrapper support. Environment-password mode reads UAG_SEG_API_PASSWORD and checks the actual deployment command before passing this parameter; unsupported packages fail closed. Verify the exact release package, including interactive prompts. Foundry never stores this password.'
+        help: 'Use an account with at least the Secure Email Gateway role permissions. A populated username selects standalone SEG in the vendor module. The pinned module accepts awSEGAPIServerPwd, but that does not establish wrapper support. Environment-password mode reads UAG_SEG_API_PASSWORD and checks the actual deployment command before passing this parameter; unsupported packages fail closed. Verify the exact release package, including interactive prompts. Studio never stores this password.'
       }),
       text('seg_organizationGroupCode', 'Organization Group ID', 'organizationGroupCode', {
         required: true, placeholder: 'CORP',
@@ -1514,7 +1514,7 @@ export const GROUPS: GroupDef[] = [
         rule: 'port', required: (v) => v.seg_airwatchOutboundProxy === true || String(v.seg_outboundProxyHost ?? '').trim() !== ''
       }),
       text('seg_outboundProxyUsername', 'Outbound proxy user', 'outboundProxyUsername', {
-        help: 'When set, the vendor script prompts for the outbound proxy password. It is not stored or exported by Foundry.'
+        help: 'When set, the vendor script prompts for the outbound proxy password. It is not stored or exported by Studio.'
       }),
       bool('seg_ntlmAuthentication', 'Outbound proxy uses NTLM authentication', 'ntlmAuthentication', false, { omitDefault: true }),
       text('seg_pfxCerts', 'Local SEG SSL certificate (PFX/P12 path)', 'pfxCerts', {
@@ -1718,7 +1718,7 @@ export const GROUPS: GroupDef[] = [
     section: 'tls',
     target: 'certs',
     iniSection: 'SSLCert',
-    help: 'File paths read by uagdeploy at deployment time (PEM, RSA key in PKCS#1 format). Certificate content is never stored by UAG Foundry.',
+    help: 'File paths read by uagdeploy at deployment time (PEM, RSA key in PKCS#1 format). Certificate content is never stored by UAG Studio.',
     fields: [
       ...certificateFields('cert', 'Internet-facing TLS', { cert: 'pemCerts', key: 'pemPrivKey', pfx: 'pfxCerts', alias: 'pfxCertAlias' })
     ]
@@ -1817,7 +1817,7 @@ export const LISTS: ListDef[] = [
   {
     id: 'jwtIssuers', title: 'JWT producer settings', itemLabel: 'JWT producer', section: 'auth', target: 'jwtIssuers',
     iniSection: (n) => `JWTIssuerSettings${n}`, max: 99,
-    help: 'Signing files remain on the deployment host. UAG Foundry stores file references only; signing material and PFX passwords are never imported into a draft or emitted as JSON contents. The pinned vendor module reads a PFX alias from Horizon rather than this profile: use a single-key PFX or PEM and verify your package; no invented issuer alias key is emitted.',
+    help: 'Signing files remain on the deployment host. UAG Studio stores file references only; signing material and PFX passwords are never imported into a draft or emitted as JSON contents. The pinned vendor module reads a PFX alias from Horizon rather than this profile: use a single-key PFX or PEM and verify your package; no invented issuer alias key is emitted.',
     fields: [
       ...jwtUrlFields(),
       sel('signingMode', 'JWT signing certificate type', 'signingMode', ['PEM', 'PFX'], { default: 'PEM', ini: false, json: false }),
@@ -1913,7 +1913,7 @@ export const LISTS: ListDef[] = [
       text('syslogServerCACertPemV2', 'Server CA cert (PEM path)', 'syslogServerCACertPemV2', {
         rule: 'pemPath', wide: true, json: false, placeholder: 'C:\\certs\\syslog-ca.pem',
         showIf: (v) => v.sysLogType === 'TLS', required: (v) => v.sysLogType === 'TLS',
-        help: 'Required for TLS. Provide the real CA certificate PEM file that trusts this syslog server. The deployment script reads the file; UAG Foundry cannot verify its contents. CA file paths are not included in settings JSON.'
+        help: 'Required for TLS. Provide the real CA certificate PEM file that trusts this syslog server. The deployment script reads the file; UAG Studio cannot verify its contents. CA file paths are not included in settings JSON.'
       }),
       text('syslogClientCertPemV2', 'Client cert (PEM path)', 'syslogClientCertPemV2', {
         rule: 'pemPath', wide: true, json: false, placeholder: 'C:\\certs\\syslog-client.crt', showIf: (v) => v.sysLogType === 'TLS'

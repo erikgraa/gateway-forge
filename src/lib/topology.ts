@@ -280,7 +280,7 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     }
     L.push('- Verify the deployed VirtualMachine is Running/Ready and check its assigned NICs and IP addresses.');
   }
-  L.push('- UAG Foundry never asks for or stores UAG root or Admin UI passwords in the browser. Interactive mode lets the official script prompt; environment-password mode reads both passwords from the process environment.');
+  L.push('- UAG Studio never asks for or stores UAG root or Admin UI passwords in the browser. Interactive mode lets the official script prompt; environment-password mode reads both passwords from the process environment.');
   L.push('- **CEIP:** PowerShell passes the configured setting explicitly as `-ceipEnabled \'yes\'` or `-ceipEnabled \'no\'`, removing that prompt only. Check the deployment package for your UAG release; this does not supply the vCenter password or guarantee unattended execution.');
   if (v.contentGateway_enabled === true) {
     const parameter = v.contentGateway_mode === 'shared' ? '-awAPIServerPwd' : '-awCGAPIServerPwd';
@@ -308,7 +308,7 @@ export function generateDocs(c: Config, issues: Issue[]): string {
     L.push('', '## High availability', '');
     L.push(`- **Group ID:** ${v.ha_groupId || '(not set)'}. UAGs in the same HA group must use the same groupId (integer 1–255).`);
     L.push(`- **Virtual IP address:** ${v.ha_virtualIPAddress || '(not set)'}. The Virtual IP Address used for High Availability. This IP should be in the same subnet as the eth0 interface.`);
-    L.push('- Reserve a unique, available IPv4 VIP and a Group ID unique to this group in the subnet. Foundry does not verify address availability or infer DHCP subnets.');
+    L.push('- Reserve a unique, available IPv4 VIP and a Group ID unique to this group in the subnet. Studio does not verify address availability or infer DHCP subnets.');
     L.push('- JSON uses `loadBalancerSettings` with `groupID`, `virtualIPAddress` and `loadBalancerMode: ONEARM`. Native HA is not supported on Azure. Deploy/configure nodes separately; topology, VIP ownership and failover require lab verification.');
   }
   L.push('', '## Edge services', '');
