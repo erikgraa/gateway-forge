@@ -15,7 +15,7 @@ Legacy browser-storage keys and fleet-format identifiers deliberately retain `ga
 
 ## Saved-draft export readiness
 
-Saved draft cards show **Ready to export** or **Needs fixes**, with blocking findings and advisory warnings counted separately. Single UAG and Web proxy use normalized checked INI/settings JSON validation. Horizon uses checked **fleet ZIP** readiness: the topology must be planned, an active UAG must remain, and all active-member and fleet-level errors must be resolved. A valid but unplanned Horizon baseline therefore says **Needs fixes · Fleet ZIP · topology not planned**; its existing baseline INI export remains available independently.
+Saved draft cards show **Ready to export** or **Needs fixes**, with blocking findings and advisory warnings counted separately. Single UAG and Web proxy use normalized checked INI/settings JSON validation. Horizon uses checked **fleet ZIP** readiness: the topology must be planned, an active UAG must remain, and all active-member and fleet-level errors must be resolved. A valid but unplanned Horizon baseline therefore says **Needs fixes** with **Topology not planned**; its existing baseline INI export remains available independently. Format labels are omitted from cards, and ready cards omit zero-blocker counts and omit the counts line entirely when there are no warnings.
 
 Single UAG and Web proxy card names append the configured appliance hostname (`uagName`) when nonblank, not the deployment VM name or vCenter server. This is a display-only suffix: persisted draft names are not renamed, missing hostnames are not invented, and Horizon card names stay unchanged. Long names wrap rather than truncate.
 

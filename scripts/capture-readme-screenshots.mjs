@@ -10,6 +10,7 @@ const targetUrl = process.argv[2] ?? 'http://127.0.0.1:4173/';
 const port = 9300 + Math.floor(Math.random() * 500);
 const profile = await mkdtemp(join(tmpdir(), 'uag-foundry-screenshots-'));
 const outputDir = join(root, 'docs', 'screenshots');
+const chooserOnly = process.argv.includes('--chooser-only');
 
 function chromePath() {
   const candidates = [
@@ -128,6 +129,42 @@ async function reset(theme = 'dark', scenario = 'single') {
   await evaluate(`document.querySelector('.center')?.scrollTo(0, 0)`);
 }
 
+async function seedReadyDraft() {
+  const sample = {
+    id: 'readme-ready-uag', name: 'Office gateway', scenario: 'single', fleet: null, retainedImports: [],
+    config: {
+      version: '2609', platform: 'vsphere',
+      values: {
+        name: 'office-uag', uagName: 'uag01.example.com',
+        source: 'C:\\images\\euc-unified-access-gateway-demo.ova',
+        target: 'vi://operator@vc.example.com/Datacenter/host/Compute', ds: 'Datastore',
+        deploymentOption: 'threenic', netInternet: 'DMZ', netManagementNetwork: 'Management', netBackendNetwork: 'Backend',
+        ipmode0: 'STATICV4', ipmode1: 'STATICV4', ipmode2: 'STATICV4',
+        ip0: '198.51.100.21', netmask0: '255.255.255.0',
+        ip1: '192.0.2.21', netmask1: '255.255.255.0',
+        ip2: '198.18.0.21', netmask2: '255.255.255.0',
+        defaultGateway: '198.51.100.1', dns: '192.0.2.53 192.0.2.54',
+        ntpServers: 'ntp1.example.com ntp2.example.com'
+      },
+      wrp: [], syslog: [], adminUsers: [], jwt: [], jwtIssuers: [], oidc: [], iniExtras: []
+    }
+  };
+  const { identifier } = await command('Page.addScriptToEvaluateOnNewDocument', {
+    source: `localStorage.setItem('gateway-forge.workspaces.v1', ${JSON.stringify(JSON.stringify({ revision: 1, current: null, drafts: [sample] }))});`
+  });
+  try {
+    await command('Page.navigate', { url: targetUrl });
+    await sleep(700);
+    await waitForApp();
+  } finally {
+    await command('Page.removeScriptToEvaluateOnNewDocument', { identifier });
+  }
+  if (!await evaluate(`document.querySelector('[data-draft-id="readme-ready-uag"] .readiness-status')?.textContent.trim() === 'Ready to export' && document.querySelectorAll('.resume-item').length === 1`)) {
+    throw new Error('The synthetic README UAG must pass real checked-export validation before capture.');
+  }
+  await evaluate('window.scrollTo(0, 0)');
+}
+
 async function clickByText(text) {
   const clicked = await evaluate(`(() => { const button = [...document.querySelectorAll('button')].find((candidate) => candidate.textContent.includes(${JSON.stringify(text)})); button?.click(); return !!button; })()`);
   if (!clicked) throw new Error(`Could not find button containing "${text}".`);
@@ -140,32 +177,36 @@ try {
   await command('Runtime.enable');
   await viewport();
   await reset('dark', null);
+  await seedReadyDraft();
   await capture('chooser-dark.png');
   await reset('light', null);
+  await seedReadyDraft();
   await capture('chooser-light.png');
-  await reset('dark');
-  await clickByText('Network & deploy');
-  await capture('builder-dark.png');
+  if (!chooserOnly) {
+    await reset('dark');
+    await clickByText('Network & deploy');
+    await capture('builder-dark.png');
 
-  await reset('light');
-  await clickByText('Network & deploy');
-  await capture('builder-light.png');
+    await reset('light');
+    await clickByText('Network & deploy');
+    await capture('builder-light.png');
 
-  await reset('dark');
-  await clickByText('Identity and access');
-  await capture('radius.png');
+    await reset('dark');
+    await clickByText('Identity and access');
+    await capture('radius.png');
 
-  await reset('dark');
-  await clickByText('JSON');
-  await capture('json.png');
+    await reset('dark');
+    await clickByText('JSON');
+    await capture('json.png');
 
-  await reset('dark');
-  await clickByText('Search settings…');
-  await capture('palette.png');
+    await reset('dark');
+    await clickByText('Search settings…');
+    await capture('palette.png');
 
-  await reset('dark');
-  await clickByText('Import');
-  await capture('import.png', 1000);
+    await reset('dark');
+    await clickByText('Import');
+    await capture('import.png', 1000);
+  }
 } finally {
   socket.close();
   browser.kill('SIGTERM');

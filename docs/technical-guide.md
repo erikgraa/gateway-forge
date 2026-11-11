@@ -212,14 +212,14 @@ Omnissa documents the JSON as an *export/import format* of the admin UI but does
 
 A self-contained image (static files + nginx, non-root, no outbound calls, strict CSP) is built nightly at 02:30 UTC and when application or build inputs change on `main` by [container.yml](../.github/workflows/container.yml), after type-check, tests and a Lifecycle Matrix comparison pass, and published as multi-arch (amd64/arm64) to GitHub Container Registry. Documentation-only changes do not trigger a build; relevant pull requests run verification without publishing or deleting images:
 
-**Existing published image:** the commands below intentionally retain the current `gateway-forge` package namespace. Renaming the repository does not rename or redirect GHCR packages. A first verified publish, package permissions and retention review are required before documenting a new `uag-foundry` image; do not assume it exists.
+**Published image:** `ghcr.io/erikgraa/uag-foundry` is available for Linux amd64 and arm64. The commands below use the verified UAG Foundry package. The older `gateway-forge` package is separate: repository redirects do not rename GHCR packages or automatically update existing container deployments.
 
 ```bash
 # Docker
-docker run --rm -p 8080:8080 ghcr.io/erikgraa/gateway-forge:nightly
+docker run --rm -p 8080:8080 ghcr.io/erikgraa/uag-foundry:nightly
 
 # Podman (rootless works; the image runs as a non-root user)
-podman run --rm -p 8080:8080 ghcr.io/erikgraa/gateway-forge:nightly
+podman run --rm -p 8080:8080 ghcr.io/erikgraa/uag-foundry:nightly
 
 # then open http://localhost:8080
 ```
