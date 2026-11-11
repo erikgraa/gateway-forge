@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import packageInfo from '../../package.json';
 import { freshFleet, unlockFleet, addMember, addGroup, activeMembers, editMember, setDestination, removeMember, removeGroup, undoRemoval, moveMember, fleetIssues, nicRows, copy, propagate } from './fleet';
-import { fleetBundle, importFleet, safeLabel, zipBytes } from './fleet-export';
+import { fleetBundle, fleetFilename, importFleet, safeLabel, zipBytes } from './fleet-export';
 import { validateConfig } from './validate';
 import { createWorkspace, emptyRegistry, savedRegistry, upgradedRegistry, registryShape, legacyConfiguration, safeImport } from './scenario-workspaces';
 function baseline() {
@@ -156,8 +156,8 @@ describe('Native fleet templates, checked exports and fixed workspaces',()=>{
    const files = fleetBundle(fleet);
    const iniFiles = files.filter(file => file.name.endsWith('.ini'));
    expect(iniFiles.map(file => file.name)).toEqual([
-     'Site-A-g1/edge-uag-uag-1.ini',
-     'Site-A-g1/edge-uag-2-uag-2.ini'
+     'Site-A/edge-uag-uag-1.ini',
+     'Site-A/edge-uag-2-uag-2.ini'
    ]);
    expect(iniFiles.every(file => !/\s/u.test(file.name))).toBe(true);
    expect(iniFiles[0].text).toContain('name=edge-uag');
@@ -180,7 +180,7 @@ describe('Native fleet templates, checked exports and fixed workspaces',()=>{
    fleet.members[0].config.values.name = 'edge--uag';
    const before = JSON.stringify(fleet);
    const files = fleetBundle(fleet);
-   expect(files[0].name).toBe('Site--A-g1/edge--uag-uag-1.ini');
+   expect(files[0].name).toBe('Site--A/edge--uag-uag-1.ini');
    expect(files[0].text).toContain('name=edge--uag');
    const manifest = JSON.parse(files.find(file => file.name === 'topology.json')!.text);
    manifest.format = format;
@@ -188,6 +188,47 @@ describe('Native fleet templates, checked exports and fixed workspaces',()=>{
    expect(importFleet(raw).groups[0].label).toBe('Site--A');
    expect(importFleet(raw).members[0].config.values.name).toBe('edge--uag');
    expect(JSON.stringify(manifest)).toBe(raw);
+   expect(JSON.stringify(fleet)).toBe(before);
+ });
+ it('keeps group folders distinct without taking natural group names or root file names', () => {
+   const fleet = pair();
+   fleet.groups[0].label = 'Site A';
+   for (const [index, label] of ['site a', 'Site/A', 'Site A-2', 'topology.json', 'README.txt', 'CON', 'NUL'].entries()) {
+     const group = addGroup(fleet, label);
+     configureGroupNetwork(fleet, group);
+     const member = addMember(fleet, group);
+     Object.assign(member.config.values, { ip0: `198.51.100.${23 + index}`, ip1: `192.0.2.${23 + index}`, ip2: `198.18.0.${23 + index}` });
+   }
+   const before = JSON.stringify(fleet);
+   const date = new Date(2026, 10, 12, 0, 1);
+   const files = fleetBundle(fleet, date);
+   const manifest = JSON.parse(files.find(file => file.name === 'topology.json')!.text);
+   const folders = manifest.nodes.map((node: { iniFile: string }) => node.iniFile.split('/')[0]);
+   expect(folders).toEqual(['Site-A', 'Site-A', 'site-a-3', 'Site-A-4', 'Site-A-2', 'topology.json-2', 'README.txt-2', 'UAG-group', 'UAG-group-2']);
+   for (const node of manifest.nodes) {
+     expect(files.some(file => file.name === node.iniFile)).toBe(true);
+     expect(files.find(file => file.name === 'README.txt')!.text).toContain(node.iniFile);
+   }
+   expect(fleetBundle(fleet, date)).toEqual(files);
+   expect(importFleet(JSON.stringify(manifest)).groups.map(group => group.label)).toEqual(fleet.groups.map(group => group.label));
+   expect(JSON.stringify(fleet)).toBe(before);
+ });
+ it.each([
+   [new Date(2026, 10, 12, 0, 1), 'horizon-fleet-2026-11-12.zip'],
+   [new Date(2026, 0, 2, 23, 59), 'horizon-fleet-2026-01-02.zip'],
+   [new Date(2027, 0, 1, 0, 0), 'horizon-fleet-2027-01-01.zip']
+ ])('dates downloads using the local calendar date: %s', (date, filename) => {
+   expect(fleetFilename(date)).toBe(filename);
+   const fleet = pair(), before = JSON.stringify(fleet);
+   const manifest = JSON.parse(fleetBundle(fleet, date).find(file => file.name === 'topology.json')!.text);
+   expect(`horizon-fleet-${manifest.exportDate}.zip`).toBe(filename);
+   expect(manifest.exportedAt).toBe(date.toISOString());
+   expect(new Date(manifest.exportedAt).getTime()).toBe(date.getTime());
+   const restored = importFleet(JSON.stringify(manifest));
+   expect(restored).toEqual(manifest.workspace);
+   delete manifest.exportDate;
+   delete manifest.exportedAt;
+   expect(importFleet(JSON.stringify(manifest))).toEqual(restored);
    expect(JSON.stringify(fleet)).toBe(before);
  });
  it.each(['uag-studio-fleet-2', 'uag-studio-fleet-999', 'uag-studio-scenarios-review-1', 'gateway-forge-fleet-2'])('rejects unsupported manifest %s', format => {
