@@ -71,7 +71,16 @@
     await tick(); app.goTo(issue?.section ?? 'general', issue?.fieldId);
   }
   async function topology() {
-    try { commitEditor(); if (current?.fleet && !current.fleet.unlocked) unlockFleet(current.fleet); message = ''; view = 'topology'; persist(); await tick(); heading?.focus(); } catch (e) { message = e instanceof Error ? e.message : String(e); }
+    try {
+      commitEditor();
+      if (current?.fleet && !current.fleet.unlocked) {
+        if (baselineBlocked) {
+          await tick(); document.getElementById('topology-next-help')?.focus(); return;
+        }
+        unlockFleet(current.fleet);
+      }
+      message = ''; view = 'topology'; persist(); await tick(); heading?.focus();
+    } catch (e) { message = e instanceof Error ? e.message : String(e); }
   }
   async function loadTopology(event: Event) {
     const input = event.currentTarget as HTMLInputElement, file = input.files?.[0]; if (!file || !current?.fleet) return;

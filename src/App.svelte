@@ -266,8 +266,6 @@
         </div>
       </header>
 
-      <LintPanel bind:this={lintPanel} {issues} />
-
       {#if (app.section === 'horizon' && app.config.values.horizon_enabled === true) ||
         (app.section === 'tunnel' && app.config.values.airwatch_enabled === true) ||
         (app.section === 'contentGateway' && app.config.values.contentGateway_enabled === true) ||
@@ -284,7 +282,7 @@
         {#if currentIssues.length}
           <div class="section-context"><button type="button" class="validation-count" class:blocked={currentIssues.some((issue) => issue.level === 'error')}
             class:warn={!currentIssues.some((issue) => issue.level === 'error') && currentIssues.some((issue) => issue.level === 'warn')}
-            aria-controls="validation-lint" onclick={reviewValidation}><strong>{currentIssues.length} section finding{currentIssues.length === 1 ? '' : 's'} to review</strong><span aria-hidden="true">↑</span></button></div>
+            aria-controls="validation-lint" onclick={reviewValidation}><strong>{currentIssues.length} section finding{currentIssues.length === 1 ? '' : 's'} to review</strong><span aria-hidden="true">↓</span></button></div>
         {/if}
         {#if app.section === 'ha' && app.config.platform === 'azure'}
           <div class="notice">Native high availability is not supported on Azure. Existing HA values are retained but not emitted.</div>
@@ -299,6 +297,8 @@
         {#each lists.filter((list) => list.id !== 'jwt' && list.id !== 'jwtIssuers' && list.id !== 'oidc') as l (l.id)}<ListEditor list={l} {issues} />{/each}
         {#if app.section === 'auth'}<JwtSettings {issues} />{/if}
       {/if}
+
+      <LintPanel bind:this={lintPanel} {issues} />
     </div>
 
     <OutputSplitter {layout} collapsed={outputCollapsed} />

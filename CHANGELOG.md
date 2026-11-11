@@ -4,6 +4,15 @@ All notable user-facing changes to UAG Foundry are documented here. Earlier rele
 
 ## Unreleased
 
+### Changed
+
+- Moved the full Validation & lint panel below section fields, retaining compact counts above, inline errors and keyboard-accessible navigation to the panel and affected fields.
+
+### Fixed
+
+- Incomplete Horizon baselines keep the prominent prerequisite warning; clicking Continue focuses it instead of adding a duplicate message. The topology unlock guard remains enforced.
+- Service topology external-client cards show the complete application subtitle and wrap enabled protocol details without clipping or overlapping following client cards.
+
 ## 0.9.0 - 2026-11-11
 
 ### Added

@@ -8,14 +8,19 @@
   const isCascade = $derived(topo.nodes.some((node) => node.id === 'outer' || node.id === 'inner'));
   const isInner = $derived(topo.nodes.some((node) => node.id === 'outer'));
   const rowH = 94;
-  const H = $derived(Math.max(280, right.length * rowH + 66, left.length * rowH + 66));
+  const clientDetails = $derived(detailLines(topo.nodes.find((node) => node.id === 'client')?.detail));
+  const clientExtra = $derived((clientDetails.length - 1) * 13);
+  const H = $derived(Math.max(280, right.length * rowH + 66, left.length * rowH + 66 + clientExtra));
 
   type Position = { x: number; y: number; w: number; h: number };
 
   function pos(id: string): Position {
     if (id === 'uag') return { x: 337, y: H / 2 - 57, w: 226, h: 114 };
     const leftIndex = left.findIndex((node) => node.id === id);
-    if (leftIndex >= 0) return { x: 24, y: 44 + leftIndex * rowH, w: 220, h: 76 };
+    if (leftIndex >= 0) {
+      const extra = left.slice(0, leftIndex).some((node) => node.id === 'client') ? clientExtra : 0;
+      return { x: 24, y: 44 + leftIndex * rowH + extra, w: 220, h: 76 + (id === 'client' ? clientExtra : 0) };
+    }
     const rightIndex = right.findIndex((node) => node.id === id);
     return { x: 656, y: 44 + Math.max(0, rightIndex) * rowH, w: 220, h: 76 };
   }
@@ -126,8 +131,8 @@
           <rect class="node-accent" x="0" y="0" width="5" height={p.h} rx="3" />
           <text class="node-kicker" x="17" y="18">{node.kind === 'uag' ? 'ACCESS GATEWAY' : node.kind === 'identity' ? 'IDENTITY' : node.kind === 'monitoring' ? 'OPERATIONS' : node.kind === 'client' ? 'CLIENT EDGE' : 'DESTINATION'}</text>
           <text class="node-title" x="17" y="38">{trim(node.label, 27)}</text>
-          {#if node.sub}<text class="node-subtitle" x="17" y="55">{trim(node.sub, 31)}</text>{/if}
-          {#each detailLines(node.detail).slice(0, node.kind === 'uag' && node.id === 'uag' ? 3 : 1) as line, lineIndex}
+          {#if node.sub}<text class="node-subtitle" x="17" y="55">{node.id === 'client' ? node.sub : trim(node.sub, 31)}</text>{/if}
+          {#each detailLines(node.detail).slice(0, node.id === 'client' || (node.kind === 'uag' && node.id === 'uag') ? 3 : 1) as line, lineIndex}
             <text class="node-detail" x="17" y={node.kind === 'uag' && node.id === 'uag' ? 77 + lineIndex * 14 : 70 + lineIndex * 13}>{trim(line, 37)}</text>
           {/each}
         </g>
