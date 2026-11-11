@@ -11,9 +11,9 @@ RUN npm run build
 FROM nginxinc/nginx-unprivileged:1.31-alpine
 ARG VERSION=dev
 ARG REVISION=unknown
-LABEL org.opencontainers.image.title="UAG Foundry" \
+LABEL org.opencontainers.image.title="UAG Studio" \
       org.opencontainers.image.description="Client-side visual config builder for Omnissa Unified Access Gateway (UAG)" \
-      org.opencontainers.image.source="https://github.com/erikgraa/uag-foundry" \
+      org.opencontainers.image.source="https://github.com/erikgraa/uag-studio" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}"

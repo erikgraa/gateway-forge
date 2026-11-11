@@ -115,10 +115,11 @@ def generate(root=ROOT):
     render_icon(256).save(public / "logo.png", optimize=True)
     render_icon(48).save(public / "favicon.ico", format="ICO", sizes=[(size, size) for size in (16, 32, 48)],
                          append_images=[render_icon(16), render_icon(32)])
-    for name, size in (("uag-foundry-icon.png", 1024), ("uag-foundry-readme-icon.png", 140), ("avatar-460.png", 460)):
+    for name, size in (("uag-studio-icon.png", 1024), ("uag-studio-readme-icon.png", 140), ("avatar-460.png", 460)):
         render_icon(size).save(assets / name, optimize=True)
-    render_icon(140, background=None, color=DARK_PURPLE).save(assets / "uag-foundry-readme-icon-dark.png", optimize=True)
-    for name in ("gateway-forge-icon.png", "gateway-forge-readme-icon.png"):
+    render_icon(140, background=None, color=DARK_PURPLE).save(assets / "uag-studio-readme-icon-dark.png", optimize=True)
+    for name in ("gateway-forge-icon.png", "gateway-forge-readme-icon.png",
+                 "uag-foundry-icon.png", "uag-foundry-readme-icon.png", "uag-foundry-readme-icon-dark.png"):
         (assets / name).unlink(missing_ok=True)
 
 

@@ -35,7 +35,7 @@ The chooser supports confirmed removal of one draft or **Clear all drafts**, inc
 
 ## Moving from Gateway Forge
 
-Version 0.9.0 introduced UAG Foundry at `https://uagfoundry.graa.dev/`. Version 0.9.1 adopts UAG Studio at `https://uagstudio.graa.dev/`; the repository and package identifiers remain `erikgraa/uag-foundry` and `uag-foundry`. GitHub redirects the previous repository URL; this does not rename existing GHCR packages or migrate browser storage.
+Version 0.9.0 introduced UAG Foundry at `https://uagfoundry.graa.dev/`. Version 0.9.1 adopts UAG Studio at `https://uagstudio.graa.dev/`. The repository is now `erikgraa/uag-studio` and the npm package identifier is `uag-studio`; this repository/package alignment does not change the app version. GitHub redirects the previous `gateway-forge` and `uag-foundry` repository URLs; this does not rename existing GHCR packages or migrate browser storage.
 
 **Before switching domains**, export each configuration you need from the old origin and keep the files private. Checked exports require resolving blockers first. If a draft cannot be exported, preserve its old-origin browser storage privately before making changes and retain the original browser profile. Import its INI or settings JSON in a new workspace on the new site. Export a Horizon fleet bundle to transfer compatible topology. These files are configuration transfers, not complete browser-profile backups: workspace IDs/names, Undo history, appearance, omitted passwords and unsupported memory-only imports do not move automatically. Review the export secret policy and save original unsupported import files separately. Re-select appearance and supply credentials securely at the new origin. Browser data on the old origin is not deleted by this release, but cannot be read from the new domain. Same-origin upgrades retain existing storage keys and supported topology formats.
 
@@ -79,7 +79,7 @@ The completed [UAG 2609 Horizon schema audit](horizon-2609-schema-audit.md) reco
 
 ## Deployment support and test status
 
-**Hyper-V builder support:** host filesystem storage paths, local `.vhdx` images and optional per-NIC access VLAN output are implemented for one-, two- and three-NIC layouts. VLANs use guarded post-deployment PowerShell; they are not vendor INI/settings JSON settings. Implemented support is recorded in [#139](https://github.com/erikgraa/uag-foundry/issues/139), closed as completed. This does not certify every package/version, live generated-VLAN execution or untested service; the scoped operator deployment evidence below remains the support boundary.
+**Hyper-V builder support:** host filesystem storage paths, local `.vhdx` images and optional per-NIC access VLAN output are implemented for one-, two- and three-NIC layouts. VLANs use guarded post-deployment PowerShell; they are not vendor INI/settings JSON settings. Implemented support is recorded in [#139](https://github.com/erikgraa/uag-studio/issues/139), closed as completed. This does not certify every package/version, live generated-VLAN execution or untested service; the scoped operator deployment evidence below remains the support boundary.
 
 | Platform / service | UAG / deployment tooling | Evidence and scope |
 | --- | --- | --- |
@@ -94,7 +94,7 @@ The operator reported regressions with OVF Tool **5.1 and 9.1**. Their causes an
 
 The optional **High availability** section before Edge services configures this UAG's `[HighAvailability]` `groupId` (integer **1–255**) and `virtualIPAddress` (IPv4 only). Both start empty; disabling HA retains values but excludes the section from output. UAGs in the same HA group must use the same Group ID and VIP. The VIP must be unique, available, and in the same subnet as **eth0**; use a Group ID unique to that group in the subnet. Studio does not infer DHCP subnets or verify address availability.
 
-Settings JSON maps to `loadBalancerSettings` with `groupID`, `virtualIPAddress` and `loadBalancerMode: "ONEARM"`, as the vendor deployment sample and API schema specify. `DISABLED` imports remain disabled; missing/unsupported modes are reported rather than silently converted. HA is not supported on Azure. The native HA/VIP configuration tracked in [#145](https://github.com/erikgraa/uag-foundry/issues/145) is implemented and the issue is closed as completed. This is two-field configuration generation, not automatic multi-node deployment or verified topology, VIP ownership or failover.
+Settings JSON maps to `loadBalancerSettings` with `groupID`, `virtualIPAddress` and `loadBalancerMode: "ONEARM"`, as the vendor deployment sample and API schema specify. `DISABLED` imports remain disabled; missing/unsupported modes are reported rather than silently converted. HA is not supported on Azure. The native HA/VIP configuration tracked in [#145](https://github.com/erikgraa/uag-studio/issues/145) is implemented and the issue is closed as completed. This is two-field configuration generation, not automatic multi-node deployment or verified topology, VIP ownership or failover.
 
 ### Hyper-V storage and access VLANs
 
@@ -212,19 +212,19 @@ Omnissa documents the JSON as an *export/import format* of the admin UI but does
 
 A self-contained image (static files + nginx, non-root, no outbound calls, strict CSP) is built nightly at 02:30 UTC and when application or build inputs change on `main` by [container.yml](../.github/workflows/container.yml), after type-check, tests and a Lifecycle Matrix comparison pass, and published as multi-arch (amd64/arm64) to GitHub Container Registry. Documentation-only changes do not trigger a build; relevant pull requests run verification without publishing or deleting images:
 
-**Published image:** `ghcr.io/erikgraa/uag-foundry` is available for Linux amd64 and arm64. The commands below use the verified UAG Studio package. The older `gateway-forge` package is separate: repository redirects do not rename GHCR packages or automatically update existing container deployments.
+**Current image namespace:** `ghcr.io/erikgraa/uag-studio`. The workflow derives this from `github.repository` and is configured to publish Linux amd64 and arm64 images after verification. Before pulling the commands below, check a successful **Build and push image** job for this namespace and the desired tag; a repository rename alone does not publish an image. The older `ghcr.io/erikgraa/uag-foundry` and `ghcr.io/erikgraa/gateway-forge` packages remain separate historical packages: repository redirects do not rename them or automatically update existing container deployments.
 
 ```bash
 # Docker
-docker run --rm -p 8080:8080 ghcr.io/erikgraa/uag-foundry:nightly
+docker run --rm -p 8080:8080 ghcr.io/erikgraa/uag-studio:nightly
 
 # Podman (rootless works; the image runs as a non-root user)
-podman run --rm -p 8080:8080 ghcr.io/erikgraa/uag-foundry:nightly
+podman run --rm -p 8080:8080 ghcr.io/erikgraa/uag-studio:nightly
 
 # then open http://localhost:8080
 ```
 
-Tags: `nightly` / `latest` (newest build), `nightly-YYYYMMDD` and `sha-<seven-character commit>` (short-term reproducibility). Build locally with `docker build -t uag-foundry .` or `podman build -t uag-foundry .`.
+Tags: `nightly` / `latest` (newest build), `nightly-YYYYMMDD` and `sha-<seven-character commit>` (short-term reproducibility). Build locally with `docker build -t uag-studio .` or `podman build -t uag-studio .`.
 
 After a successful publish and smoke test, automatic retention deletes versions older than **30 days** only when **every** tag is an expired `nightly-YYYYMMDD` or `sha-<seven-character commit>` tag. Both creation and last-update timestamps must be older than the cutoff. Versions carrying `latest`, `nightly`, release tags (for example `v1.2.3`), or any unknown/non-policy tag are always kept. Release-tagged versions are not subject to this expiration policy; dated/SHA pins may stop resolving after 30 days.
 

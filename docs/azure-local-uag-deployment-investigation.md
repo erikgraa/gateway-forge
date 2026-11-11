@@ -68,7 +68,7 @@ No stage above has been run for this investigation. Passing a lab matrix demonst
 - No operator lab evidence exists for VM creation, first boot, management reachability, one-to-three NIC mapping, storage lifecycle, same-name replacement, cleanup or end-to-end UAG configuration.
 - Azure Local's required resource providers, provider versions, role scopes and permissions must be pinned to the target release and operator-selected deployment flow before implementation.
 
-If vendor guidance and the lab justify support, open a **separate implementation issue** for an Azure Local/Arc-specific adapter or runbook. It should define its own resource model, image preparation, networking/storage/identity contract, explicit destructive-operation safeguards, supported release matrix and operator acceptance evidence. Until that work is separately reviewed and tested, Azure Local remains unsupported and untested in UAG Foundry.
+If vendor guidance and the lab justify support, open a **separate implementation issue** for an Azure Local/Arc-specific adapter or runbook. It should define its own resource model, image preparation, networking/storage/identity contract, explicit destructive-operation safeguards, supported release matrix and operator acceptance evidence. Until that work is separately reviewed and tested, Azure Local remains unsupported and untested in UAG Studio.
 
 ## Sources
 

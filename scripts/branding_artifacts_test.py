@@ -35,15 +35,16 @@ class BrandingArtifactsTest(unittest.TestCase):
 
     def test_png_dimensions_and_generator_consistency(self):
         files = {f"public/favicon-{size}.png": size for size in artwork.SIZES}
-        files.update({"public/logo.png": 256, "assets/uag-foundry-icon.png": 1024,
-                      "assets/uag-foundry-readme-icon.png": 140, "assets/avatar-460.png": 460})
+        files.update({"public/logo.png": 256, "assets/uag-studio-icon.png": 1024,
+                      "assets/uag-studio-readme-icon.png": 140, "assets/avatar-460.png": 460})
         for relative, size in files.items():
             with self.subTest(path=relative), Image.open(ROOT / relative) as image:
                 self.assertEqual(image.size, (size, size))
                 self.assertEqual(image.mode, "RGBA")
                 self.assertEqual(image.tobytes(), artwork.render_icon(size).tobytes())
                 self.assertLessEqual(image.getpixel((0, 0))[3], 3)
-        for name in ("gateway-forge-icon.png", "gateway-forge-readme-icon.png"):
+        for name in ("gateway-forge-icon.png", "gateway-forge-readme-icon.png",
+                     "uag-foundry-icon.png", "uag-foundry-readme-icon.png", "uag-foundry-readme-icon-dark.png"):
             self.assertFalse((ROOT / "assets" / name).exists())
 
     def test_render_geometry(self):
@@ -82,7 +83,7 @@ class BrandingArtifactsTest(unittest.TestCase):
         self.assertGreater(optical.getpixel((6, 10))[0], 240)
 
     def test_readme_theme_variants(self):
-        with Image.open(ROOT / "assets" / "uag-foundry-readme-icon-dark.png") as dark:
+        with Image.open(ROOT / "assets" / "uag-studio-readme-icon-dark.png") as dark:
             self.assertEqual(dark.size, (140, 140))
             self.assertEqual(dark.mode, "RGBA")
             self.assertEqual(dark.tobytes(), artwork.render_icon(140, background=None, color=artwork.DARK_PURPLE).tobytes())
@@ -90,8 +91,8 @@ class BrandingArtifactsTest(unittest.TestCase):
             self.assertEqual(dark.getpixel((7, 70))[3], 0)
             self.assertEqual(dark.getpixel((44, 88)), (201, 180, 255, 255))
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn('<source media="(prefers-color-scheme: dark)" srcset="assets/uag-foundry-readme-icon-dark.png">', readme)
-        self.assertIn('<img src="assets/uag-foundry-readme-icon.png"', readme)
+        self.assertIn('<source media="(prefers-color-scheme: dark)" srcset="assets/uag-studio-readme-icon-dark.png">', readme)
+        self.assertIn('<img src="assets/uag-studio-readme-icon.png"', readme)
 
     def test_ico_frames_match_pngs(self):
         with Image.open(ROOT / "public" / "favicon.ico") as ico:
@@ -140,7 +141,13 @@ class BrandingArtifactsTest(unittest.TestCase):
             root = Path(directory)
             (root / "public").mkdir()
             (root / "assets").mkdir()
+            obsolete = ("gateway-forge-icon.png", "gateway-forge-readme-icon.png",
+                        "uag-foundry-icon.png", "uag-foundry-readme-icon.png", "uag-foundry-readme-icon-dark.png")
+            for name in obsolete:
+                (root / "assets" / name).write_bytes(b"obsolete artwork")
             artwork.generate(root)
+            for name in obsolete:
+                self.assertFalse((root / "assets" / name).exists())
             with patch.object(social, "ROOT", root), patch.object(sys, "argv", ["generate-social-preview.py"]):
                 social.main()
             self.assertEqual(before, {relative: digest(root / relative) for relative in before})

@@ -308,7 +308,7 @@
   <footer class="site-footer">
     <strong>{brandName} is a community-driven, unofficial tool.</strong>
     It is <strong>not affiliated with, endorsed by, or supported by Omnissa</strong>. Omnissa, Unified Access Gateway, UAG and Horizon are trademarks of their respective owners. Always review generated configuration before deploying it, and refer to the <a href="https://docs.omnissa.com/" target="_blank" rel="noopener noreferrer">official Omnissa documentation</a>.
-    <a href="https://github.com/erikgraa/uag-foundry" target="_blank" rel="noopener noreferrer">Source on GitHub</a> · MIT license
+    <a href="https://github.com/erikgraa/uag-studio" target="_blank" rel="noopener noreferrer">Source on GitHub</a> · MIT license
         <span>· {brandName} v{packageInfo.version}</span>  </footer>
 </div>
 

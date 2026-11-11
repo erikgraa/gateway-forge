@@ -9,7 +9,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const targetUrl = process.argv[2] ?? 'http://127.0.0.1:4173/';
 const packageInfo = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const port = 9300 + Math.floor(Math.random() * 500);
-const profile = await mkdtemp(join(tmpdir(), 'uag-foundry-screenshots-'));
+const profile = await mkdtemp(join(tmpdir(), 'uag-studio-screenshots-'));
 const outputDir = join(root, 'docs', 'screenshots');
 const chooserOnly = process.argv.includes('--chooser-only');
 
