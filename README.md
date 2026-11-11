@@ -1,14 +1,14 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/uag-foundry-readme-icon-dark.png">
-  <img src="assets/uag-foundry-readme-icon.png" alt="UAG Studio workspace icon" width="140" height="140">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/uag-studio-readme-icon-dark.png">
+  <img src="assets/uag-studio-readme-icon.png" alt="UAG Studio workspace icon" width="140" height="140">
 </picture>
 
 # UAG Studio
 
 Build, check and export configurations for **Omnissa Unified Access Gateway (UAG)**—right in your browser.
 
-[![Latest release](https://img.shields.io/github/v/release/erikgraa/uag-foundry?label=release&color=7c3aed)](https://github.com/erikgraa/uag-foundry/releases/latest)
-[![Site build on main](https://github.com/erikgraa/uag-foundry/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/erikgraa/uag-foundry/actions/workflows/pages.yml)
+[![Latest release](https://img.shields.io/github/v/release/erikgraa/uag-studio?label=release&color=7c3aed)](https://github.com/erikgraa/uag-studio/releases/latest)
+[![Site build on main](https://github.com/erikgraa/uag-studio/actions/workflows/pages.yml/badge.svg?branch=main)](https://github.com/erikgraa/uag-studio/actions/workflows/pages.yml)
 [![MIT license](https://img.shields.io/badge/license-MIT-14b8a6)](LICENSE)
 [![Self-host with Docker or Podman](https://img.shields.io/badge/self--host-Docker%20%7C%20Podman-2563eb)](docs/technical-guide.md#containers)
 
@@ -17,7 +17,7 @@ Build, check and export configurations for **Omnissa Unified Access Gateway (UAG
 **[Open UAG Studio](https://uagstudio.graa.dev)** — no installation needed.
 Your configuration is processed in your browser, not uploaded to a server.
 
-**Moving from UAG Foundry?** Version 0.9.1 uses a new domain. Browser-local drafts and preferences do not automatically transfer; see the [migration notes](docs/technical-guide.md#moving-from-gateway-forge) before switching.
+**Moving from the previous site?** Version 0.9.1 uses a new domain. Browser-local drafts and preferences do not automatically transfer; see the [migration notes](docs/technical-guide.md#moving-from-a-previous-domain) before switching.
 
 ![UAG Studio scenario chooser in dark theme](docs/screenshots/chooser-dark.png)
 
@@ -64,7 +64,7 @@ See the [detailed fleet behavior and limitations](docs/scenario-workspaces.md#sh
 
 ## 💡 Ideas and feedback
 
-Feature suggestions are welcome! [Open an issue](https://github.com/erikgraa/uag-foundry/issues) with what you'd like to do and how it would help. Feedback and contributions are welcome too.
+Feature suggestions are welcome! [Open an issue](https://github.com/erikgraa/uag-studio/issues) with what you'd like to do and how it would help. Feedback and contributions are welcome too.
 
 ## 📚 More information
 

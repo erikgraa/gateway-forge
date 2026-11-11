@@ -5,15 +5,17 @@ Audited on 2026-11-08 against Omnissa's [PowerShell deployment parameters](https
 - routes, IP addressing modes, and per-NIC custom configuration first appear in the 2306 page and are absent from 2303;
 - NIC0 IPv6 and `adminpasswordExpirationDays` first appear in the 2506 page and are absent from 2503.
 
+App references use the current UAG Studio name; the audit date, vendor evidence and support conclusions are unchanged.
+
 `Supported` means the setting is represented in the schema/UI and maps through INI import and generation. Settings JSON is included only when the value is an appliance setting; deploy-time infrastructure and file values remain INI-only.
 
-| Documented 2609 key(s) | Mapping in UAG Foundry | Status / rationale |
+| Documented 2609 key(s) | Mapping in UAG Studio | Status / rationale |
 | --- | --- | --- |
 | `defaultGateway` | `defaultGateway` | Supported |
 | `routes0`, `routes1`, `routes2` | Per-NIC static routes | Added. Values are comma-separated `IPv4-CIDR gateway-IPv4` pairs. `routes0` applies to all one/two/three-NIC topologies, `routes1` to two/three NICs, and `routes2` to three NICs. |
 | `ip0` | `ip0` | Supported for vSphere/Hyper-V NIC0 |
 | `v6ip0`, `v6ipprefix0`, `v6DefaultGateway` | NIC0 IPv6 address, prefix, and gateway | Added. Omnissa 2609 documents only the NIC0 keys, so no `v6ip1`, `v6ip2`, or per-NIC IPv6 prefix/gateway keys are inferred. |
-| `ipmode0`, `ipmode1`, `ipmode2` | Per-NIC addressing modes | Added with the 2609 documented mode values. The parameter page describes `ipmode0` as applying to all three NICs, while Omnissa's [UAG Terraform sample](https://github.com/euc-oss/euc-samples/blob/main/UAG-Samples/uag-terraform/uagdeploytr.ps1) reads numbered `ipMode0`/`ipMode1`/`ipMode2` values. UAG Foundry exposes the three INI keys only for active NICs. |
+| `ipmode0`, `ipmode1`, `ipmode2` | Per-NIC addressing modes | Added with the 2609 documented mode values. The parameter page describes `ipmode0` as applying to all three NICs, while Omnissa's [UAG Terraform sample](https://github.com/euc-oss/euc-samples/blob/main/UAG-Samples/uag-terraform/uagdeploytr.ps1) reads numbered `ipMode0`/`ipMode1`/`ipMode2` values. UAG Studio exposes the three INI keys only for active NICs. |
 | `netmask0` | `netmask0`; established `netmask1`/`netmask2` pattern | Supported. NIC1/NIC2 keys follow the existing deployment sample pattern and are topology-gated. |
 | `adminMaxConcurrentSessions` | `adminMaxConcurrentSessions` | Supported, 1-50 |
 | `adminpasswordPolicyUnlockTime` | `adminPasswordPolicyUnlockTime` internal field | Supported; corrected to the documented lowercase `p` INI/JSON key. Range 1-9999 minutes. |
@@ -50,12 +52,12 @@ Audited on 2026-11-08 against Omnissa's [PowerShell deployment parameters](https
 
 - `quiesceMode` is documented as a maintenance action that pauses a live appliance. It is intentionally excluded from persistent deployment profiles and generated output so an exported INI cannot accidentally deploy an appliance in quiescent mode.
 - General deployment infrastructure keys are omitted from settings JSON. This includes VM/image/network values, static routes, IPv6 interface addressing, `ipmode0`/`ipmode1`/`ipmode2`, custom `systemd.network` values, and `secureRandomSource`.
-- Azure's route tables and network security groups remain represented by the dedicated `[Azure]` keys. The per-NIC `[General]` route/IP fields are shown only for vSphere and Hyper-V, where UAG Foundry also exposes the corresponding appliance NIC addresses.
+- Azure's route tables and network security groups remain represented by the dedicated `[Azure]` keys. The per-NIC `[General]` route/IP fields are shown only for vSphere and Hyper-V, where UAG Studio also exposes the corresponding appliance NIC addresses.
 - Password values and deploy-script arguments (`-rootPwd`, `-adminPwd`, `-noSSLVerify`, `-disableVerification`) are not schema values. Passwords are supplied by the operator at deployment time; script flags remain represented as runtime controls rather than INI keys.
 
 ## Uncertain or compatibility-only keys
 
-- `adminpasswordPolicyFailedLockoutCount` remains represented for compatibility: it appears on older official deployment pages but is absent from the 2609 table. UAG Foundry emits it only when the user changes the default.
-- The 2609 page documents the format and a single complete example only for `routes0`. UAG Foundry applies that exact comma-separated `CIDR gateway` format to `routes1` and `routes2`; this is the natural per-NIC interpretation stated by the page, but Omnissa does not provide separate examples for those two keys.
-- The parameter page's `ipmode0` description refers to all NICs but names one key. Omnissa's UAG Terraform sample separately establishes the numbered `ipMode0`/`ipMode1`/`ipMode2` convention; UAG Foundry retains lowercase `ipmodeN` generation for the INI while importing case-insensitively.
+- `adminpasswordPolicyFailedLockoutCount` remains represented for compatibility: it appears on older official deployment pages but is absent from the 2609 table. UAG Studio emits it only when the user changes the default.
+- The 2609 page documents the format and a single complete example only for `routes0`. UAG Studio applies that exact comma-separated `CIDR gateway` format to `routes1` and `routes2`; this is the natural per-NIC interpretation stated by the page, but Omnissa does not provide separate examples for those two keys.
+- The parameter page's `ipmode0` description refers to all NICs but names one key. Omnissa's UAG Terraform sample separately establishes the numbered `ipMode0`/`ipMode1`/`ipMode2` convention; UAG Studio retains lowercase `ipmodeN` generation for the INI while importing case-insensitively.
 - The 2609 page documents IPv6 address keys for NIC0 only. NIC1/NIC2 IPv6 support is not represented until an authoritative key name and semantics are published.

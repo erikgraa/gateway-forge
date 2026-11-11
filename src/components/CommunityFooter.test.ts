@@ -10,7 +10,7 @@ describe('Landing-page community footer', () => {
 
   it('links to the project and Omnissa without implying affiliation', () => {
     const { body } = render(CommunityFooter);
-    expect(body).toContain('https://github.com/erikgraa/uag-foundry');
+    expect(body).toContain('https://github.com/erikgraa/uag-studio');
     expect(body).toContain('https://www.omnissa.com/');
     expect(body).toContain('Source on GitHub');
     expect(body).toContain('Not affiliated with or endorsed by Omnissa.');

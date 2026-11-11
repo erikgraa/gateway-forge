@@ -119,7 +119,7 @@ describe('retention execution', () => {
 });
 
 describe('GitHub/GHCR API contracts (mocked; no network)', () => {
-  const config = { repository: 'erikgraa/uag-foundry', ownerType: 'User', token: 'fixture-token', actor: 'fixture-actor' };
+  const config = { repository: 'erikgraa/uag-studio', ownerType: 'User', token: 'fixture-token', actor: 'fixture-actor' };
 
   it.each(['User', 'Organization'])('paginates the %s package endpoint and uses version-ID DELETE', async ownerType => {
     const first = Array.from({ length: 100 }, (_, i) => version(i + 1, i === 0 ? ['latest', 'nightly'] : []));
@@ -129,7 +129,7 @@ describe('GitHub/GHCR API contracts (mocked; no network)', () => {
     const clients = createClients({ ...config, ownerType, fetchImpl });
     expect(await clients.listVersions()).toHaveLength(101);
     await clients.deleteVersion(101);
-    const base = `https://api.github.com/${ownerType === 'User' ? 'users' : 'orgs'}/erikgraa/packages/container/uag-foundry/versions`;
+    const base = `https://api.github.com/${ownerType === 'User' ? 'users' : 'orgs'}/erikgraa/packages/container/uag-studio/versions`;
     expect(fetchImpl.mock.calls.map(call => call[0])).toEqual([
       `${base}?per_page=100&page=1&state=active`, `${base}?per_page=100&page=2&state=active`, `${base}/101`,
     ]);
@@ -146,7 +146,7 @@ describe('GitHub/GHCR API contracts (mocked; no network)', () => {
     expect(await clients.getManifest(hash)).toEqual(image());
     await clients.getManifest(hash);
     expect(fetchImpl).toHaveBeenCalledTimes(3);
-    expect(fetchImpl.mock.calls[0][0]).toBe('https://ghcr.io/token?service=ghcr.io&scope=repository:erikgraa/uag-foundry:pull');
+    expect(fetchImpl.mock.calls[0][0]).toBe('https://ghcr.io/token?service=ghcr.io&scope=repository:erikgraa/uag-studio:pull');
     expect(fetchImpl.mock.calls[1][1].headers.Authorization).toBe('Bearer pull-token');
   });
 
