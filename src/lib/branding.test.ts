@@ -40,7 +40,7 @@ describe('UAG Studio rebrand', () => {
     expect(packageInfo.name).toBe('uag-studio');
     expect(packageLock.name).toBe(packageInfo.name);
     expect(packageLock.packages[''].name).toBe(packageInfo.name);
-    expect(packageInfo.version).toBe('0.9.2');
+    expect(packageInfo.version).toBe('0.9.3');
     expect(packageLock.version).toBe(packageInfo.version);
     expect(packageLock.packages[''].version).toBe(packageInfo.version);
   });

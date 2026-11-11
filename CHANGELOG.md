@@ -2,6 +2,18 @@
 
 All notable user-facing changes to UAG Studio are documented here. Historical release dates, features and support evidence are retained; repository links use the current address. This format follows the [Keep a Changelog](https://keepachangelog.com/) structure.
 
+## 0.9.3 - 2026-11-12
+
+### Added
+
+- Fleet ZIP filenames include the operator's local ISO calendar date (`horizon-fleet-YYYY-MM-DD.zip`). Topology manifests record the matching `exportDate` and a precise UTC `exportedAt` timestamp from the same captured instant. Older manifests without date metadata remain importable.
+
+### Changed
+
+- Fleet folders use sanitized group names without routine internal group-ID suffixes. Numeric suffixes are added only for collisions, preserving other groups' natural names and avoiding conflicts with root files. Member identities, original labels, INI contents and manifest/README file references remain intact.
+
+Export timestamps describe generation, not deployment or live infrastructure verification.
+
 ## 0.9.2 - 2026-11-12
 
 ### Fixed
