@@ -23,7 +23,7 @@ describe('builder version footer', () => {
     expect(body).not.toContain('class="brand"');
   });
 
-  it.each(['general', 'horizon'] as const)('places one validation panel above the %s full-editor fields', async (section) => {
+  it.each(['general', 'horizon'] as const)('places one validation panel below the %s full-editor fields', async (section) => {
     vi.stubGlobal('document', { documentElement: { dataset: {} } });
     vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => undefined, removeItem: () => undefined });
     const { app } = await import('./lib/store.svelte');
@@ -33,7 +33,9 @@ describe('builder version footer', () => {
       const { default: App } = await import('./App.svelte');
       const { body } = render(App, { props: { embedded: true } });
       const panel = body.indexOf('id="validation-lint"'), field = body.indexOf(section === 'general' ? 'id="f-uagName"' : 'id="f-proxyDestinationUrl"');
-      expect(panel).toBeGreaterThan(-1); expect(field).toBeGreaterThan(-1); expect(panel).toBeLessThan(field);
+      expect(panel).toBeGreaterThan(-1); expect(field).toBeGreaterThan(-1); expect(panel).toBeGreaterThan(field);
+      expect(panel).toBeGreaterThan(body.lastIndexOf('id="f-'));
+      expect(body.indexOf('class="validation-summary')).toBeLessThan(field);
       expect([...body.matchAll(/id="validation-lint"/g)]).toHaveLength(1);
       expect(body).toContain('aria-controls="validation-lint"');
     } finally { app.config = before; app.section = beforeSection; }

@@ -2,7 +2,7 @@
   let { unlocked, blocked }: { unlocked: boolean; blocked: boolean } = $props();
 </script>
 
-<aside id="topology-next-help" class="topology-prerequisite" class:warning={blocked && !unlocked} role="status">
+<aside id="topology-next-help" class="topology-prerequisite" class:warning={blocked && !unlocked} role="status" tabindex="-1">
   {#if blocked && !unlocked}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 4.5 2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4 M12 17h.01" /></svg>
     <div><strong>Complete a valid Horizon baseline before planning the topology.</strong><p>Resolve the configuration errors and keep Horizon enabled, then continue to fleet topology. The first UAG becomes the shared starting point; nothing is deployed.</p></div>

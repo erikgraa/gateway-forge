@@ -25,6 +25,8 @@ Your configuration is processed in your browser, not uploaded to a server.
 
 ![UAG Foundry configuration workspace in dark theme](docs/screenshots/builder-dark.png)
 
+*Configuration fields come first. Compact readiness and advisory counts stay above them; select a count to open the full **Validation & lint** panel below the section.*
+
 ## 🏠 Self-hosting
 
 Prefer your own instance? Run UAG Foundry with Docker or Podman, or host it on your own web server. See the [container instructions](docs/technical-guide.md#containers) and [hosting notes](docs/technical-guide.md#hosting).
@@ -32,7 +34,7 @@ Prefer your own instance? Run UAG Foundry with Docker or Podman, or host it on y
 ## 🧭 How it works
 
 1. **Start a configuration.** Begin blank, use a template, or import an existing INI or settings JSON file.
-2. **Make it yours.** Choose your deployment platform and UAG version, then fill in the settings you need. Click a validation finding to jump to its field.
+2. **Make it yours.** Choose your deployment platform and UAG version, then fill in the settings you need. Use the compact counts to review validation below the section, then click a finding to jump to its field.
 3. **Review and export.** Download deployment files, settings JSON or PowerShell commands. Run the appropriate deployment tools yourself—the app does not deploy anything.
 
 Browser-local drafts let you return to your work. Deployment image and certificate paths refer to files on your deployment host, not browser uploads.

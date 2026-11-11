@@ -7,6 +7,7 @@ describe('Horizon topology prerequisite notice', () => {
     const { body } = render(TopologyPrerequisite, { props: { unlocked: false, blocked: true } });
     expect(body).toContain('id="topology-next-help"');
     expect(body).toContain('role="status"');
+    expect(body).toContain('tabindex="-1"');
     expect(body).toContain('warning');
     expect(body).toMatch(/<strong[^>]*>Complete a valid Horizon baseline before planning the topology\.<\/strong>/);
     expect(body).toContain('Resolve the configuration errors and keep Horizon enabled');
