@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import packageInfo from '../../package.json';
 import { freshFleet, unlockFleet, addMember, addGroup, activeMembers, editMember, setDestination, removeMember, removeGroup, undoRemoval, moveMember, fleetIssues, nicRows, copy, propagate } from './fleet';
 import { fleetBundle, importFleet, safeLabel, zipBytes } from './fleet-export';
 import { validateConfig } from './validate';
@@ -155,16 +156,16 @@ describe('Native fleet templates, checked exports and fixed workspaces',()=>{
    const files = fleetBundle(fleet);
    const iniFiles = files.filter(file => file.name.endsWith('.ini'));
    expect(iniFiles.map(file => file.name)).toEqual([
-     'Site-A--g1/edge-uag--uag-1.ini',
-     'Site-A--g1/edge-uag-2--uag-2.ini'
+     'Site-A-g1/edge-uag-uag-1.ini',
+     'Site-A-g1/edge-uag-2-uag-2.ini'
    ]);
    expect(iniFiles.every(file => !/\s/u.test(file.name))).toBe(true);
    expect(iniFiles[0].text).toContain('name=edge-uag');
    expect(iniFiles[0].text).toContain('netInternet=DMZ Network');
    expect(iniFiles[1].text).toContain('name=edge-uag-2');
    const manifest = JSON.parse(files.find(file => file.name === 'topology.json')!.text);
-   expect(manifest.format).toBe('gateway-forge-fleet-1');
-   expect(manifest.builderVersion).toBe('0.9.1');
+   expect(manifest.format).toBe('uag-studio-fleet-1');
+   expect(manifest.builderVersion).toBe(packageInfo.version);
    expect(manifest.nodes.map((node: { iniFile: string }) => node.iniFile)).toEqual(iniFiles.map(file => file.name));
    const readme = files.find(file => file.name === 'README.txt')!.text;
    for (const file of iniFiles) expect(readme).toContain(file.name);
@@ -172,6 +173,25 @@ describe('Native fleet templates, checked exports and fixed workspaces',()=>{
    expect(restored.groups.map(group => ({ id: group.id, label: group.label }))).toEqual(fleet.groups.map(group => ({ id: group.id, label: group.label })));
    expect(restored.members.map(member => ({ id: member.id, groupId: member.groupId, values: member.config.values }))).toEqual(fleet.members.map(member => ({ id: member.id, groupId: member.groupId, values: member.config.values })));
    expect(JSON.stringify(fleet)).toBe(before);
+ });
+ it.each(['uag-studio-fleet-1', 'gateway-forge-fleet-1'])('imports %s without rewriting operator labels or values', format => {
+   const fleet = pair();
+   fleet.groups[0].label = 'Site--A';
+   fleet.members[0].config.values.name = 'edge--uag';
+   const before = JSON.stringify(fleet);
+   const files = fleetBundle(fleet);
+   expect(files[0].name).toBe('Site--A-g1/edge--uag-uag-1.ini');
+   expect(files[0].text).toContain('name=edge--uag');
+   const manifest = JSON.parse(files.find(file => file.name === 'topology.json')!.text);
+   manifest.format = format;
+   const raw = JSON.stringify(manifest);
+   expect(importFleet(raw).groups[0].label).toBe('Site--A');
+   expect(importFleet(raw).members[0].config.values.name).toBe('edge--uag');
+   expect(JSON.stringify(manifest)).toBe(raw);
+   expect(JSON.stringify(fleet)).toBe(before);
+ });
+ it.each(['uag-studio-fleet-2', 'uag-studio-fleet-999', 'uag-studio-scenarios-review-1', 'gateway-forge-fleet-2'])('rejects unsupported manifest %s', format => {
+   expect(() => importFleet(JSON.stringify({ format, workspace: pair() }))).toThrow('Not a supported');
  });
  it.each(['edge uag', 'edge\tuag', 'edge\u00a0uag', 'edge\u2003uag'])('replaces whitespace in export label %s with a hyphen', label => {
    expect(safeLabel(label, 'UAG')).toBe('edge-uag');

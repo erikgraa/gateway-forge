@@ -70,7 +70,10 @@ export function listDef(id: ListDef['id']): ListDef {
 }
 
 export function newListItem(id: ListDef['id']): Values {
-  return fieldDefaults(listDef(id).fields);
+  const values = fieldDefaults(listDef(id).fields);
+  // Absence means a protocol default; an explicitly cleared port must stay invalid.
+  if (id === 'syslog') delete values.syslogPort;
+  return values;
 }
 
 export function defaultConfig(): Config {

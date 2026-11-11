@@ -3,6 +3,7 @@
   import type { Platform } from '../lib/versions';
   import { certificateMode, selectCertificateMode } from '../lib/certificate-input';
   import { normalizeField } from '../lib/ordinary-whitespace';
+  import { setSyslogServer, syslogDestination } from '../lib/syslog';
   import FieldDetails from './FieldDetails.svelte';
 
   interface Props {
@@ -22,6 +23,7 @@
   const required = $derived(typeof field.required === 'function' ? field.required(values) : field.required === true);
   const label = $derived(displayFieldLabel(field, values, platform));
   const placeholder = $derived(field.platformPlaceholders?.[platform] ?? field.placeholder);
+  const inputValue = $derived(field.id === 'syslogPort' ? syslogDestination(values).port : values[field.id]);
   const isHorizonAuth = $derived(horizonAuthentication && field.id === 'authMethods');
   const authProviders: Record<string, string> = {
     radius_enabled: 'RADIUS',
@@ -112,7 +114,7 @@
         </select>
       {/if}
     {:else if field.type === 'number'}
-      <input {id} type="number" class:bad={!!error} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : help ? `${id}-help` : undefined} {required} min={field.min} max={field.max} value={values[field.id]} oninput={setNumber} {placeholder} />
+      <input {id} type="number" class:bad={!!error} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : help ? `${id}-help` : undefined} {required} min={field.min} max={field.max} value={inputValue} oninput={setNumber} {placeholder} />
     {:else if field.type === 'secret'}
       <span class="secret-wrap">
         <input {id} type={reveal ? 'text' : 'password'} autocomplete="off" spellcheck="false" class:bad={!!error} {required} bind:value={values[field.id]} placeholder={placeholder ?? 'not stored'} />
@@ -120,6 +122,8 @@
       </span>
     {:else if field.type === 'textarea'}
       <textarea {id} rows="3" maxlength={field.maxLength} class:bad={!!error} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : help ? `${id}-help` : undefined} {required} bind:value={values[field.id]} {placeholder}></textarea>
+    {:else if field.id === 'syslogUrl'}
+      <input {id} type="text" onblur={() => setSyslogServer(values, String(normalizeField(field, syslogDestination(values).server) ?? ''))} autocomplete="off" spellcheck="false" class:bad={!!error} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : help ? `${id}-help` : undefined} {required} value={syslogDestination(values).server} oninput={(e) => setSyslogServer(values, e.currentTarget.value)} {placeholder} />
     {:else}
       <input {id} type="text" onblur={() => { values[field.id] = normalizeField(field, values[field.id]) as Values[string]; }} maxlength={field.maxLength} autocomplete="off" spellcheck="false" class:bad={!!error} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? `${id}-error` : help ? `${id}-help` : undefined} {required} bind:value={values[field.id]} {placeholder} />
     {/if}

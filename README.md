@@ -56,6 +56,10 @@ A Horizon workspace manages multiple UAG configurations together. **UAG groups**
 
 See the [detailed fleet behavior and limitations](docs/scenario-workspaces.md#shared-versus-individual) and [Horizon Architecture](https://techzone.omnissa.com/resource/horizon-8-architecture).
 
+### Syslog destinations
+
+Syslog destinations have separate **Server** and editable **Port** inputs. UDP defaults to 514, TCP to 6514, and MQTT to 1883; TLS retains its separate port (6514 by default). Explicit or imported ports are retained when switching protocol. Non-TLS exports continue to use `syslogUrl=server:port`, including bracketed IPv6 destinations.
+
 ## ⚠️ Before you deploy
 
 - **Deployment scripts can delete and recreate an existing VM.** Confirm the target and VM name, back up your configuration and plan downtime.

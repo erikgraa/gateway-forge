@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import packageInfo from '../../package.json';
 
 const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
 const domain = readFileSync(new URL('../../public/CNAME', import.meta.url), 'utf8').trim();
@@ -43,7 +42,7 @@ describe('static sharing metadata', () => {
 
   it('references a real, correctly sized PNG with image metadata and accessible descriptions', () => {
     const imageUrl = meta('property', 'og:image');
-    expect(imageUrl).toBe(`${publicUrl}social-preview.png?v=${packageInfo.version}-social-2`);
+    expect(imageUrl).toBe(`${publicUrl}social-preview.png?v=0.9.1-social-2`);
     expect(meta('name', 'twitter:image')).toBe(imageUrl);
     expect(meta('property', 'og:image:type')).toBe('image/png');
     const image = readFileSync(new URL('../../public/social-preview.png', import.meta.url));

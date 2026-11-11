@@ -11,6 +11,7 @@ import { certificateMode, certificatePathsMatch } from './certificate-input';
 import { trustedCertFields, trustedCertPaths } from './trusted-certs';
 import { knownAzureRegion } from './azure-regions';
 import { vCenterTargetRequiredError } from './vcenterTarget';
+import { syslogDestination } from './syslog';
 
 export type Level = 'error' | 'warn' | 'info';
 
@@ -438,7 +439,8 @@ export function validateConfig(c: Config): Issue[] {
       }
       for (const f of l.fields) {
         if (!fieldAvailable(f, c.version, c.platform, item)) continue;
-        const msg = checkField(f, item, c.platform);
+        const destination = l.id === 'syslog' && item.sysLogType !== 'TLS' ? syslogDestination(item) : undefined;
+        const msg = checkField(f, destination ? { ...item, syslogUrl: destination.server, syslogPort: destination.port } : item, c.platform);
         if (msg) push({ level: 'error', section: l.section, fieldId: f.id, message: `${l.itemLabel} ${index + 1}: ${msg}`, list: { id: l.id, index } });
       }
       if (l.id === 'wrp') {

@@ -14,19 +14,19 @@
 
 <details class="fleet-overview" aria-labelledby="fleet-overview-heading" open>
   <summary><h3 id="fleet-overview-heading">Fleet overview</h3></summary>
-  <fieldset class="overview-options"><legend>Show hypothetical load balancers</legend><label class:enabled={clientLoadBalancer}><input type="checkbox" role="switch" aria-checked={clientLoadBalancer} bind:checked={clientLoadBalancer} /> Client-facing LB</label>
+  <fieldset class="overview-options"><legend>Illustrate load balancers (diagram only)</legend><label class:enabled={clientLoadBalancer}><input type="checkbox" role="switch" aria-checked={clientLoadBalancer} bind:checked={clientLoadBalancer} /> Client-facing LB</label>
     {#each overview.destinations as destination, index (destination.identity)}
       {#if destination.configured}<label class:enabled={destination.loadBalanced}><input type="checkbox" role="switch" aria-checked={destination.loadBalanced} checked={destination.loadBalanced} aria-describedby={destination.loadBalanced ? 'overview-lb-help overview-cpa-help' : 'overview-lb-help'} data-destination-lb={destination.key} onchange={() => toggleDestination(destination.identity)} /><span>LB / pool {index + 1} · {destination.label}</span></label>{/if}
     {/each}
   </fieldset>
-  <p id="overview-lb-help" class="overview-help">Conceptual XML API relationships. Each configured endpoint may represent one Connection Server or an LB fronting several; the URL does not reveal its members. Enable an endpoint’s LB / pool option to show a dotted hypothetical LB and a 1–N server pool with unknown membership. These are not configured pools, pod routing or verified health checks/persistence. Display-protocol paths are not shown. Diagram options do not change or save configuration. Design reference: <a href="https://techzone.omnissa.com/resource/horizon-8-architecture" target="_blank" rel="noopener noreferrer">Horizon Architecture</a> (Omnissa Tech Zone).</p>
-  {#if hasServerPools}<p id="overview-cpa-help" class="overview-help overview-cpa" role="note"><strong>Cloud Pod Architecture (CPA):</strong> these hypothetical Connection Server pools could belong to federated Horizon pods. An LB alone does not establish CPA; pod membership, federation, global entitlements and inter-pod connectivity are not configured or verified here.</p>{/if}
+  <p id="overview-lb-help" class="overview-help">Use an endpoint’s LB / pool option to illustrate a load-balanced Connection Server destination. The dotted boxes show an LB serving one or more Connection Servers; configure the real pool members, health checks and persistence in your load balancer, outside Studio. An endpoint URL alone does not identify its servers or prove that an LB exists. This conceptual XML API diagram does not show display-protocol paths or configure pod routing. Diagram options do not change or save configuration. Design reference: <a href="https://techzone.omnissa.com/resource/horizon-8-architecture" target="_blank" rel="noopener noreferrer">Horizon Architecture</a> (Omnissa Tech Zone).</p>
+  {#if hasServerPools}<p id="overview-cpa-help" class="overview-help overview-cpa" role="note"><strong>Cloud Pod Architecture (CPA):</strong> the illustrated Connection Server pools could belong to federated Horizon pods. An LB alone does not establish CPA; pod membership, federation, global entitlements and inter-pod connectivity are not configured or verified here.</p>{/if}
   <!-- svelte-ignore a11y_no_noninteractive_tabindex (Keyboard users need to focus this region to scroll an overflowing topology.) -->
   <div class="overview-scroll" role="region" aria-label="Scrollable fleet overview" tabindex="0">
     <div class="overview-map" class:with-client-lb={clientLoadBalancer} class:with-server-pools={hasServerPools} use:topologyLinks={overview.links}>
       <svg class="overview-connections" data-topology-connections aria-hidden="true"></svg>
       <div class="overview-node overview-client" data-topology-key="overview-clients"><TopologyIcon kind="client" /><strong>Horizon clients</strong></div>
-      {#if clientLoadBalancer}<div class="overview-node overview-lb" data-topology-key="overview-client-lb"><strong>Client-facing LB</strong><small>Hypothetical</small></div>{/if}
+      {#if clientLoadBalancer}<div class="overview-node overview-lb" data-topology-key="overview-client-lb"><strong>Client-facing LB</strong><small>Diagram only</small></div>{/if}
       <div class="overview-groups">
         {#each overview.groups as { group, members, vip } (group.id)}
           <section class="overview-group" data-overview-group={group.id} aria-label={group.label || 'Unnamed UAG group'} style={'--group-accent: ' + groupAccent(group.id)}>
@@ -50,9 +50,9 @@
           <li class="overview-destination" class:with-pool={destination.loadBalanced}>
             <div class="overview-node overview-endpoint" class:overview-lb={destination.loadBalanced} data-topology-key={destination.key}>
               {#if !destination.loadBalanced}<TopologyIcon kind="server" />{/if}
-              <div><strong>{destination.loadBalanced ? 'Hypothetical LB' : 'CS endpoint'} {index + 1}</strong><span>{destination.label}</span></div>
+              <div><strong>{destination.loadBalanced ? 'Illustrative LB' : 'CS endpoint'} {index + 1}</strong><span>{destination.label}</span></div>
             </div>
-            {#if destination.loadBalanced}<div class="overview-node overview-pool" data-topology-key={destination.key + '-pool'}><TopologyIcon kind="server" /><div><strong>Connection Servers</strong><small>1–N · unknown members</small><small>Hypothetical pool</small></div></div>{/if}
+            {#if destination.loadBalanced}<div class="overview-node overview-pool" data-topology-key={destination.key + '-pool'}><TopologyIcon kind="server" /><div><strong>Connection Server pool</strong><small>Diagram only · 1+ servers</small><small>Members configured outside Studio</small></div></div>{/if}
           </li>
         {/each}
       </ul>

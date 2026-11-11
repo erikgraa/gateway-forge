@@ -40,7 +40,7 @@ describe('UAG Studio rebrand', () => {
     expect(packageInfo.name).toBe('uag-studio');
     expect(packageLock.name).toBe(packageInfo.name);
     expect(packageLock.packages[''].name).toBe(packageInfo.name);
-    expect(packageInfo.version).toBe('0.9.1');
+    expect(packageInfo.version).toBe('0.9.2');
     expect(packageLock.version).toBe(packageInfo.version);
     expect(packageLock.packages[''].version).toBe(packageInfo.version);
   });
@@ -55,7 +55,7 @@ describe('UAG Studio rebrand', () => {
     expect([...new Set(links)]).toEqual(['https://github.com/erikgraa/uag-studio']);
   });
 
-  it('omits previous names from visible documentation while preserving the legacy migration anchor', () => {
+  it('omits previous branding while retaining the legacy migration anchor and import identifier', () => {
     const root = new URL('../../', import.meta.url);
     const paths = [
       ...readdirSync(root).filter(name => name.endsWith('.md')),
@@ -64,7 +64,7 @@ describe('UAG Studio rebrand', () => {
     ];
     for (const path of paths) {
       const source = readFileSync(new URL(path, root), 'utf8');
-      const visible = source.replace('<a id="moving-from-gateway-forge"></a>', '');
+      const visible = source.replace('<a id="moving-from-gateway-forge"></a>', '').replaceAll('`gateway-forge-fleet-1`', '');
       expect(visible, path).not.toMatch(/uag[- ]?foundry|gateway[- ]?forge/i);
     }
     const guide = readFileSync(new URL('docs/technical-guide.md', root), 'utf8');

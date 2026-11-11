@@ -28,7 +28,7 @@ describe('Read-only compact fleet overview', () => {
     expect(body).not.toMatch(/<(?:button|select)\b|<input[^>]*type="(?:text|number)"/);
     expect([...body.matchAll(/type="checkbox"/g)]).toHaveLength(2);
     expect([...body.matchAll(/role="switch" aria-checked="false"/g)]).toHaveLength(2);
-    expect(body).toContain('Show hypothetical load balancers');
+    expect(body).toContain('Illustrate load balancers (diagram only)');
     expect(body).not.toContain('data-topology-key="overview-client-lb"');
     expect(body).not.toContain('data-topology-key="overview-backend-lb"');
     expect(body).toContain('aria-label="Scrollable fleet overview" tabindex="0"');
@@ -44,7 +44,8 @@ describe('Read-only compact fleet overview', () => {
     expect(body).toContain('LB / pool 1 · cs-a.example.com');
     expect(body).toContain('LB / pool 2 · cs-b.example.com');
     expect(body).toContain('aria-describedby="overview-lb-help"');
-    expect(body).toContain('unknown membership');
+    expect(body).toContain('configure the real pool members, health checks and persistence in your load balancer, outside Studio');
+    expect(body).toContain('An endpoint URL alone does not identify its servers or prove that an LB exists');
     expect(body).toContain('CS endpoint');
     expect(body).not.toContain('overview-backend-lb');
     expect(body).not.toContain('overview-pool');
