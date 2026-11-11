@@ -1900,13 +1900,19 @@ export const LISTS: ListDef[] = [
       sel('sysLogType', 'Protocol', 'sysLogType', ['UDP', 'TCP', 'TLS', 'MQTT'], { default: 'TLS', required: true }),
       sel('syslogCategory', 'Category', 'syslogCategory', ['ALL', 'AUDIT'], { default: 'ALL', help: 'ALL = all events; AUDIT = audit events only.' }),
       sel('syslogFormat', 'Format', 'syslogFormat', ['TEXT'], { default: 'TEXT' }),
-      text('syslogUrl', 'Server URL / host[:port]', 'syslogUrl', {
+      text('syslogUrl', 'Server', 'syslogUrl', {
         rule: 'hostOrIp',
         showIf: (v) => v.sysLogType !== 'TLS',
         required: (v) => v.sysLogType !== 'TLS',
-        placeholder: 'syslog.corp.local:514'
+        placeholder: 'syslog.corp.local',
+        help: 'Host name or IP address. Imported host:port values are retained; use Port to override.'
       }),
-      text('hostname', 'Host name', 'hostname', { rule: 'hostOrIp', showIf: (v) => v.sysLogType === 'TLS', required: (v) => v.sysLogType === 'TLS' }),
+      num('syslogPort', 'Port', 'syslogPort', {
+        rule: 'port', ini: false, json: false, required: true,
+        showIf: (v) => v.sysLogType !== 'TLS',
+        help: 'Defaults: UDP 514, TCP 6514, MQTT 1883. Explicit and imported ports are retained when changing protocol.'
+      }),
+      text('hostname', 'Server', 'hostname', { rule: 'hostOrIp', showIf: (v) => v.sysLogType === 'TLS', required: (v) => v.sysLogType === 'TLS' }),
       num('port', 'Port', 'port', { rule: 'port', default: 6514, showIf: (v) => v.sysLogType === 'TLS' }),
       bool('syslogSystemMessagesEnabledV2', 'Include system messages', 'syslogSystemMessagesEnabledV2', false),
       text('syslogSettingName', 'Setting name', 'syslogSettingName', { placeholder: 'siem-primary' }),

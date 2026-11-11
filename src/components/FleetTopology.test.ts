@@ -16,6 +16,7 @@ describe('Native Horizon topology component', () => {
     expect(body).toMatch(/<button[^>]*id="uag-node-1"[^>]*aria-pressed="true"/);
     expect(body).toContain('id="member-full-editor"');
     expect(body).toContain('id="fleet-export"');
+    expect(body).toMatch(/id="fleet-export"[^>]*class="[^"]*fleet-download[^"]*"[^>]*disabled/);
     expect(body).not.toContain('<iframe');
     expect(body.indexOf('fleet-overview-heading')).toBeLessThan(body.indexOf('<details class="backend-group'));
     expect(body).not.toContain('class="client-entry"');
@@ -38,6 +39,8 @@ describe('Native Horizon topology component', () => {
     expect(body).toContain('Configuration ready');
     expect(body).not.toContain('Selected UAG 1');
     expect(body).toContain('Download fleet configuration');
+    expect(body).toMatch(/id="fleet-export"[^>]*class="[^"]*fleet-download/);
+    expect(body).not.toMatch(/id="fleet-export"[^>]*disabled/);
     expect(body).toContain('Full UAG configuration editor');
     expect(body).toMatch(/<details[^>]*class="[^"]*backend-group[^>]*open/);
     expect(body).toContain('backend-group-summary');
@@ -108,6 +111,8 @@ describe('Native Horizon topology component', () => {
     expect(body).not.toContain('Individual override');
     expect(body).toContain('<strong>UAG High Availability</strong>');
     expect(body).toContain('Shared XML API VIP');
+    expect(body).toContain('These settings define a shared XML API VIP; display protocols still use individual UAG endpoints');
+    expect(body).toContain('Verify failover, Layer 2 connectivity and certificate coverage in your environment before relying on HA');
     expect(body).toContain('For direct access, resolve the client-facing hostname to the reachable group VIP or its public/NAT address');
     expect(body).toContain('With a load balancer or health-aware DNS/GSLB, follow that entry-point design instead');
     expect(body).toContain('Studio does not configure or verify them');

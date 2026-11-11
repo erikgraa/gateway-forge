@@ -2,6 +2,23 @@
 
 All notable user-facing changes to UAG Studio are documented here. Historical release dates, features and support evidence are retained; repository links use the current address. This format follows the [Keep a Changelog](https://keepachangelog.com/) structure.
 
+## 0.9.2 - 2026-11-12
+
+### Fixed
+
+- Added an editable syslog Port alongside Server, with actual defaults of UDP 514, TCP 6514 and MQTT 1883. Explicit and imported custom ports remain retained when switching protocol; non-TLS output keeps `syslogUrl=server:port`, and TLS retains its separate server/port fields.
+- Changed generated fleet directory and INI filename separators to single hyphens, retaining stable IDs, original configuration values and intentional operator-entered doubled hyphens. Manifest and README file references remain aligned.
+
+### Changed
+
+- New topology exports use `uag-studio-fleet-1`. Legacy `gateway-forge-fleet-1` and supported earlier scenario review manifests remain importable; browser-storage namespaces are unchanged.
+- Gave Download fleet configuration a distinct palette-aware color and made its success confirmation more prominent, retaining keyboard focus/disabled states and the exact manual-deployment reminder: "Fleet configuration ZIP downloaded. Review README.txt before manual deployment."
+- Clarified optional load-balancer illustrations as diagram-only Connection Server pools, with explicit guidance to configure real pool members, health checks and persistence outside Studio. Diagram switches still do not discover infrastructure, change configuration or affect exports.
+- Reworded native HA guidance to distinguish the shared XML API VIP from individual UAG display-protocol endpoints and make environment verification steps explicit.
+- Removed the redundant Topology button from the topology view; the full UAG editor retains its save-and-return action.
+
+Checked exports still do not deploy appliances or certify live networking, failover or security.
+
 ## 0.9.1 - 2026-11-11
 
 ### Changed

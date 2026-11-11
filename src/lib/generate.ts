@@ -15,6 +15,7 @@ import { serializeListValue } from './listValue';
 import { hostEntryValues } from './host-entries';
 import { certificateMode } from './certificate-input';
 import { formatSecurityHeadersIni } from './security-headers';
+import { syslogUrl } from './syslog';
 
 export type SecretMode = 'placeholder' | 'omit' | 'include';
 export const SECRET_PLACEHOLDER = '<REDACTED>';
@@ -244,7 +245,7 @@ export function collectBlocks(c: Config, opts: GenerateOptions = { secrets: 'pla
       const entries: Entry[] = [];
       for (const f of l.fields.filter((field) => field.trustedCertIndex === undefined && field.hostEntryIndex === undefined)) {
         if (!fieldAvailable(f, c.version, c.platform, item) || f.ini === false) continue;
-        const e = entryFor(f, item, opts.secrets);
+        const e = entryFor(f, l.id === 'syslog' && f.id === 'syslogUrl' ? { ...item, syslogUrl: syslogUrl(item) } : item, opts.secrets);
         if (e) entries.push(e);
       }
       hostEntryValues(item, l.fields).forEach((value, index) => {
