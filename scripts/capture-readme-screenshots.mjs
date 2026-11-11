@@ -6,10 +6,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const targetUrl = process.argv[2] ?? 'https://gateway-forge.graa.dev/';
+const targetUrl = process.argv[2] ?? 'http://127.0.0.1:4173/';
 const port = 9300 + Math.floor(Math.random() * 500);
-const profile = await mkdtemp(join(tmpdir(), 'gateway-forge-screenshots-'));
+const profile = await mkdtemp(join(tmpdir(), 'uag-foundry-screenshots-'));
 const outputDir = join(root, 'docs', 'screenshots');
+const chooserOnly = process.argv.includes('--chooser-only');
 
 function chromePath() {
   const candidates = [
@@ -90,7 +91,7 @@ async function waitForApp() {
     if (await evaluate(`document.readyState === 'complete' && !!document.querySelector('#app')?.innerText.trim()`)) return;
     await sleep(100);
   }
-  throw new Error('Gateway Forge did not render.');
+  throw new Error('UAG Foundry did not render.');
 }
 
 async function viewport(width = 1480, height = 900) {
@@ -105,12 +106,63 @@ async function capture(name, height = 900) {
   console.log(`Captured ${name}`);
 }
 
-async function reset(theme = 'dark') {
-  await evaluate(`localStorage.clear(); localStorage.setItem('gateway-forge.theme', '${theme}'); true;`);
-  await command('Page.navigate', { url: targetUrl });
-  await sleep(700);
-  await waitForApp();
+async function reset(theme = 'dark', scenario = 'single') {
+  // This script owns a disposable profile; never attach it to an operator's browser.
+  const { identifier } = await command('Page.addScriptToEvaluateOnNewDocument', {
+    source: `localStorage.clear(); localStorage.setItem('gateway-forge.appearance.v1', JSON.stringify({palette: 'original', theme: '${theme}'}));`
+  });
+  try {
+    await command('Page.navigate', { url: targetUrl });
+    await sleep(700);
+    await waitForApp();
+  } finally {
+    await command('Page.removeScriptToEvaluateOnNewDocument', { identifier });
+  }
+  if (!await evaluate(`document.title.startsWith('UAG Foundry') && !!document.getElementById('scenario-single')`)) {
+    throw new Error('Capture requires the unreleased UAG Foundry scenario build, not the published legacy app.');
+  }
+  if (scenario) {
+    await evaluate(`document.getElementById('scenario-${scenario}').click(); true;`);
+    await sleep(300);
+    if (!await evaluate(`!!document.getElementById('workspace-name')`)) throw new Error('Scenario editor did not open.');
+  }
   await evaluate(`document.querySelector('.center')?.scrollTo(0, 0)`);
+}
+
+async function seedReadyDraft() {
+  const sample = {
+    id: 'readme-ready-uag', name: 'Office gateway', scenario: 'single', fleet: null, retainedImports: [],
+    config: {
+      version: '2609', platform: 'vsphere',
+      values: {
+        name: 'office-uag', uagName: 'uag01.example.com',
+        source: 'C:\\images\\euc-unified-access-gateway-demo.ova',
+        target: 'vi://operator@vc.example.com/Datacenter/host/Compute', ds: 'Datastore',
+        deploymentOption: 'threenic', netInternet: 'DMZ', netManagementNetwork: 'Management', netBackendNetwork: 'Backend',
+        ipmode0: 'STATICV4', ipmode1: 'STATICV4', ipmode2: 'STATICV4',
+        ip0: '198.51.100.21', netmask0: '255.255.255.0',
+        ip1: '192.0.2.21', netmask1: '255.255.255.0',
+        ip2: '198.18.0.21', netmask2: '255.255.255.0',
+        defaultGateway: '198.51.100.1', dns: '192.0.2.53 192.0.2.54',
+        ntpServers: 'ntp1.example.com ntp2.example.com'
+      },
+      wrp: [], syslog: [], adminUsers: [], jwt: [], jwtIssuers: [], oidc: [], iniExtras: []
+    }
+  };
+  const { identifier } = await command('Page.addScriptToEvaluateOnNewDocument', {
+    source: `localStorage.setItem('gateway-forge.workspaces.v1', ${JSON.stringify(JSON.stringify({ revision: 1, current: null, drafts: [sample] }))});`
+  });
+  try {
+    await command('Page.navigate', { url: targetUrl });
+    await sleep(700);
+    await waitForApp();
+  } finally {
+    await command('Page.removeScriptToEvaluateOnNewDocument', { identifier });
+  }
+  if (!await evaluate(`document.querySelector('[data-draft-id="readme-ready-uag"] .readiness-status')?.textContent.trim() === 'Ready to export' && document.querySelectorAll('.resume-item').length === 1`)) {
+    throw new Error('The synthetic README UAG must pass real checked-export validation before capture.');
+  }
+  await evaluate('window.scrollTo(0, 0)');
 }
 
 async function clickByText(text) {
@@ -124,29 +176,37 @@ try {
   await command('Page.enable');
   await command('Runtime.enable');
   await viewport();
-  await reset('dark');
-  await clickByText('Network & deploy');
-  await capture('builder-dark.png');
+  await reset('dark', null);
+  await seedReadyDraft();
+  await capture('chooser-dark.png');
+  await reset('light', null);
+  await seedReadyDraft();
+  await capture('chooser-light.png');
+  if (!chooserOnly) {
+    await reset('dark');
+    await clickByText('Network & deploy');
+    await capture('builder-dark.png');
 
-  await reset('light');
-  await clickByText('Network & deploy');
-  await capture('builder-light.png');
+    await reset('light');
+    await clickByText('Network & deploy');
+    await capture('builder-light.png');
 
-  await reset('dark');
-  await clickByText('Identity and access');
-  await capture('radius.png');
+    await reset('dark');
+    await clickByText('Identity and access');
+    await capture('radius.png');
 
-  await reset('dark');
-  await clickByText('JSON');
-  await capture('json.png');
+    await reset('dark');
+    await clickByText('JSON');
+    await capture('json.png');
 
-  await reset('dark');
-  await clickByText('Search settings…');
-  await capture('palette.png');
+    await reset('dark');
+    await clickByText('Search settings…');
+    await capture('palette.png');
 
-  await reset('dark');
-  await clickByText('Import');
-  await capture('import.png', 1000);
+    await reset('dark');
+    await clickByText('Import');
+    await capture('import.png', 1000);
+  }
 } finally {
   socket.close();
   browser.kill('SIGTERM');

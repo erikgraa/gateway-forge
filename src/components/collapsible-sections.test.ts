@@ -35,7 +35,9 @@ describe('collapsible section cards', () => {
 
   it.each(['error', 'warn', 'info'] as const)('opens lint for blocking errors while retaining %s findings', (level) => {
     const body = render(LintPanel, { props: { issues: [{ id: 'test', level, section: 'general', message: 'Test finding', fieldId: 'uagName' }] } }).body;
-    expect(/<details class="card collapsible-card" open(?:=""|)/.test(body)).toBe(level === 'error');
+    expect(/<details\b[^>]*\bclass="card collapsible-card"[^>]*\bopen(?:=""|)/.test(body)).toBe(level === 'error');
+    expect(body).toContain('id="validation-lint"');
+    expect(body).toContain('id="validation-lint-heading" tabindex="-1"');
     expect(body).toContain('Test finding');
     expect(body).toContain(`class="item ${level}"`);
     expect(render(LintPanel, { props: { issues: [] } }).body).not.toMatch(/<details class="card collapsible-card" open/);

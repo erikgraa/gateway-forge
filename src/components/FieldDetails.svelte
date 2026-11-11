@@ -36,7 +36,7 @@
 </script>
 
 <span class="field-details">
-  <button type="button" class="field-details-trigger" aria-label={`More information about ${label}`} aria-describedby={tooltipId} onpointerenter={positionTooltip} onfocus={positionTooltip} onclick={positionTooltip}>ⓘ</button>
+  <button type="button" class="field-details-trigger" aria-label={`More information about ${label}`} aria-describedby={tooltipId} onpointerenter={positionTooltip} onfocus={positionTooltip} onclick={positionTooltip}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="7.5" /><path d="M10 9v5" /><circle cx="10" cy="6" r=".8" fill="currentColor" stroke="none" /></svg></button>
   <span
     class="field-details-tooltip"
     id={tooltipId}
@@ -45,8 +45,8 @@
     <strong>{label}</strong>
     <p>{help ?? 'Review this setting before deployment; unsupported or unverified values are not inferred.'}</p>
     <dl>
-      <div><dt>INI key</dt><dd><code>{field.ini === false ? 'Not exported' : field.key}</code></dd></div>
-      <div><dt>JSON key</dt><dd><code>{jsonKey}</code></dd></div>
+      <div class="field-key-mapping"><dt>INI key</dt><dd><code>{field.ini === false ? 'Not exported' : field.key}</code></dd></div>
+      <div class="field-key-mapping"><dt>JSON key</dt><dd><code>{jsonKey}</code></dd></div>
       {#if field.since}<div><dt>Available</dt><dd>UAG {field.since} and later</dd></div>{/if}
       {#if field.until}<div><dt>Removed</dt><dd>After UAG {field.until}</dd></div>{/if}
       {#if field.platforms}<div><dt>Platforms</dt><dd>{field.platforms.join(', ')}</dd></div>{/if}
@@ -54,3 +54,13 @@
     </dl>
   </span>
 </span>
+
+<style>
+  .field-details > .field-details-trigger { display: grid; place-items: center; width: 24px; height: 24px; min-width: 24px; min-height: 24px; flex-shrink: 0; padding: 0; border: 0; border-radius: 50%; background: transparent; box-sizing: border-box; }
+  .field-details-trigger svg { width: 20px; height: 20px; }
+  .field-details > .field-details-trigger:hover { background: var(--acc-soft); }
+  .field-details-tooltip dl { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+  .field-details-tooltip dl > .field-key-mapping { display: block; min-width: 0; }
+  .field-key-mapping dt { margin-bottom: 4px; }
+  .field-details-tooltip dl > div:not(.field-key-mapping) { grid-column: 1 / -1; }
+</style>

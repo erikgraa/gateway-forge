@@ -5,7 +5,7 @@
   import { sectionSelected } from './lib/model';
   import { GROUPS, LISTS, SECTIONS, type SectionId } from './lib/schema';
   import { VERSIONS, PLATFORMS, LIFECYCLE_SNAPSHOT, platformAvailable } from './lib/versions';
-  import { validateConfig, countBySection } from './lib/validate';
+  import { validateConfig, countBySection, type Issue } from './lib/validate';
   import { render, download } from './lib/render';
   import Topology from './components/Topology.svelte';
   import LintPanel from './components/LintPanel.svelte';
@@ -22,6 +22,8 @@
   import DeploymentRisk from './components/DeploymentRisk.svelte';
   import { platformDef } from './lib/versions';
   import EdgeServicePicker from './components/EdgeServicePicker.svelte';
+
+  let { embedded = false, brandName = 'UAG Foundry', extraIssues = [] }: { embedded?: boolean; brandName?: string; extraIssues?: Issue[] } = $props();
 
   const descriptions: Record<SectionId, { eyebrow: string; description: string }> = {
     general: { eyebrow: 'Appliance profile', description: 'Define the appliance identity and administrative hardening baseline.' },
@@ -40,7 +42,7 @@
     templates: { eyebrow: 'Starting points', description: 'Load a validated design, then tailor it to your environment.' }
   };
 
-  const issues = $derived(validateConfig(app.config));
+  const issues = $derived([...validateConfig(app.config), ...extraIssues]);
   const counts = $derived(countBySection(issues));
   const groups = $derived(GROUPS.filter((g) => g.section === app.section));
   const lists = $derived(LISTS.filter((l) => l.section === app.section));
@@ -55,7 +57,13 @@
   let exportOpen = $state(false);
   let outputCollapsed = $state(false);
   let layout = $state<HTMLElement>();
+  let headerHeight = $state(64);
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  let lintPanel: { reveal: () => void };
+
+  function reviewValidation() {
+    lintPanel.reveal();
+  }
 
   $effect(() => {
     JSON.stringify(app.config);
@@ -64,6 +72,7 @@
   });
 
   onMount(() => {
+    if (embedded) return;
     const mq = matchMedia('(prefers-color-scheme: light)');
     const onScheme = () => {
       if (!localStorage.getItem('gateway-forge.theme')) app.setTheme(mq.matches ? 'light' : 'dark', false);
@@ -88,6 +97,7 @@
 
   function exportAs(tab: 'ini' | 'json' | 'ps' | 'docs' | 'manifest') {
     exportOpen = false;
+    if (app.exportGuard ? !app.exportGuard() : issues.some(i => i.level === 'error')) { app.say('Resolve validation errors before checked export.'); reviewValidation(); return; }
     download(render(app.config, tab, app.secretMode, app.deploymentMode));
   }
 
@@ -103,23 +113,23 @@
 
 <svelte:window onkeydown={onKey} onclick={() => (exportOpen = false)} />
 
-<div class="app">
-  <header class="top">
-    <a class="brand" href="." aria-label="Gateway Forge home">
+<div class="app" style:--workspace-header-height={`${headerHeight}px`}>
+  <header class="top" bind:offsetHeight={headerHeight}>
+    {#if !embedded}<a class="brand" href="." aria-label={brandName + ' home'}>
       <img src="./logo.png" alt="" width="32" height="32" />
-      <span class="brand-name">Gateway Forge<small>UAG configuration workspace</small></span>
-    </a>
+      <span class="brand-name">{brandName}<small>UAG configuration workspace</small></span>
+    </a>{/if}
     <button class="cmdk" onclick={(e) => { e.stopPropagation(); app.showPalette = true; }} aria-label="Search settings or jump to a section">
       <span class="search-icon" aria-hidden="true"></span><span>Search settings…</span><kbd>{isMac ? '⌘' : 'Ctrl'} K</kbd>
     </button>
     <div class="top-actions">
-      <button class="icon-button" onclick={() => app.toggleTheme()} aria-label="Toggle color theme" title="Toggle color theme">
+      {#if !embedded}<button class="icon-button" onclick={() => app.toggleTheme()} aria-label="Toggle color theme" title="Toggle color theme">
         <span aria-hidden="true">{app.theme === 'dark' ? '☀' : '◐'}</span>
       </button>
       <button class="reset-button" onclick={resetAll} title="Reset all settings to a blank configuration">
         <span aria-hidden="true">↺</span> Reset configuration
       </button>
-      <button class="templates-button" class:templates-active={app.section === 'templates'} aria-current={app.section === 'templates' ? 'page' : undefined} onclick={() => app.goTo('templates')}>
+      {/if}<button class="templates-button" class:templates-active={app.section === 'templates'} aria-current={app.section === 'templates' ? 'page' : undefined} onclick={() => app.goTo('templates')}>
         <span aria-hidden="true">▦</span> Templates
       </button>
       <button class="secondary-button" onclick={() => (app.showImport = true)}>
@@ -152,14 +162,19 @@
         {#each SECTIONS.filter((s) => s.id !== 'templates') as s, index (s.id)}
           {@const n = counts[s.id]}
           {@const optionalSection = optionalSections.includes(s.id) && !sectionSelected(app.config, s.id)}
-          <button class:on={app.section === s.id} class:optional-service={optionalSection} aria-current={app.section === s.id ? 'page' : undefined} onclick={() => app.goTo(s.id)}>
-            <span class="nav-glyph" aria-hidden="true">{s.icon}</span>
-            <span class="nav-label"><strong>{s.title}</strong><small>{optionalSection ? 'Optional · not configured' : `Step ${index + 1}`}</small></span>
-            {#if optionalSection}<span class="nav-optional" aria-label="Optional, not configured">⊖</span>
-            {:else if n.error}<i class="badge error" aria-label={`${n.error} errors`}>{n.error}</i>
-            {:else if n.warn}<i class="badge warn" aria-label={`${n.warn} warnings`}>{n.warn}</i>
-            {:else}<span class="nav-check" aria-label="No findings">✓</span>{/if}
-          </button>
+          <div class="nav-entry" class:has-findings={!optionalSection && !!(n.error || n.warn)}>
+            <button class:on={app.section === s.id} class:optional-service={optionalSection} aria-current={app.section === s.id ? 'page' : undefined} onclick={() => app.goTo(s.id)}>
+              <span class="nav-glyph" aria-hidden="true">{s.icon}</span>
+              <span class="nav-label"><strong>{s.title}</strong><small>{optionalSection ? 'Optional · not configured' : `Step ${index + 1}`}</small></span>
+              {#if optionalSection}<span class="nav-optional" aria-label="Optional, not configured">⊖</span>
+              {:else if !n.error && !n.warn}<span class="nav-check" aria-label="No findings">✓</span>{/if}
+            </button>
+            {#if !optionalSection && (n.error || n.warn)}
+              <button type="button" class="validation-count nav-count" class:blocked={!!n.error} class:warn={!n.error}
+                aria-controls="validation-lint" aria-label={`${n.error || n.warn} ${n.error ? 'error' : 'warning'}${(n.error || n.warn) === 1 ? '' : 's'} in ${s.title}; review validation and lint`}
+                onclick={reviewValidation}>{n.error || n.warn}</button>
+            {/if}
+          </div>
         {/each}
       </div>
       <div class="nav-assurance">
@@ -171,8 +186,8 @@
     <div class="center">
       <details class="target-profile" aria-label="Target environment">
         <summary>
-          <span class="profile-label">Target</span>
-          <strong>UAG {app.config.version}</strong>
+          <span class="profile-label"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="10" cy="10" r="7" /><circle cx="10" cy="10" r="3" /><path d="M10 1v3 M10 16v3 M1 10h3 M16 10h3" /></svg>Target</span>
+          <strong class="profile-version">UAG {app.config.version}</strong>
           <span class="profile-platform" data-platform={app.config.platform}>{platformDef(app.config.platform).label}</span>
           {#if app.config.version !== latestVersion.id}<span class="profile-caution">Older release</span>{/if}
           {#if app.config.platform === 'openshift'}<span class="profile-caution">Limited Availability</span>{/if}
@@ -236,9 +251,18 @@
           <h1>{current.title}</h1>
           <details class="section-help"><summary>About this section</summary><p>{currentMeta.description}</p></details>
         </div>
-        <div class:ready class:blocked={!ready} class="readiness" role="status" aria-live="polite">
-          <span class="status-dot"></span>
-          <strong>{ready ? `Ready · ${totalWarnings} advisories` : `${totalErrors} blocking error${totalErrors === 1 ? '' : 's'}`}</strong>
+        <div class="validation-summary" role="status" aria-live="polite">
+          <button type="button" class="validation-count readiness" class:ready class:blocked={!ready} class:warn={ready && totalWarnings > 0}
+            aria-controls="validation-lint" title="Review validation and lint" onclick={reviewValidation}>
+            <span class="status-dot" aria-hidden="true"></span>
+            <strong>{ready ? `Ready · ${totalWarnings} advisories` : `${totalErrors} blocking error${totalErrors === 1 ? '' : 's'}`}</strong>
+            <span aria-hidden="true">↓</span>
+          </button>
+          {#if !ready && totalWarnings > 0}
+            <button type="button" class="validation-count warn" aria-controls="validation-lint" title="Review validation and lint" onclick={reviewValidation}>
+              {totalWarnings} warning{totalWarnings === 1 ? '' : 's'}
+            </button>
+          {/if}
         </div>
       </header>
 
@@ -256,7 +280,9 @@
         <EdgeServicePicker />
       {:else}
         {#if currentIssues.length}
-          <div class="section-context"><strong>{currentIssues.length} section finding{currentIssues.length === 1 ? '' : 's'} to review</strong></div>
+          <div class="section-context"><button type="button" class="validation-count" class:blocked={currentIssues.some((issue) => issue.level === 'error')}
+            class:warn={!currentIssues.some((issue) => issue.level === 'error') && currentIssues.some((issue) => issue.level === 'warn')}
+            aria-controls="validation-lint" onclick={reviewValidation}><strong>{currentIssues.length} section finding{currentIssues.length === 1 ? '' : 's'} to review</strong><span aria-hidden="true">↓</span></button></div>
         {/if}
         {#if app.section === 'ha' && app.config.platform === 'azure'}
           <div class="notice">Native high availability is not supported on Azure. Existing HA values are retained but not emitted.</div>
@@ -271,7 +297,8 @@
         {#each lists.filter((list) => list.id !== 'jwt' && list.id !== 'jwtIssuers' && list.id !== 'oidc') as l (l.id)}<ListEditor list={l} {issues} />{/each}
         {#if app.section === 'auth'}<JwtSettings {issues} />{/if}
       {/if}
-      <LintPanel {issues} />
+
+      <LintPanel bind:this={lintPanel} {issues} />
     </div>
 
     <OutputSplitter {layout} collapsed={outputCollapsed} />
@@ -279,10 +306,10 @@
   </main>
 
   <footer class="site-footer">
-    <strong>Gateway Forge is a community-driven, unofficial tool.</strong>
+    <strong>{brandName} is a community-driven, unofficial tool.</strong>
     It is <strong>not affiliated with, endorsed by, or supported by Omnissa</strong>. Omnissa, Unified Access Gateway, UAG and Horizon are trademarks of their respective owners. Always review generated configuration before deploying it, and refer to the <a href="https://docs.omnissa.com/" target="_blank" rel="noopener noreferrer">official Omnissa documentation</a>.
-    <a href="https://github.com/erikgraa/gateway-forge" target="_blank" rel="noopener noreferrer">Source on GitHub</a> · MIT license
-        <span>· Gateway Forge v{packageInfo.version}</span>  </footer>
+    <a href="https://github.com/erikgraa/uag-foundry" target="_blank" rel="noopener noreferrer">Source on GitHub</a> · MIT license
+        <span>· {brandName} v{packageInfo.version}</span>  </footer>
 </div>
 
 {#if app.showImport}<ImportDialog />{/if}

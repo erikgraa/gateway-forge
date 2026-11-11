@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { X509Certificate } from 'node:crypto';
 import { defaultConfig, applyPatch } from './model';
 import { TEMPLATES } from './templates';
+import { generateIni } from './generate';
 import { checkRule, countBySection, parseThumbprint, validThumbprints, validateConfig } from './validate';
 import { certToDer, powershellThumbprintCommand, thumbprints, uagThumbprint } from './thumbprint';
 import { TEST_CERT_PEM } from './testcert';
@@ -129,7 +130,7 @@ describe('config validation', () => {
     expect(m).toMatch(/No syslog server/);
     expect(m).toMatch(/TLS 1.0\/1.1/);
     expect(m).toMatch(/SSH is enabled/);
-    expect(m).toMatch(/passthrough authentication/);
+    expect(m).not.toMatch(/passthrough authentication/);
     expect(m).toMatch(/Blast is enabled without an external URL/);
   });
 
@@ -197,11 +198,11 @@ describe('config validation', () => {
     })).join('\n')).toMatch(/RSA SecurID is not configured/);
   });
 
-  it('detects duplicate NIC IPs and gateway outside subnet', () => {
-    const c = applyPatch(defaultConfig(), { values: { ip0: '10.0.0.5', ip1: '10.0.0.5', netmask0: '255.255.255.0', defaultGateway: '10.0.1.1' } });
+  it('blocks duplicate applicable static NIC IPs and gateway outside NIC0 subnet', () => {
+    const c = applyPatch(defaultConfig(), { values: { ipmode0: 'STATICV4', ipmode1: 'STATICV4', ip0: '10.0.0.5', ip1: '10.0.0.5', netmask0: '255.255.255.0', netmask1: '255.255.255.0', defaultGateway: '10.0.1.1' } });
     const m = messages(c).join('\n');
-    expect(m).toMatch(/share the same IP/);
-    expect(m).toMatch(/gateway is not in the NIC0 subnet/);
+    expect(m).toMatch(/error:.*distinct IPv4 addresses/);
+    expect(m).toMatch(/error:.*gateway must be in the actual Internet NIC0 subnet/);
   });
 
   it('rejects routes, custom NIC config and SSH interfaces for NICs that do not exist', () => {
@@ -291,6 +292,31 @@ describe('config validation', () => {
     ]);
   });
 
+  it.each(['.ova', 'C:\\images\\.ova', '\\\\server\\share\\.ova', '/images/.ova', '..ova', ' .ova', 'https://images.example.com/.ova', 'https://images.example.com/images/.ova?download=1#file', 'https://images.example.com/%20.ova'])('rejects VMware source %s without a filename', source => {
+    expect(checkRule('sourceImage', source, 'vsphere')).toMatch(/filename before the \.ova extension/);
+    const c = applyPatch(defaultConfig(), { values: { source } });
+    const before = JSON.stringify(c);
+    expect(validateConfig(c)).toContainEqual(expect.objectContaining({ level: 'error', fieldId: 'source', message: expect.stringContaining('filename before the .ova extension') }));
+    expect(JSON.stringify(c)).toBe(before);
+  });
+
+  it.each(['.vhdx', 'C:\\images\\.vhdx', '\\\\server\\share\\.vhdx', '/images/.vhdx', '..vhdx', ' .vhdx'])('rejects Hyper-V source %s without a filename', source => {
+    expect(checkRule('sourceImage', source, 'hyperv')).toMatch(/filename before the \.vhdx extension/);
+  });
+
+  it.each([
+    ['vsphere', 'a.ova'], ['vsphere', 'C:\\images\\uag.OVA'], ['vsphere', '\\\\server\\share\\uag.ova'],
+    ['vsphere', 'https://images.example.com/uag%20image.ova?download=1'], ['vsphere', 'https://images.example.com/uag%unknown.ova'], ['vsphere', '.uag.ova'],
+    ['hyperv', 'a.vhdx'], ['hyperv', 'C:\\images\\uag.VHDX'], ['hyperv', '\\\\server\\share\\uag image.vhdx']
+  ] as const)('keeps a named %s source valid: %s', (platform, source) => {
+    expect(checkRule('sourceImage', source, platform)).toBeNull();
+  });
+
+  it('continues to reject unsupported VHD sources rather than expanding Hyper-V format support', () => {
+    expect(checkRule('sourceImage', '.vhd', 'hyperv')).not.toBeNull();
+    expect(checkRule('sourceImage', 'uag.vhd', 'hyperv')).not.toBeNull();
+  });
+
   it('validates source images against the selected platform inline', () => {
     const vsphere = applyPatch(defaultConfig(), { values: { source: 'https://images.example.com/uag.vhdx' } });
     expect(messages(vsphere).join('\n')).toMatch(/Source image: VMware source image URLs must point to a \.ova/);
@@ -321,6 +347,18 @@ describe('config validation', () => {
     expect(networkMessages).not.toContain('Management / Backend network (NIC1) is required');
   });
 
+  it.each(['external', 'internal'])('does not warn about DMZ MFA for passthrough on an %s gateway or change generated authentication', (gatewayLocation) => {
+    const c = applyPatch(defaultConfig(), { values: { horizon_enabled: true, authMethods: 'passthrough', gatewayLocation } });
+    const before = JSON.stringify(c), ini = generateIni(c);
+    const issues = validateConfig(c);
+    expect(issues.some((issue) => /no MFA in the DMZ/i.test(issue.message))).toBe(false);
+    expect(issues).toContainEqual(expect.objectContaining({ level: 'warn', message: expect.stringContaining('No server certificate configured') }));
+    expect(c.values.authMethods).toBe('passthrough');
+    expect(generateIni(c)).toBe(ini);
+    expect(ini).not.toContain('authMethods=');
+    expect(JSON.stringify(c)).toBe(before);
+  });
+
   it('warns when no server certificate is configured', () => {
     expect(validateConfig(defaultConfig())).toContainEqual(expect.objectContaining({
       section: 'tls',
@@ -332,6 +370,51 @@ describe('config validation', () => {
   it('rejects undocumented addressing mode values from imports', () => {
     const c = applyPatch(defaultConfig(), { values: { ipmode0: 'STATICV4+AUTOMAGICV6' } });
     expect(messages(c).join('\n')).toMatch(/NIC0 addressing mode: "STATICV4\+AUTOMAGICV6" is not an allowed value/);
+  });
+
+  it.each(['vi://operator@vc.example.com', 'vi://operator@vc.example.com/', 'vi://operator@vc.example.com/ \t/// \n/'])('requires a compute inventory path without changing %s', (target) => {
+    const c = applyPatch(defaultConfig(), { values: { target, folder: 'VMs/UAG' } });
+    const before = JSON.stringify(c);
+    expect(validateConfig(c).filter((issue) => issue.fieldId === 'target')).toEqual([
+      expect.objectContaining({ level: 'error', section: 'network', message: expect.stringContaining('Enter the compute inventory path (required)') })
+    ]);
+    expect(JSON.stringify(c)).toBe(before);
+  });
+
+  it.each([
+    'vi://operator@vc.example.com/DC%20One/host/Compute%20Folder/Cluster/Resources/UAG',
+    'vi://CORP\\operator@vc.example.com/DC One/host/Cluster',
+    'vi://operator@vsphere.local@[2001:db8::1]/DC/host/Cluster',
+    'legacy-target',
+    'vi://vc.example.com/DC/host/Cluster',
+    'vi://' + 'operator:SYNTHETIC@vc.example.com'
+  ])('preserves valid inventory paths and opaque advanced compatibility: %s', (target) => {
+    const c = applyPatch(defaultConfig(), { values: { target } });
+    const before = JSON.stringify(c);
+    expect(validateConfig(c).filter((issue) => issue.fieldId === 'target')).toEqual([]);
+    expect(JSON.stringify(c)).toBe(before);
+  });
+
+  it.each([
+    ['vi://@vc.example.com/DC/host/Compute', 'vCenter username (required)'],
+    ['vi:// \t@vc.example.com/DC/host/Compute', 'vCenter username (required)'],
+    ['vi://operator@/DC/host/Compute', 'vCenter FQDN/server address (required)'],
+    ['vi://operator@ \t/DC/host/Compute', 'vCenter FQDN/server address (required)'],
+    ['vi://@/DC/host/Compute', 'vCenter username (required)'],
+    ['vi://@/DC/host/Compute', 'vCenter FQDN/server address (required)']
+  ])('blocks missing guided credentials/server parts in %s without rewriting imported spelling', (target, message) => {
+    const c = applyPatch(defaultConfig(), { values: { target } });
+    const before = JSON.stringify(c);
+    expect(validateConfig(c).filter(issue => issue.fieldId === 'target')).toEqual([
+      expect.objectContaining({ level: 'error', section: 'network', message: expect.stringContaining(message) })
+    ]);
+    expect(JSON.stringify(c)).toBe(before);
+  });
+
+  it('keeps the existing blank target error without a duplicate inventory finding', () => {
+    expect(validateConfig(defaultConfig()).filter((issue) => issue.fieldId === 'target')).toEqual([
+      expect.objectContaining({ level: 'error', message: 'vCenter target is required' })
+    ]);
   });
 
   it('does not require fields hidden for the platform', () => {

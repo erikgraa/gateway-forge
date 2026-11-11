@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve Gateway Forge.
+Thanks for helping improve UAG Foundry.
 
 ```bash
 npm install
@@ -24,7 +24,7 @@ version gates, JSON shape, lifecycle data, or security guidance.
   checked. Do not make an unverified assumption a required field, default, or
   blocking validation.
 - Treat the schema, current templates, and lint messages as project behavior,
-  not as Omnissa authority. A warning can be a Gateway Forge recommendation
+  not as Omnissa authority. A warning can be a UAG Foundry recommendation
   without being a supported-product requirement.
 - For lifecycle changes, update `VERSIONS`, `LIFECYCLE_SNAPSHOT`, the README
   list, and the source-review notes together. Re-check the official security
@@ -52,4 +52,4 @@ Edit `VERSIONS` and `LIFECYCLE_SNAPSHOT` in `src/lib/versions.ts` when the [Omni
 
 ## Verifying against a real appliance
 
-Export an INI from your own UAG (Admin UI → Monitoring → Export) and use **Import** in Gateway Forge. Unrecognised entries are listed in the preview - those are good candidates for new schema fields.
+Export an INI from your own UAG (Admin UI → Monitoring → Export) and use **Import** in UAG Foundry. Unrecognised entries are listed in the preview - those are good candidates for new schema fields.

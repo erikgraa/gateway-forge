@@ -53,7 +53,7 @@ describe('guided vCenter target', () => {
     expect(body).toContain('vi://uagdeploy@vsphere.local:PASSWORD@vcenter.example.com/DC1/host/Cluster1');
     expect(body).toContain('saved in the browser draft');
     expect(body).toContain('without password redaction, regardless of secret mode');
-    expect(body).toContain('outside Gateway Forge');
+    expect(body).toContain('outside UAG Foundry');
     expect(body).not.toContain('type="password"');
     expect(body).not.toContain('Assembled target');
     expect(values.target).toBe(target);
@@ -65,9 +65,50 @@ describe('guided vCenter target', () => {
     expect(body).toContain('for="f-target-username"');
     expect(body).toContain('for="f-target-server"');
     expect(body).toContain('for="f-target-inventory"');
+    expect(body).toContain('vCenter username <span class="req" title="Required">*</span>');
+    expect(body).toContain('vCenter FQDN <span class="req" title="Required">*</span>');
+    expect(body).toMatch(/id="f-target-username"[^>]*required/);
+    expect(body).toMatch(/id="f-target-server"[^>]*required/);
     expect(body).toContain('vi:// is added automatically');
     expect(body).toContain('separate VM folder setting');
     expect(body).toContain('Edit full locator');
+  });
+
+  it('marks the compute path required and links actionable missing-path feedback', () => {
+    const values = { target: 'vi://operator@vc.example.com/ /// ' };
+    const { body } = render(VCenterTargetEditor, { props: { field, values, error: 'Enter the compute inventory path (required)' } });
+    expect(body).toContain('Compute inventory path <span class="req" title="Required">*</span>');
+    expect(body).toMatch(/id="f-target-inventory"[^>]*required[^>]*aria-invalid="true"/);
+    expect(body).toContain('aria-describedby="f-target-inventory-help f-target-inventory-feedback"');
+    expect(body).toContain('id="f-target-inventory-feedback" aria-live="polite"');
+    expect(body).toContain('required for checked export');
+    expect(body).toContain('A VM folder is not a compute destination');
+    expect(values.target).toBe('vi://operator@vc.example.com/ /// ');
+  });
+
+  it.each([
+    ['vi://@vc.example.com/DC/host/Compute', 'username', 'vCenter username (required)'],
+    ['vi://operator@/DC/host/Compute', 'server', 'vCenter FQDN/server address (required)']
+  ])('links accessible missing-account/server feedback without changing %s', (target, part, message) => {
+    const values = { target };
+    const { body } = render(VCenterTargetEditor, { props: { field, values } });
+    expect(body).toMatch(new RegExp(`id="f-target-${part}"[^>]*required[^>]*aria-invalid="true"`));
+    expect(body).toContain(`f-target-${part}-feedback`);
+    expect(body).toContain(message);
+    expect(values.target).toBe(target);
+  });
+
+  it('groups all three guided fields compactly without changing imported values or help associations', () => {
+    const target = 'vi://user@corp.local@vc.corp.local/DC%20One/host/Compute%20Folder/Cluster';
+    const values = { target };
+    const { body } = render(VCenterTargetEditor, { props: { field, values } });
+    expect(body).toContain('target-fields wide');
+    expect(body).toContain('inventory-field');
+    expect(body).toContain('aria-describedby="f-target-username-help f-target-username-feedback"');
+    expect(body).toContain('aria-describedby="f-target-inventory-help f-target-inventory-feedback"');
+    expect(body).toContain('id="f-target-username-help"');
+    expect(body).toContain('id="f-target-inventory-help"');
+    expect(values.target).toBe(target);
   });
 
   it('flags missing parts and incomplete UPNs without rejecting other supported account formats', () => {

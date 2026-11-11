@@ -10,6 +10,7 @@ import { HOST_ENTRY_MAX, hostEntryValues } from './host-entries';
 import { certificateMode, certificatePathsMatch } from './certificate-input';
 import { trustedCertFields, trustedCertPaths } from './trusted-certs';
 import { knownAzureRegion } from './azure-regions';
+import { vCenterTargetRequiredError } from './vcenterTarget';
 
 export type Level = 'error' | 'warn' | 'info';
 
@@ -62,6 +63,14 @@ function validStaticRoutes(s: string): string | null {
   return null;
 }
 
+function hasImageFilename(path: string, extension: string, encoded = false): boolean {
+  if (encoded) {
+    try { path = decodeURIComponent(path); } catch { /* Retain URL resource names containing literal percent characters. */ }
+  }
+  const filename = path.split(/[\\/]/).pop() ?? '';
+  return /[^.\s]/.test(filename.slice(0, -extension.length));
+}
+
 function validSourceImage(s: string, platform: Platform): string | null {
   const extension = platform === 'hyperv' ? '.vhdx' : '.ova';
   const isUrl = /^[A-Za-z][A-Za-z\d+.-]*:\/\//.test(s);
@@ -73,6 +82,7 @@ function validSourceImage(s: string, platform: Platform): string | null {
       const url = new URL(s);
       if (!['http:', 'https:'].includes(url.protocol) || !url.hostname) return 'VMware source image URLs must use http:// or https://';
       if (!url.pathname.toLowerCase().endsWith(extension)) return 'VMware source image URLs must point to a .ova file';
+      if (!hasImageFilename(url.pathname, extension, true)) return 'Source image must include a filename before the .ova extension';
       return null;
     } catch {
       return 'Not a valid source image URL';
@@ -84,6 +94,7 @@ function validSourceImage(s: string, platform: Platform): string | null {
       ? 'Hyper-V source images must be local .vhdx paths'
       : 'VMware source images must be local .ova paths or HTTP(S) URLs';
   }
+  if (!hasImageFilename(s, extension)) return `Source image must include a filename before the ${extension} extension`;
   return null;
 }
 
@@ -263,6 +274,10 @@ function checkField(f: Field, values: Values, platform: Platform): string | null
   const label = displayFieldLabel(f, values, platform);
   const emptyRequiredPemPath = required && f.rule === 'pemPath' && !String(v ?? '').trim();
   if (isEmpty(v) || emptyRequiredPemPath) return required ? `${label} is required` : null;
+  if (f.id === 'target' && platform === 'vsphere') {
+    const error = vCenterTargetRequiredError(String(v));
+    if (error) return error;
+  }
   if (f.type === 'number') {
     const n = Number(v);
     if (!Number.isFinite(n)) return `${label} must be a number`;
@@ -461,6 +476,7 @@ function networkServerIdentity(raw: string): string {
 function validateNetworkServers(c: Config, push: Push): void {
   const group = GROUPS.find((group) => group.id === 'dns')!;
   const regularNtp = new Map<string, number>();
+  const ntpServers = new Set<string>();
   for (const id of ['dns', 'ntpServers', 'fallBackNtpServers']) {
     const field = group.fields.find((field) => field.id === id)!;
     if (!groupEnabled(group, c) || !fieldAvailable(field, c.version, c.platform, c.values)) continue;
@@ -484,8 +500,17 @@ function validateNetworkServers(c: Config, push: Push): void {
       });
       if (previous === undefined) seen.set(identity, index);
       if (id === 'ntpServers' && !regularNtp.has(identity)) regularNtp.set(identity, index);
+      if (id !== 'dns') ntpServers.add(identity);
+    });
+    if (id === 'dns' && seen.size === 1) push({
+      level: 'warn', section: group.section, fieldId: id,
+      message: 'Only one distinct DNS server is configured. A single endpoint can be a single point of failure. Consider an independently available server; multiple addresses alone do not guarantee redundancy.'
     });
   }
+  if (ntpServers.size === 1) push({
+    level: 'warn', section: group.section, fieldId: regularNtp.size ? 'ntpServers' : 'fallBackNtpServers',
+    message: 'Only one distinct NTP server is configured across the primary and fallback lists. A single endpoint can be a single point of failure. Consider an independently available server; multiple addresses alone do not guarantee redundancy.'
+  });
 }
 
 function lint(c: Config, push: Push): void {
@@ -515,7 +540,7 @@ function lint(c: Config, push: Push): void {
   }
 
   if (!platformAvailable(c.platform, c.version)) {
-    push({ level: 'error', section: 'network', message: `${def.label} deployment output is supported by Gateway Forge from UAG ${def.since}; select UAG ${def.since} or newer.` });
+    push({ level: 'error', section: 'network', message: `${def.label} deployment output is supported by UAG Foundry from UAG ${def.since}; select UAG ${def.since} or newer.` });
   }
   if (c.platform === 'nutanix') {
     push({ level: 'info', section: 'network', message: 'Nutanix: the uploaded QCOW2 image and the Prism Central subnets and cluster must already exist.' });
@@ -571,7 +596,7 @@ function lint(c: Config, push: Push): void {
       push({ level: 'info', section: 'contentGateway', fieldId: 'contentGateway_mode', message: 'Shared mode uses the API URL, user, organization group, hostname, proxy, host entry and certificate inputs from Workspace ONE Tunnel.' });
     } else {
       if (v.contentGateway_outboundProxyHost && isEmpty(v.contentGateway_outboundProxyPort)) push({ level: 'error', section: 'contentGateway', fieldId: 'contentGateway_outboundProxyPort', message: 'Outbound proxy port is required when an outbound proxy host is set.' });
-      if (v.contentGateway_outboundProxyUsername) push({ level: 'info', section: 'contentGateway', fieldId: 'contentGateway_outboundProxyUsername', message: 'The official deployment script prompts for the outbound proxy password; Gateway Forge does not store or export it.' });
+      if (v.contentGateway_outboundProxyUsername) push({ level: 'info', section: 'contentGateway', fieldId: 'contentGateway_outboundProxyUsername', message: 'The official deployment script prompts for the outbound proxy password; UAG Foundry does not store or export it.' });
     }
   }
 
@@ -621,26 +646,51 @@ function lint(c: Config, push: Push): void {
 
   if (String(v.deploymentOption).startsWith('onenic') && v.gatewayLocation === 'external' && horizon) push({ level: 'info', section: 'network', fieldId: 'deploymentOption', message: 'Single-NIC deployment: for DMZ use consider twonic/threenic to separate Internet, management and backend traffic.' });
 
-  const ip0 = String(v.ip0 ?? '');
-  const activeIpIds = ['ip0', 'ip1', 'ip2'].slice(0, deploymentNicCount(v));
-  const usesStaticIpv4 = (id: string) => {
-    const nic = id.slice(-1);
-    if (c.platform === 'nutanix' || c.platform === 'openshift') return v[`ipMode${nic}`] === 'STATICV4';
-    const mode = String(v[`ipmode${nic}`] ?? '');
-    return mode === '' || mode.includes('STATICV4');
-  };
-  const activeStaticIps = activeIpIds
-    .filter(usesStaticIpv4)
-    .map((k) => String(v[k] ?? ''))
-    .filter(Boolean);
-  if (c.platform !== 'azure' && new Set(activeStaticIps).size !== activeStaticIps.length) {
-    push({ level: 'error', section: 'network', message: 'Two applicable NICs share the same IP address.' });
+  // Isolated V8 Foundry policy; use the same available fields as the editor/exporter.
+  const available = (id: string) => GROUPS.some((g) => groupEnabled(g, c)
+    && g.fields.some((f) => f.id === id && fieldAvailable(f, c.version, c.platform, v)));
+  const ipv4Number = (value: string) => value.split('.').reduce((n, octet) => (n << 8) + Number(octet), 0) >>> 0;
+  const portGroups = ['netInternet', 'netManagementNetwork', 'netBackendNetwork'];
+  for (const nic of [0, 1, 2]) if (available(`eth${nic}CustomConfig`) && nonEmpty(`eth${nic}CustomConfig`)) {
+    push({ level: 'error', section: 'network', fieldId: `eth${nic}CustomConfig`,
+      message: `NIC${nic} custom configuration is retained, but automatic address/subnet verification is unresolved. Review the override before checked export (Foundry policy).` });
   }
-  const staticNic0 = usesStaticIpv4('ip0');
-  if (staticNic0 && ip0 && nonEmpty('netmask0') && nonEmpty('defaultGateway')) {
-    const a = netOf(ip0, String(v.netmask0));
-    const b = netOf(String(v.defaultGateway), String(v.netmask0));
-    if (a !== null && b !== null && a !== b) push({ level: 'warn', section: 'network', fieldId: 'defaultGateway', message: 'Default gateway is not in the NIC0 subnet.' });
+  const nics = [0, 1, 2].filter((nic) => available(`ip${nic}`)).map((nic) => {
+    const ip = String(v[`ip${nic}`] ?? '').trim(), mask = String(v[`netmask${nic}`] ?? '').trim();
+    const custom = available(`eth${nic}CustomConfig`) && nonEmpty(`eth${nic}CustomConfig`);
+    const network = !custom && IPV4.test(ip) && isNetmask(mask) ? netOf(ip, mask) : null;
+    return { nic, ip, mask, custom, network, end: network === null ? null : network + (~ipv4Number(mask) >>> 0) };
+  });
+  for (let i = 0; i < nics.length; i++) for (let j = i + 1; j < nics.length; j++) {
+    const a = nics[i], b = nics[j];
+    if (a.custom || b.custom) continue;
+    if (IPV4.test(a.ip) && IPV4.test(b.ip) && ipv4Number(a.ip) === ipv4Number(b.ip)) {
+      for (const nic of [a.nic, b.nic]) push({ level: 'error', section: 'network', fieldId: `ip${nic}`,
+        message: `NIC${a.nic} and NIC${b.nic} must have distinct IPv4 addresses; ${a.ip} is configured on both (Foundry policy).` });
+    }
+    // Contiguous IPv4 ranges overlap even when only the broader prefix contains the other address.
+    if (a.network === null || b.network === null || a.end === null || b.end === null
+      || a.network > b.end || b.network > a.end) continue;
+    if (ipv4Number(a.mask) !== ipv4Number(b.mask)) {
+      for (const nic of [a.nic, b.nic]) push({ level: 'error', section: 'network', fieldId: `netmask${nic}`,
+        message: `NIC${a.nic} and NIC${b.nic} have overlapping IPv4 subnets; use the same subnet mask for those NICs (Foundry policy).` });
+    }
+    if (c.platform === 'vsphere' && String(v[portGroups[a.nic]] ?? '') !== String(v[portGroups[b.nic]] ?? '')) {
+      for (const nic of [a.nic, b.nic]) push({ level: 'error', section: 'network', fieldId: portGroups[nic],
+        message: `NIC${a.nic} and NIC${b.nic} use the same or overlapping IPv4 subnet; their vSphere port-group mappings must match exactly (Foundry policy, not a universal vendor requirement).` });
+    }
+  }
+  const nic0 = nics.find((n) => n.nic === 0);
+  const gateway = String(v.defaultGateway ?? '').trim();
+  if (available('defaultGateway') && nic0 && !nic0.custom && IPV4.test(gateway) && IPV4.test(nic0.ip)
+    && ipv4Number(gateway) === ipv4Number(nic0.ip)) {
+    for (const fieldId of ['defaultGateway', 'ip0']) push({ level: 'error', section: 'network', fieldId,
+      message: `Default gateway must differ from the Internet NIC0 IPv4 address; ${nic0.ip} is configured for both (Foundry policy).` });
+  }
+  if (available('defaultGateway') && nic0?.network !== null && nic0?.network !== undefined
+    && IPV4.test(gateway) && netOf(gateway, nic0.mask) !== nic0.network) {
+    push({ level: 'error', section: 'network', fieldId: 'defaultGateway',
+      message: 'Default gateway must be in the actual Internet NIC0 subnet (Foundry policy).' });
   }
 
   if (horizon) {
@@ -652,7 +702,6 @@ function lint(c: Config, push: Push): void {
     if (v.blastEnabled === true && !nonEmpty('blastExternalUrl')) push({ level: 'warn', section: 'horizon', fieldId: 'blastExternalUrl', message: 'Blast is enabled without an external URL - clients are sent the appliance IP instead of your public FQDN.' });
     if (v.tunnelEnabled === true && c.version >= '2412' && !nonEmpty('tunnelExternalUrl')) push({ level: 'info', section: 'horizon', fieldId: 'tunnelExternalUrl', message: 'Tunnel external URL is not set.' });
     if (v.pcoipEnabled === true && !nonEmpty('pcoipExternalUrl')) push({ level: 'warn', section: 'horizon', fieldId: 'pcoipExternalUrl', message: 'PCoIP is enabled without an external URL (IPv4:4172).' });
-    if (v.authMethods === 'passthrough' && v.gatewayLocation === 'external') push({ level: 'warn', section: 'horizon', fieldId: 'authMethods', message: 'External gateway with passthrough authentication - no MFA in the DMZ. Consider RADIUS or SAML.' });
     const usesRadius = String(v.authMethods).startsWith('radius-auth') || v.authMethods === 'certificate-auth-and-radius-auth';
     const usesSaml = String(v.authMethods).startsWith('saml-auth') || v.authMethods === 'device-certificate-auth-and-saml-auth';
     const usesUnauthenticated = String(v.authMethods).includes('unauthenticated');

@@ -24,7 +24,7 @@ describe('static sharing metadata', () => {
     expect(meta('property', 'og:description')).toBe(description);
     expect(meta('name', 'twitter:description')).toBe(description);
     expect(meta('property', 'og:type')).toBe('website');
-    expect(meta('property', 'og:site_name')).toBe('Gateway Forge');
+    expect(meta('property', 'og:site_name')).toBe('UAG Foundry');
     expect(meta('property', 'og:url')).toBe(publicUrl);
     expect(html).toContain(`<link rel="canonical" href="${publicUrl}" />`);
     expect(meta('name', 'twitter:card')).toBe('summary_large_image');
@@ -44,7 +44,7 @@ describe('static sharing metadata', () => {
     expect(image.readUInt32BE(20)).toBe(630);
     expect(image.length).toBeLessThan(1_000_000);
     const alt = meta('property', 'og:image:alt');
-    expect(alt).toContain('Gateway Forge');
+    expect(alt).toContain('UAG Foundry');
     expect(meta('name', 'twitter:image:alt')).toBe(alt);
   });
 });

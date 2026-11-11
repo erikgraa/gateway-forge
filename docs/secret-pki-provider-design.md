@@ -2,13 +2,13 @@
 
 ## Status and scope
 
-This document is the implementation roadmap for [issue #58](https://github.com/erikgraa/gateway-forge/issues/58). It defines a security boundary before Gateway Forge enables any external secret-management or PKI-management vendor.
+This document is the implementation roadmap for [issue #58](https://github.com/erikgraa/uag-foundry/issues/58). It defines a security boundary before UAG Foundry enables any external secret-management or PKI-management vendor.
 
 The current implementation remains browser-only, offline-capable, and provider-free. In particular, this design must not be implemented as a vendor SDK in the static application, an always-on synchronization feature, or a browser-managed credential store.
 
 ## Existing guarantees to preserve
 
-Gateway Forge currently keeps configuration data in an in-memory Svelte model. A draft is saved to `localStorage` only after fields marked `secret` are replaced with empty strings. Output generation defaults to `<REDACTED>` for secret fields, supports omission, and exposes plain-text inclusion only as an explicit output choice. UAG root and administrator passwords are not collected. Certificate fields contain deployment-time file paths; certificate and private-key content is not collected or persisted.
+UAG Foundry currently keeps configuration data in an in-memory Svelte model. A draft is saved to `localStorage` only after fields marked `secret` are replaced with empty strings. Output generation defaults to `<REDACTED>` for secret fields, supports omission, and exposes plain-text inclusion only as an explicit output choice. UAG root and administrator passwords are not collected. Certificate fields contain deployment-time file paths; certificate and private-key content is not collected or persisted.
 
 These guarantees are the baseline:
 
@@ -26,7 +26,7 @@ Future adapters must implement the dormant contracts in `src/lib/provider.ts`; n
 - **Secret store:** resolve an opaque shared secret or password by reference.
 - **Certificate store:** resolve a public certificate or CA chain by reference.
 - **Certificate issuer:** request issuance and return a short-lived handle and public material; issuance is a separate, user-confirmed operation.
-- **Private-key source:** resolve private material only through a narrowly scoped, short-lived operation. Preference is for provider/deployment-host signing or export without bringing key bytes into Gateway Forge.
+- **Private-key source:** resolve private material only through a narrowly scoped, short-lived operation. Preference is for provider/deployment-host signing or export without bringing key bytes into UAG Foundry.
 
 A persisted provider reference contains only a provider ID, opaque resource ID, material kind, and optional provider version. It must not contain a token, username/password, certificate bytes, private-key bytes, or provider response. Provider-specific path, mount, namespace, tenant, and policy identifiers belong behind the adapter boundary and must be reviewable before they are saved.
 
@@ -37,7 +37,7 @@ The static registry is not a discovery or autoload mechanism. A provider is regi
 | Material | Default draft/export behavior | Preferred future provider flow |
 | --- | --- | --- |
 | RADIUS/SNMP/shared secrets | Empty in `localStorage`; redacted or omitted in generated output | Store an opaque reference. Resolve only at the final user-confirmed deployment step. |
-| Root/admin deployment passwords | Never collected or exported as values by Gateway Forge | Interactive mode lets the official script prompt when parameters are omitted; environment-password mode reads the process environment. Other vendor-script prompts, including the vCenter password, may remain; this is not guaranteed unattended execution. |
+| Root/admin deployment passwords | Never collected or exported as values by UAG Foundry | Interactive mode lets the official script prompt when parameters are omitted; environment-password mode reads the process environment. Other vendor-script prompts, including the vCenter password, may remain; this is not guaranteed unattended execution. |
 | Other credentials | Classified as secret before use; empty in drafts and never inferred from provider metadata | Resolve through the same opaque-reference and short-lived-material policy. |
 | Public certificates and CA chains | Current fields may contain file paths; content is not stored | Store a non-secret reference or a deployment-host path. Public bytes may be included in an artifact only after the user selects that export policy. |
 | Private keys | Current fields contain file paths only; key content is forbidden in drafts | Prefer non-exportable provider keys and deployment-host retrieval. If export is unavoidable, require per-operation confirmation and immediate cleanup. |
@@ -101,7 +101,7 @@ Provider adapters authenticate through one approved mode: delegated OAuth/OIDC, 
 
 The UI must disclose requested scopes, tenant/account, audience, token lifetime, and allowed hosts before consent. The adapter must use least privilege, pin allowed origins, reject redirects not in its allowlist, support cancellation, and clear credentials on disable/disconnect. CORS is not an authorization boundary. Provider URLs and optional local helper origins must be schema-validated and cannot be controlled by untrusted imported configuration.
 
-Gateway Forge does not receive credentials through generated INI/JSON or store them in a provider reference. A local provider helper, if later used, must bind to loopback, authenticate browser requests (for example with a one-time random channel token), enforce Origin/Host checks, and relay only the minimum provider operation. It must be introduced as a separately reviewed feature with explicit trust and privileges.
+UAG Foundry does not receive credentials through generated INI/JSON or store them in a provider reference. A local provider helper, if later used, must bind to loopback, authenticate browser requests (for example with a one-time random channel token), enforce Origin/Host checks, and relay only the minimum provider operation. It must be introduced as a separately reviewed feature with explicit trust and privileges.
 
 ## Auditability
 

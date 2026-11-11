@@ -4,6 +4,7 @@
   import type { Platform } from '../lib/versions';
   import type { Issue } from '../lib/validate';
   import { parseListValue, serializeListValue } from '../lib/listValue';
+  import { trailingWhitespace } from '../lib/ordinary-whitespace';
   import FieldDetails from './FieldDetails.svelte';
 
   interface Props {
@@ -180,6 +181,7 @@
               aria-label={`${definition.itemLabel} ${index + 1}`}
               aria-invalid={rowError(index) ? 'true' : undefined}
               aria-describedby={rowError(index) ? `f-${field.id}-${index}-error` : undefined}
+              onblur={() => { rows[index] = trailingWhitespace(rows[index]); commit(); }}
               oninput={(event) => update(index, event)}
               onpaste={(event) => paste(index, event)}
             />

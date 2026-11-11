@@ -1,7 +1,7 @@
 # Horizon 2609 INI schema audit
 
 **Audit date:** 2026-11-08  
-**Target:** Gateway Forge UAG 2609 Horizon schema
+**Target:** UAG Foundry UAG 2609 Horizon schema
 
 ## Authoritative sources
 
@@ -13,7 +13,7 @@
 
 `Existing` means the field was already represented. `Added` means this audit added the field or an interaction. `Excluded` means the setting is runtime-only, advanced cross-service configuration, or lacks a stable standalone INI/JSON shape.
 
-| Official label / key | Status | Gateway Forge field | Type and 2609 default | Gate | Notes |
+| Official label / key | Status | UAG Foundry field | Type and 2609 default | Gate | Notes |
 |---|---|---|---|---|---|
 | Connection Server URL `proxyDestinationUrl` | Existing | `proxyDestinationUrl` | text, empty; required | all | HTTPS URL validation. |
 | Minimum SHA Hash Size `minSHAHashSize` | Existing | `minSHAHashSize` | select, `SHA-256` | 2312 | SHA-1 is linted as weak. |
@@ -87,4 +87,4 @@
 2. `securityHeaders` is represented as verbatim INI text. Omnissa does not publish its settings-JSON object schema, so import/export intentionally does not map it to JSON.
 3. The 2609 setting table labels pre-login display as `disclaimerText`, duplicating the actual disclaimer-text row. The schema preserves `disclaimerText` for text and uses `proxyDestinationPreLoginMessageEnabled` from the 2609 PowerShell sample for the boolean.
 4. The setting table names additional URL parameters `blastUrls` and `tunnelUrls`, while the 2609 deployment sample uses `additionalBlastExternalUrls` and `additionalTunnelExternalUrls`. Generation uses the sample; both spellings import.
-5. `udpTunnelServerEnabled` is documented as an enable toggle but no explicit default is stated. Gateway Forge uses `true`, matching the enable-oriented control and avoids changing the product's normal behavior.
+5. `udpTunnelServerEnabled` is documented as an enable toggle but no explicit default is stated. UAG Foundry uses `true`, matching the enable-oriented control and avoids changing the product's normal behavior.
