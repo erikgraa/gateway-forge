@@ -23,7 +23,7 @@
   import { platformDef } from './lib/versions';
   import EdgeServicePicker from './components/EdgeServicePicker.svelte';
 
-  let { embedded = false, brandName = 'UAG Foundry', extraIssues = [] }: { embedded?: boolean; brandName?: string; extraIssues?: Issue[] } = $props();
+  let { embedded = false, brandName = 'UAG Studio', extraIssues = [] }: { embedded?: boolean; brandName?: string; extraIssues?: Issue[] } = $props();
 
   const descriptions: Record<SectionId, { eyebrow: string; description: string }> = {
     general: { eyebrow: 'Appliance profile', description: 'Define the appliance identity and administrative hardening baseline.' },

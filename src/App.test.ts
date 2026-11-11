@@ -10,14 +10,14 @@ const footerText = (body: string) => body.match(/<footer\b[^>]*>([\s\S]*?)<\/foo
 describe('builder version footer', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('uses the Foundry identity in the embedded footer without dropping community and version information', async () => {
+  it('uses the Studio identity in the embedded footer without dropping community and version information', async () => {
     vi.stubGlobal('document', { documentElement: { dataset: {} } });
     vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => undefined, removeItem: () => undefined });
     const { default: App } = await import('./App.svelte');
-    const { body } = render(App, { props: { embedded: true, brandName: 'UAG Foundry' } });
+    const { body } = render(App, { props: { embedded: true, brandName: 'UAG Studio' } });
     const footer = footerText(body);
-    expect(footer).toContain(`UAG Foundry v${packageInfo.version}`);
-    expect(footer).toContain('UAG Foundry is a community-driven, unofficial tool');
+    expect(footer).toContain(`UAG Studio v${packageInfo.version}`);
+    expect(footer).toContain('UAG Studio is a community-driven, unofficial tool');
     expect(footer).toContain('not affiliated with, endorsed by, or supported by Omnissa');
     expect(footer).not.toContain('Gateway Forge');
     expect(body).not.toContain('class="brand"');
@@ -71,8 +71,8 @@ describe('builder version footer', () => {
       const { default: App } = await import('./App.svelte');
       const { body } = render(App);
       const footer = footerText(body);
-      expect(footer).toContain(`UAG Foundry v${packageInfo.version}`);
-      expect(footer).not.toContain(`UAG Foundry v${version}`);
+      expect(footer).toContain(`UAG Studio v${packageInfo.version}`);
+      expect(footer).not.toContain(`UAG Studio v${version}`);
       expect(footer).toContain('community-driven, unofficial tool');
       expect(footer).toContain('not affiliated with, endorsed by, or supported by Omnissa');
       expect(footer).toContain('Source on GitHub');

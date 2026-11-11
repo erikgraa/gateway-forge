@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const targetUrl = process.argv[2] ?? 'http://127.0.0.1:4173/';
+const packageInfo = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const port = 9300 + Math.floor(Math.random() * 500);
 const profile = await mkdtemp(join(tmpdir(), 'uag-foundry-screenshots-'));
 const outputDir = join(root, 'docs', 'screenshots');
@@ -91,7 +92,7 @@ async function waitForApp() {
     if (await evaluate(`document.readyState === 'complete' && !!document.querySelector('#app')?.innerText.trim()`)) return;
     await sleep(100);
   }
-  throw new Error('UAG Foundry did not render.');
+  throw new Error('UAG Studio did not render.');
 }
 
 async function viewport(width = 1480, height = 900) {
@@ -101,6 +102,8 @@ async function viewport(width = 1480, height = 900) {
 async function capture(name, height = 900) {
   await viewport(1480, height);
   await sleep(250);
+  const currentBranding = await evaluate(`document.querySelector('.scenario-brand-mark svg path')?.getAttribute('d') === 'M9 3H29V23H26V6H9Z' && document.getElementById('app')?.textContent.includes(${JSON.stringify(`UAG Studio v${packageInfo.version}`)})`);
+  if (!currentBranding) throw new Error('Screenshot target must show the current package version and workspace mark.');
   const { data } = await command('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false, fromSurface: true });
   await writeFile(join(outputDir, name), Buffer.from(data, 'base64'));
   console.log(`Captured ${name}`);
@@ -118,8 +121,8 @@ async function reset(theme = 'dark', scenario = 'single') {
   } finally {
     await command('Page.removeScriptToEvaluateOnNewDocument', { identifier });
   }
-  if (!await evaluate(`document.title.startsWith('UAG Foundry') && !!document.getElementById('scenario-single')`)) {
-    throw new Error('Capture requires the unreleased UAG Foundry scenario build, not the published legacy app.');
+  if (!await evaluate(`document.title.startsWith('UAG Studio') && !!document.getElementById('scenario-single')`)) {
+    throw new Error('Capture requires the unreleased UAG Studio scenario build, not the published legacy app.');
   }
   if (scenario) {
     await evaluate(`document.getElementById('scenario-${scenario}').click(); true;`);

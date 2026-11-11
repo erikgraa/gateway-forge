@@ -2,7 +2,7 @@ export const VCENTER_CREDENTIAL_TARGET_EXAMPLE = 'vi://uagdeploy@vsphere.local:P
 
 export const OVF_TOOL_VERSION_GUIDANCE = 'Horizon on vSphere is operator-tested with OVF Tool 5.0. Regressions were reported with 5.1 and 9.1; their causes and affected configurations have not been independently verified. This is not certification of every release or authentication workflow.';
 
-export const VCENTER_INLINE_PASSWORD_WARNING = 'Full locators are saved in the browser draft and exported to INI/PowerShell without password redaction, regardless of secret mode. Add the real password only to a protected deployment copy outside UAG Foundry; keep credential-bearing files and logs private. Generated PowerShell rewrites the INI from its embedded configuration.';
+export const VCENTER_INLINE_PASSWORD_WARNING = 'Full locators are saved in the browser draft and exported to INI/PowerShell without password redaction, regardless of secret mode. Add the real password only to a protected deployment copy outside UAG Studio; keep credential-bearing files and logs private. Generated PowerShell rewrites the INI from its embedded configuration.';
 
 export interface VCenterTarget {
   username: string;

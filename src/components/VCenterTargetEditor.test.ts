@@ -53,7 +53,7 @@ describe('guided vCenter target', () => {
     expect(body).toContain('vi://uagdeploy@vsphere.local:PASSWORD@vcenter.example.com/DC1/host/Cluster1');
     expect(body).toContain('saved in the browser draft');
     expect(body).toContain('without password redaction, regardless of secret mode');
-    expect(body).toContain('outside UAG Foundry');
+    expect(body).toContain('outside UAG Studio');
     expect(body).not.toContain('type="password"');
     expect(body).not.toContain('Assembled target');
     expect(values.target).toBe(target);

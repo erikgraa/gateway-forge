@@ -1,6 +1,18 @@
 # Changelog
 
-All notable user-facing changes to UAG Foundry are documented here. Earlier releases were named Gateway Forge; historical entries retain their original names and links. This format follows the [Keep a Changelog](https://keepachangelog.com/) structure.
+All notable user-facing changes to UAG Studio are documented here. Earlier releases were named UAG Foundry and Gateway Forge; historical entries retain their original names and links. This format follows the [Keep a Changelog](https://keepachangelog.com/) structure.
+
+## 0.9.1 - 2026-11-11
+
+### Changed
+
+- Adopted the UAG Studio name and Workspace mark: layered editor frames with a gateway, retaining the purple palette and lighter-purple transparent dark-theme app and README variants.
+- Regenerated app, sharing and browser artwork, with separate optical 16px SVG/PNG/ICO geometry. The local generator rasterizes the canonical vector paths.
+- Refreshed the real 0.9.1 documentation screenshots using disposable browser state and aligned visible app branding and package/lock version metadata.
+- Moved the public site and canonical/sharing metadata to `https://uagstudio.graa.dev/`, with release-version cache busting for social images. Existing sharing-service previews may remain cached.
+- Aligned the Pages domain check and container smoke test with the new identity. Repository/package identifiers and historical release entries remain unchanged.
+
+Configuration editing, validation, import/export formats and browser-storage namespaces are unchanged. Drafts and preferences do not automatically transfer from the old domain; see the technical guide migration notes. Branding is not certification of configuration security or a claim of trademark clearance.
 
 ## 0.9.0 - 2026-11-11
 

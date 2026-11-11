@@ -540,7 +540,7 @@ function lint(c: Config, push: Push): void {
   }
 
   if (!platformAvailable(c.platform, c.version)) {
-    push({ level: 'error', section: 'network', message: `${def.label} deployment output is supported by UAG Foundry from UAG ${def.since}; select UAG ${def.since} or newer.` });
+    push({ level: 'error', section: 'network', message: `${def.label} deployment output is supported by UAG Studio from UAG ${def.since}; select UAG ${def.since} or newer.` });
   }
   if (c.platform === 'nutanix') {
     push({ level: 'info', section: 'network', message: 'Nutanix: the uploaded QCOW2 image and the Prism Central subnets and cluster must already exist.' });
@@ -596,7 +596,7 @@ function lint(c: Config, push: Push): void {
       push({ level: 'info', section: 'contentGateway', fieldId: 'contentGateway_mode', message: 'Shared mode uses the API URL, user, organization group, hostname, proxy, host entry and certificate inputs from Workspace ONE Tunnel.' });
     } else {
       if (v.contentGateway_outboundProxyHost && isEmpty(v.contentGateway_outboundProxyPort)) push({ level: 'error', section: 'contentGateway', fieldId: 'contentGateway_outboundProxyPort', message: 'Outbound proxy port is required when an outbound proxy host is set.' });
-      if (v.contentGateway_outboundProxyUsername) push({ level: 'info', section: 'contentGateway', fieldId: 'contentGateway_outboundProxyUsername', message: 'The official deployment script prompts for the outbound proxy password; UAG Foundry does not store or export it.' });
+      if (v.contentGateway_outboundProxyUsername) push({ level: 'info', section: 'contentGateway', fieldId: 'contentGateway_outboundProxyUsername', message: 'The official deployment script prompts for the outbound proxy password; UAG Studio does not store or export it.' });
     }
   }
 
@@ -646,14 +646,14 @@ function lint(c: Config, push: Push): void {
 
   if (String(v.deploymentOption).startsWith('onenic') && v.gatewayLocation === 'external' && horizon) push({ level: 'info', section: 'network', fieldId: 'deploymentOption', message: 'Single-NIC deployment: for DMZ use consider twonic/threenic to separate Internet, management and backend traffic.' });
 
-  // Isolated V8 Foundry policy; use the same available fields as the editor/exporter.
+  // Isolated V8 Studio policy; use the same available fields as the editor/exporter.
   const available = (id: string) => GROUPS.some((g) => groupEnabled(g, c)
     && g.fields.some((f) => f.id === id && fieldAvailable(f, c.version, c.platform, v)));
   const ipv4Number = (value: string) => value.split('.').reduce((n, octet) => (n << 8) + Number(octet), 0) >>> 0;
   const portGroups = ['netInternet', 'netManagementNetwork', 'netBackendNetwork'];
   for (const nic of [0, 1, 2]) if (available(`eth${nic}CustomConfig`) && nonEmpty(`eth${nic}CustomConfig`)) {
     push({ level: 'error', section: 'network', fieldId: `eth${nic}CustomConfig`,
-      message: `NIC${nic} custom configuration is retained, but automatic address/subnet verification is unresolved. Review the override before checked export (Foundry policy).` });
+      message: `NIC${nic} custom configuration is retained, but automatic address/subnet verification is unresolved. Review the override before checked export (Studio policy).` });
   }
   const nics = [0, 1, 2].filter((nic) => available(`ip${nic}`)).map((nic) => {
     const ip = String(v[`ip${nic}`] ?? '').trim(), mask = String(v[`netmask${nic}`] ?? '').trim();
@@ -666,18 +666,18 @@ function lint(c: Config, push: Push): void {
     if (a.custom || b.custom) continue;
     if (IPV4.test(a.ip) && IPV4.test(b.ip) && ipv4Number(a.ip) === ipv4Number(b.ip)) {
       for (const nic of [a.nic, b.nic]) push({ level: 'error', section: 'network', fieldId: `ip${nic}`,
-        message: `NIC${a.nic} and NIC${b.nic} must have distinct IPv4 addresses; ${a.ip} is configured on both (Foundry policy).` });
+        message: `NIC${a.nic} and NIC${b.nic} must have distinct IPv4 addresses; ${a.ip} is configured on both (Studio policy).` });
     }
     // Contiguous IPv4 ranges overlap even when only the broader prefix contains the other address.
     if (a.network === null || b.network === null || a.end === null || b.end === null
       || a.network > b.end || b.network > a.end) continue;
     if (ipv4Number(a.mask) !== ipv4Number(b.mask)) {
       for (const nic of [a.nic, b.nic]) push({ level: 'error', section: 'network', fieldId: `netmask${nic}`,
-        message: `NIC${a.nic} and NIC${b.nic} have overlapping IPv4 subnets; use the same subnet mask for those NICs (Foundry policy).` });
+        message: `NIC${a.nic} and NIC${b.nic} have overlapping IPv4 subnets; use the same subnet mask for those NICs (Studio policy).` });
     }
     if (c.platform === 'vsphere' && String(v[portGroups[a.nic]] ?? '') !== String(v[portGroups[b.nic]] ?? '')) {
       for (const nic of [a.nic, b.nic]) push({ level: 'error', section: 'network', fieldId: portGroups[nic],
-        message: `NIC${a.nic} and NIC${b.nic} use the same or overlapping IPv4 subnet; their vSphere port-group mappings must match exactly (Foundry policy, not a universal vendor requirement).` });
+        message: `NIC${a.nic} and NIC${b.nic} use the same or overlapping IPv4 subnet; their vSphere port-group mappings must match exactly (Studio policy, not a universal vendor requirement).` });
     }
   }
   const nic0 = nics.find((n) => n.nic === 0);
@@ -685,12 +685,12 @@ function lint(c: Config, push: Push): void {
   if (available('defaultGateway') && nic0 && !nic0.custom && IPV4.test(gateway) && IPV4.test(nic0.ip)
     && ipv4Number(gateway) === ipv4Number(nic0.ip)) {
     for (const fieldId of ['defaultGateway', 'ip0']) push({ level: 'error', section: 'network', fieldId,
-      message: `Default gateway must differ from the Internet NIC0 IPv4 address; ${nic0.ip} is configured for both (Foundry policy).` });
+      message: `Default gateway must differ from the Internet NIC0 IPv4 address; ${nic0.ip} is configured for both (Studio policy).` });
   }
   if (available('defaultGateway') && nic0?.network !== null && nic0?.network !== undefined
     && IPV4.test(gateway) && netOf(gateway, nic0.mask) !== nic0.network) {
     push({ level: 'error', section: 'network', fieldId: 'defaultGateway',
-      message: 'Default gateway must be in the actual Internet NIC0 subnet (Foundry policy).' });
+      message: 'Default gateway must be in the actual Internet NIC0 subnet (Studio policy).' });
   }
 
   if (horizon) {

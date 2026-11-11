@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-labelledby="title">
+  <title id="title">UAG Studio workspace</title>
+  <rect width="16" height="16" rx="3" fill="white"/>
+  <g fill="#6b4fb3">
+    <path d="M5 1H15V11H13V3H5Z"/>
+    <path d="M1 4H12V6H1Z"/>
+    <path d="M1 6H3V13H1Z"/>
+    <path d="M10 6H12V13H10Z"/>
+    <path d="M1 13H12V15H1Z"/>
+    <path d="M4 7H9V12H7.5V9H5.5V12H4Z"/>
+  </g>
+</svg>

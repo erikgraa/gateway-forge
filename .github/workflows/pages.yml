@@ -28,7 +28,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: Verify custom domain file
-        run: test "$(cat dist/CNAME)" = "uagfoundry.graa.dev"
+        run: test "$(cat dist/CNAME)" = "uagstudio.graa.dev"
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

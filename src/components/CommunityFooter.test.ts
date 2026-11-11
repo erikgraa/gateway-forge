@@ -5,7 +5,7 @@ import CommunityFooter from './CommunityFooter.svelte';
 
 describe('Landing-page community footer', () => {
   it('shows the version from package metadata', () => {
-    expect(render(CommunityFooter).body).toContain(`UAG Foundry v${packageInfo.version}`);
+    expect(render(CommunityFooter).body).toContain(`UAG Studio v${packageInfo.version}`);
   });
 
   it('links to the project and Omnissa without implying affiliation', () => {

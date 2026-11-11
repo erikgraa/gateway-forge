@@ -110,7 +110,7 @@ describe('Native Horizon topology component', () => {
     expect(body).toContain('Shared XML API VIP');
     expect(body).toContain('For direct access, resolve the client-facing hostname to the reachable group VIP or its public/NAT address');
     expect(body).toContain('With a load balancer or health-aware DNS/GSLB, follow that entry-point design instead');
-    expect(body).toContain('Foundry does not configure or verify them');
+    expect(body).toContain('Studio does not configure or verify them');
     expect(body).not.toContain('Create a DNS A record');
   });
   it('retains separate individual or differing imported destinations instead of drawing false shared links', () => {

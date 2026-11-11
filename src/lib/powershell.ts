@@ -98,7 +98,7 @@ export function generatePowerShell(
   const effectiveDeploymentMode = c.platform === 'nutanix' ? 'interactive' : deploymentMode;
   const replacementWarning = vmReplacementWarning(c.platform);
   const out: string[] = [
-    `# UAG Foundry - UAG ${c.version} on ${def.label}`,
+    `# UAG Studio - UAG ${c.version} on ${def.label}`,
     ...(replacementWarning ? [...commentLines(`WARNING: ${replacementWarning}`), ''] : []),
     `# Prerequisites: extract the uagdeploy scripts from the Omnissa Customer Connect download`,
     `# (${script}${c.platform === 'openshift' ? ' + uagdeploy.psm1' : ''})${c.platform === 'vsphere' ? ' and install OVF Tool 4.4.3 or later' : ''}.`,
