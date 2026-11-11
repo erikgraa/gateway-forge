@@ -21,6 +21,46 @@ describe('Native fleet templates, checked exports and fixed workspaces',()=>{
  it('blocks inconsistent actual per-member HA without rewriting imported settings',()=>{const f=pair();f.members[1].config.values.ha_enabled=true;f.members[1].config.values.ha_groupId=20;f.members[1].config.values.ha_virtualIPAddress='198.51.100.99';const before=JSON.stringify(f);expect(fleetIssues(f).some(i=>i.message.includes('differ from the shared group template'))).toBe(true);expect(()=>fleetBundle(f)).toThrow();expect(JSON.stringify(f)).toBe(before);});
  it('rejects unsupported future topology formats rather than claiming safe compatibility',()=>{const f=pair();expect(()=>importFleet(JSON.stringify({format:'gateway-forge-fleet-999',workspace:f}))).toThrow('Not a supported');});
  it('starts with a single genuine blank member and rejects an incomplete baseline',()=>{const f=freshFleet();expect(activeMembers(f)).toHaveLength(1);expect(f.unlocked).toBe(false);expect(()=>unlockFleet(f)).toThrow();});
+ it('blocks missing compute paths in baseline unlock and checked fleet export, then permits correction', () => {
+  const f = pair(), config = copy(f.members[1].config);
+  config.values.target = 'vi://operator@vc.example.com/ /// ';
+  config.values.folder = 'VMs/UAG';
+  editMember(f, 2, config);
+  const before = JSON.stringify(f);
+  expect(fleetIssues(f)).toContainEqual(expect.objectContaining({ memberId: 2, fieldId: 'target', level: 'error', message: expect.stringContaining('compute inventory path (required)') }));
+  expect(() => fleetBundle(f)).toThrow('Resolve fleet validation errors');
+  expect(JSON.stringify(f)).toBe(before);
+  config.values.target = 'vi://operator@vc.example.com/DC%20One/host/Cluster/Resources/UAG';
+  editMember(f, 2, config);
+  expect(fleetIssues(f).filter((issue) => issue.level === 'error')).toEqual([]);
+  expect(fleetBundle(f).filter((file) => file.name.endsWith('.ini'))).toHaveLength(2);
+  const initial = baseline(); initial.unlocked = false; initial.members[0].config.values.target = 'vi://operator@vc.example.com';
+  expect(() => unlockFleet(initial)).toThrow('Complete a valid Horizon baseline');
+ });
+ it.each([
+  ['vi://@vc.example.com/DC/host/Compute', 'vCenter username (required)'],
+  ['vi://operator@/DC/host/Compute', 'vCenter FQDN/server address (required)']
+ ])('blocks missing username/server in checked fleet export and baseline planning: %s', (target, message) => {
+  const f = pair(), config = copy(f.members[1].config);
+  config.values.target = target; editMember(f, 2, config);
+  const before = JSON.stringify(f);
+  expect(fleetIssues(f)).toContainEqual(expect.objectContaining({ memberId: 2, fieldId: 'target', level: 'error', message: expect.stringContaining(message) }));
+  expect(() => fleetBundle(f)).toThrow();
+  expect(JSON.stringify(f)).toBe(before);
+  const initial = baseline(); initial.unlocked = false; initial.members[0].config.values.target = target;
+  expect(() => unlockFleet(initial)).toThrow('Complete a valid Horizon baseline');
+ });
+ it('keeps single-server DNS and NTP findings advisory in baseline unlock and checked fleet export', () => {
+  const f = pair(), before = JSON.stringify(f);
+  expect(fleetIssues(f).some((issue) => /no MFA in the DMZ/i.test(issue.message))).toBe(false);
+  expect(f.members.every((member) => member.config.values.authMethods === 'passthrough')).toBe(true);
+  const warnings = fleetIssues(f).filter((issue) => /Only one distinct (DNS|NTP) server/.test(issue.message));
+  expect(warnings).toHaveLength(4);
+  expect(warnings.every((issue) => issue.level === 'warn' && issue.section === 'network' && !!issue.memberId)).toBe(true);
+  expect(warnings.map((issue) => issue.fieldId)).toEqual(['dns', 'ntpServers', 'dns', 'ntpServers']);
+  expect(fleetBundle(f).filter((file) => file.name.endsWith('.ini'))).toHaveLength(2);
+  expect(JSON.stringify(f)).toBe(before);
+ });
  it('adds members with no inherited addresses and independent names',()=>{const f=baseline(), m=addMember(f,f.groups[0]);expect([m.config.values.ip0,m.config.values.ip1,m.config.values.ip2]).toEqual(['','','']);expect(m.config.values.name).not.toBe(f.members[0].config.values.name);});
  it('starts a new UAG group with blank network settings and no inherited subnet anchors',()=>{
   const f=baseline(); Object.assign(f.groups[0].templateConfig.values,{v6ip0:'2001:db8::21',v6ipprefix0:64,v6DefaultGateway:'2001:db8::1',dnsSearch:'old.example.com',routes0:'198.18.0.0/24 198.51.100.1',routes1:'192.0.2.0/24 192.0.2.1',routes2:'198.18.1.0/24 198.18.0.1',eth0CustomConfig:'[Network]^DNS=192.0.2.53',eth1CustomConfig:'[Network]^Gateway=192.0.2.1',eth2CustomConfig:'[Network]^Address=198.18.0.21/24'});

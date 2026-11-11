@@ -6,10 +6,15 @@ All notable user-facing changes to UAG Foundry are documented here. Earlier rele
 
 ### Changed
 
+- Saved draft cards show checked export readiness with separate blocker/warning counts. Horizon status uses fleet ZIP prerequisites and actual fleet validation; a valid but unplanned topology remains blocked, without changing baseline INI export. Readiness does not certify live deployment, networking or security.
+- Single UAG and Web proxy saved-draft names display the configured UAG hostname as a suffix, without renaming drafts or changing Horizon names.
+- Structured vCenter locators require a username, vCenter server address and compute inventory path for checked standalone and Horizon exports and initial fleet planning. The guided field has a visible required marker and actionable feedback; valid encoding and opaque advanced imports remain unchanged.
+- DNS and NTP lists warn non-blockingly when only one distinct valid server is configured. NTP counts primary and fallback lists together; existing duplicate and syntax errors remain enforced. Multiple addresses alone do not guarantee independent redundancy.
 - Moved the full Validation & lint panel below section fields, retaining compact counts above, inline errors and keyboard-accessible navigation to the panel and affected fields.
 
 ### Fixed
 
+- Removed the passthrough-triggered “no MFA in the DMZ” advisory. Authentication settings and generated output are unchanged; passthrough itself does not implement MFA.
 - Incomplete Horizon baselines keep the prominent prerequisite warning; clicking Continue focuses it instead of adding a duplicate message. The topology unlock guard remains enforced.
 - Service topology external-client cards show the complete application subtitle and wrap enabled protocol details without clipping or overlapping following client cards.
 

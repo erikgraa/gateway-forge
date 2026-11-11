@@ -1,4 +1,4 @@
-import { activeMembers, copy, fleetIssues, type Fleet, type BackendGroup, type Member } from './fleet';
+import { activeMembers, copy, fleetExportIssues, type Fleet, type BackendGroup, type Member } from './fleet';
 import { render } from './render';
 import { stripSecrets } from './model';
 import { normalizeConfig } from './ordinary-whitespace';
@@ -16,7 +16,7 @@ export function memberPath(group: BackendGroup, member: Member): string {
   return `${safeLabel(group.label, 'UAG-group')}--${group.id}/${safeLabel(member.config.values.name || member.config.values.uagName, 'UAG')}--uag-${member.id}.ini`;
 }
 export function fleetBundle(fleet: Fleet): BundleFile[] {
-  if (!fleet.unlocked || !activeMembers(fleet).length || fleetIssues(fleet).some(i => i.level === 'error')) throw Error('Resolve fleet validation errors before checked export.');
+  if (fleetExportIssues(fleet).some(i => i.level === 'error')) throw Error('Resolve fleet validation errors before checked export.');
   const members = activeMembers(fleet), groups = fleet.groups.filter(g => !g.removed);
   const files = members.map(member => ({ name: memberPath(groups.find(g => g.id === member.groupId)!, member), text: render(member.config, 'ini', 'omit').text }));
   const workspace = copy(fleet); workspace.members = members.map(m => ({ ...copy(m), config: stripSecrets(normalizeConfig(m.config)) })); workspace.groups = groups.map(g => ({ ...copy(g), templateId: members.some(m => m.id === g.templateId) ? g.templateId : null, templateConfig: stripSecrets(normalizeConfig(g.templateConfig)) })); workspace.undo = [];

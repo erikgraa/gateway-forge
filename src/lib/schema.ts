@@ -869,7 +869,7 @@ export const GROUPS: GroupDef[] = [
         placeholder: '10.0.0.10',
         required: true,
         json: false,
-        help: 'Add each IPv4 address on its own row. Each DNS server must be unique; a DNS server may also provide NTP.'
+        help: 'Add each IPv4 address on its own row. Each DNS server must be unique; a DNS server may also provide NTP. One distinct server produces a non-blocking single-point-of-failure warning. Use independently available servers; multiple addresses alone do not guarantee redundancy.'
       }),
       text('dnsSearch', 'DNS search domains', 'dnsSearch', {
         rows: { itemLabel: 'DNS search domain', rule: 'dnsDomain' },
@@ -881,12 +881,12 @@ export const GROUPS: GroupDef[] = [
         rule: 'hostList',
         rows: { itemLabel: 'NTP server', rule: 'hostOrIp' },
         placeholder: 'pool.ntp.org',
-        help: 'Add each hostname or IP address on its own row. Each NTP server must be unique and must not also appear in the fallback list. Changing hostname case or port does not make a server distinct.'
+        help: 'Add each hostname or IP address on its own row. Each NTP server must be unique and must not also appear in the fallback list. Changing hostname case or port does not make a server distinct. One distinct server across primary and fallback lists produces a non-blocking single-point-of-failure warning. Multiple addresses alone do not guarantee redundancy.'
       }),
       text('fallBackNtpServers', 'Fallback NTP servers', 'fallBackNtpServers', {
         rule: 'hostList',
         rows: { itemLabel: 'Fallback NTP server', rule: 'hostOrIp' },
-        help: 'Use unique fallback servers that are different from the regular NTP servers.'
+        help: 'Use unique fallback servers that are different from the regular NTP servers. Fallback servers count toward the advisory redundancy check; choose independently available servers.'
       })
     ]
   },

@@ -1,9 +1,33 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createWorkspace, emptyRegistry, removeDrafts, savedRegistry, REGISTRY_KEY, type Registry } from './scenario-workspaces';
+import { createWorkspace, emptyRegistry, removeDrafts, savedRegistry, workspaceDisplayName, REGISTRY_KEY, type Registry } from './scenario-workspaces';
 
 function fixtures(): Registry {
   return { ...emptyRegistry(), drafts: [createWorkspace('single', 'one'), createWorkspace('horizon', 'two'), createWorkspace('web', 'three')] };
 }
+
+describe('Display-only saved-draft hostnames', () => {
+  it.each(['single', 'web'] as const)('suffixes %s names with the configured appliance hostname, not VM or vCenter names', scenario => {
+    const workspace = createWorkspace(scenario, scenario); workspace.name = 'Office gateway';
+    Object.assign(workspace.config.values, { uagName: 'uag01.example.com', name: 'Different-VM-name', target: 'vi://user@vc.example.com/DC/host/Compute' });
+    const before = JSON.stringify(workspace);
+    expect(workspaceDisplayName(workspace)).toBe('Office gateway · uag01.example.com');
+    expect(JSON.stringify(workspace)).toBe(before);
+    const saved = savedRegistry({ ...emptyRegistry(), drafts: [workspace] });
+    expect(saved.drafts[0].name).toBe('Office gateway');
+    expect(workspaceDisplayName(JSON.parse(JSON.stringify(saved)).drafts[0])).toBe('Office gateway · uag01.example.com');
+    workspace.config.values.uagName = 'uag02.example.com';
+    expect(workspaceDisplayName(workspace)).toBe('Office gateway · uag02.example.com');
+  });
+  it.each(['', ' \t ', undefined])('omits absent/blank hostname %s without supplying a default', uagName => {
+    const workspace = createWorkspace('single', 'blank'); workspace.config.values.uagName = uagName;
+    expect(workspaceDisplayName(workspace)).toBe(workspace.name);
+    expect(workspace.config.values.uagName).toBe(uagName);
+  });
+  it('leaves Horizon titles unchanged even when the snapshot contains a hostname', () => {
+    const workspace = createWorkspace('horizon', 'horizon'); workspace.config.values.uagName = 'uag01.example.com';
+    expect(workspaceDisplayName(workspace)).toBe(workspace.name);
+  });
+});
 
 describe('Removing saved drafts', () => {
   it('clears all scenario types with a single registry write and no mutation of the original', () => {

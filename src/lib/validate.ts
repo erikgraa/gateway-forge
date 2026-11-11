@@ -10,6 +10,7 @@ import { HOST_ENTRY_MAX, hostEntryValues } from './host-entries';
 import { certificateMode, certificatePathsMatch } from './certificate-input';
 import { trustedCertFields, trustedCertPaths } from './trusted-certs';
 import { knownAzureRegion } from './azure-regions';
+import { vCenterTargetRequiredError } from './vcenterTarget';
 
 export type Level = 'error' | 'warn' | 'info';
 
@@ -273,6 +274,10 @@ function checkField(f: Field, values: Values, platform: Platform): string | null
   const label = displayFieldLabel(f, values, platform);
   const emptyRequiredPemPath = required && f.rule === 'pemPath' && !String(v ?? '').trim();
   if (isEmpty(v) || emptyRequiredPemPath) return required ? `${label} is required` : null;
+  if (f.id === 'target' && platform === 'vsphere') {
+    const error = vCenterTargetRequiredError(String(v));
+    if (error) return error;
+  }
   if (f.type === 'number') {
     const n = Number(v);
     if (!Number.isFinite(n)) return `${label} must be a number`;
@@ -471,6 +476,7 @@ function networkServerIdentity(raw: string): string {
 function validateNetworkServers(c: Config, push: Push): void {
   const group = GROUPS.find((group) => group.id === 'dns')!;
   const regularNtp = new Map<string, number>();
+  const ntpServers = new Set<string>();
   for (const id of ['dns', 'ntpServers', 'fallBackNtpServers']) {
     const field = group.fields.find((field) => field.id === id)!;
     if (!groupEnabled(group, c) || !fieldAvailable(field, c.version, c.platform, c.values)) continue;
@@ -494,8 +500,17 @@ function validateNetworkServers(c: Config, push: Push): void {
       });
       if (previous === undefined) seen.set(identity, index);
       if (id === 'ntpServers' && !regularNtp.has(identity)) regularNtp.set(identity, index);
+      if (id !== 'dns') ntpServers.add(identity);
+    });
+    if (id === 'dns' && seen.size === 1) push({
+      level: 'warn', section: group.section, fieldId: id,
+      message: 'Only one distinct DNS server is configured. A single endpoint can be a single point of failure. Consider an independently available server; multiple addresses alone do not guarantee redundancy.'
     });
   }
+  if (ntpServers.size === 1) push({
+    level: 'warn', section: group.section, fieldId: regularNtp.size ? 'ntpServers' : 'fallBackNtpServers',
+    message: 'Only one distinct NTP server is configured across the primary and fallback lists. A single endpoint can be a single point of failure. Consider an independently available server; multiple addresses alone do not guarantee redundancy.'
+  });
 }
 
 function lint(c: Config, push: Push): void {
@@ -687,7 +702,6 @@ function lint(c: Config, push: Push): void {
     if (v.blastEnabled === true && !nonEmpty('blastExternalUrl')) push({ level: 'warn', section: 'horizon', fieldId: 'blastExternalUrl', message: 'Blast is enabled without an external URL - clients are sent the appliance IP instead of your public FQDN.' });
     if (v.tunnelEnabled === true && c.version >= '2412' && !nonEmpty('tunnelExternalUrl')) push({ level: 'info', section: 'horizon', fieldId: 'tunnelExternalUrl', message: 'Tunnel external URL is not set.' });
     if (v.pcoipEnabled === true && !nonEmpty('pcoipExternalUrl')) push({ level: 'warn', section: 'horizon', fieldId: 'pcoipExternalUrl', message: 'PCoIP is enabled without an external URL (IPv4:4172).' });
-    if (v.authMethods === 'passthrough' && v.gatewayLocation === 'external') push({ level: 'warn', section: 'horizon', fieldId: 'authMethods', message: 'External gateway with passthrough authentication - no MFA in the DMZ. Consider RADIUS or SAML.' });
     const usesRadius = String(v.authMethods).startsWith('radius-auth') || v.authMethods === 'certificate-auth-and-radius-auth';
     const usesSaml = String(v.authMethods).startsWith('saml-auth') || v.authMethods === 'device-certificate-auth-and-saml-auth';
     const usesUnauthenticated = String(v.authMethods).includes('unauthenticated');
